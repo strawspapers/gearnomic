@@ -17,6 +17,9 @@ function loadState() {
       state = JSON.parse(raw);
       if (!state.templates)  state.templates  = JSON.parse(JSON.stringify(SEED_DATA.templates));
       if (!state.trip_types) state.trip_types = JSON.parse(JSON.stringify(SEED_DATA.trip_types));
+      // Migrate: ensure every trip and template has carry_types
+      state.trips.forEach(t => { if (!t.carry_types) t.carry_types = {}; });
+      state.templates.forEach(t => { if (!t.carry_types) t.carry_types = {}; });
       return;
     }
   } catch(e) {}
@@ -74,8 +77,46 @@ const COND_BADGE = {
   poor:      'badge-red'
 };
 const COND_LABEL = { excellent: 'Excellent', good: 'Good', fair: 'Fair', poor: 'Poor' };
-const CARRY_BADGE = { packed: 'badge-green', worn: 'badge-blue', not_carried: 'badge-gray' };
-const CARRY_LABEL = { packed: 'Packed', worn: 'Worn', not_carried: 'Not carried' };
+// Carry type lives on trips/templates, not on items
+// Cycle order: packed (default) → worn → consumable → packed
+const CARRY_CYCLE  = { packed: 'worn', worn: 'consumable', consumable: 'packed' };
+const CARRY_LABEL  = { packed: 'packed', worn: 'W worn', consumable: 'C consumable' };
+const CARRY_BADGE_CLASS = { packed: 'carry-packed', worn: 'carry-worn', consumable: 'carry-consumable' };
+
+function getCarryType(container, itemId) {
+  return (container.carry_types || {})[itemId] || 'packed';
+}
+
+function cycleCarryType(containerId, itemId, isTemplate) {
+  const list = isTemplate ? state.templates : state.trips;
+  const obj  = list.find(t => t.id === containerId);
+  if (!obj) return;
+  if (!obj.carry_types) obj.carry_types = {};
+  const next = CARRY_CYCLE[obj.carry_types[itemId] || 'packed'];
+  if (next === 'packed') delete obj.carry_types[itemId];
+  else obj.carry_types[itemId] = next;
+  saveState();
+  if (isTemplate) renderTemplateDetail(state.templates.find(t => t.id === containerId));
+  else renderTripDetail(state.trips.find(t => t.id === containerId));
+}
+
+function carryCell(containerId, itemId, isTemplate) {
+  const ct = getCarryType(
+    (isTemplate ? state.templates : state.trips).find(t => t.id === containerId) || {},
+    itemId
+  );
+  const labels = { packed: '—', worn: 'Worn', consumable: 'Consumable' };
+  const styles  = {
+    packed:     'color:var(--text-3);font-size:11px',
+    worn:       'display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;background:var(--warning-bg);color:var(--warning-text)',
+    consumable: 'display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;background:var(--info-bg);color:var(--info-text)',
+  };
+  return `<td onclick="event.stopPropagation();cycleCarryType('${containerId}','${itemId}',${isTemplate})"
+    title="Click to cycle: packed → worn → consumable"
+    style="cursor:pointer;white-space:nowrap">
+    <span style="${styles[ct]}">${labels[ct]}</span>
+  </td>`;
+}
 const STATUS_BADGE = { planning: 'badge-amber', confirmed: 'badge-blue', completed: 'badge-dark', cancelled: 'badge-gray' };
 const STATUS_LABEL = { planning: 'Planning', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled' };
 
@@ -257,18 +298,14 @@ function renderDashboard() {
   document.getElementById('dash-date').textContent =
     d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
-  const packed   = state.items.filter(i => i.carry_type !== 'not_carried');
-  const worn     = state.items.filter(i => i.carry_type === 'worn');
-  const allW     = state.items.reduce((s, i) => s + (i.weight_g || 0), 0);
-  const wornW    = worn.reduce((s, i) => s + (i.weight_g || 0), 0);
-  const baseW    = packed.filter(i => i.carry_type === 'packed').reduce((s, i) => s + (i.weight_g || 0), 0);
+  const totalW   = state.items.reduce((s, i) => s + (i.weight_g || 0), 0);
   const totalCost= state.items.reduce((s, i) => s + (i.cost_usd || 0), 0);
   const upcoming = state.trips.filter(t => t.status === 'planning' || t.status === 'confirmed');
 
   document.getElementById('dash-metrics').innerHTML = `
-    <div class="metric-card"><div class="metric-label">Total items</div><div class="metric-val">${state.items.length}</div><div class="metric-sub">${packed.length} packed or worn</div></div>
-    <div class="metric-card"><div class="metric-label">Base weight</div><div class="metric-val">${wg(baseW)}</div><div class="metric-sub">+ ${wg(wornW)} worn</div></div>
-    <div class="metric-card"><div class="metric-label">Tracked value</div><div class="metric-val">${usd(totalCost)}</div><div class="metric-sub">avg ${usd(totalCost / state.items.filter(i => i.cost_usd > 0).length || 0)}/item</div></div>
+    <div class="metric-card"><div class="metric-label">Total items</div><div class="metric-val">${state.items.length}</div><div class="metric-sub">${state.templates.length} saved templates</div></div>
+    <div class="metric-card"><div class="metric-label">Total gear weight</div><div class="metric-val">${wg(totalW)}</div><div class="metric-sub">across all ${state.items.length} items</div></div>
+    <div class="metric-card"><div class="metric-label">Tracked value</div><div class="metric-val">${usd(totalCost)}</div><div class="metric-sub">avg ${usd(totalCost / (state.items.filter(i => i.cost_usd > 0).length || 1))}/item</div></div>
     <div class="metric-card"><div class="metric-label">Upcoming trips</div><div class="metric-val">${upcoming.length}</div><div class="metric-sub">${state.trips.length} total logged</div></div>`;
 
   // Weight by category
@@ -344,8 +381,6 @@ function renderGear() {
   let filtered = state.items.filter(i => {
     if (q && !`${i.name} ${i.brand || ''} ${i.model || ''}`.toLowerCase().includes(q)) return false;
     if (cat && i.category !== cat) return false;
-    if (pk === 'packed' && i.carry_type === 'not_carried') return false;
-    if (pk === 'not' && i.carry_type !== 'not_carried') return false;
     if (cond && i.condition !== cond) return false;
     return true;
   });
@@ -367,17 +402,15 @@ function renderGear() {
 
   const totalW = filtered.reduce((s, i) => s + (i.weight_g || 0), 0);
   const totalC = filtered.reduce((s, i) => s + (i.cost_usd || 0), 0);
-  const wornW  = filtered.filter(i => i.carry_type === 'worn').reduce((s, i) => s + (i.weight_g || 0), 0);
-  const baseW  = filtered.filter(i => i.carry_type === 'packed').reduce((s, i) => s + (i.weight_g || 0), 0);
   document.getElementById('gear-summary').innerHTML =
-    `<strong>${filtered.length}</strong> items &nbsp;·&nbsp; base: <strong>${wg(baseW)}</strong> &nbsp;·&nbsp; worn: <strong>${wg(wornW)}</strong> &nbsp;·&nbsp; total: <strong>${wg(totalW)}</strong> &nbsp;·&nbsp; tracked value: <strong>${usd(totalC)}</strong>`;
+    `<strong>${filtered.length}</strong> items &nbsp;·&nbsp; total: <strong>${wg(totalW)}</strong> &nbsp;·&nbsp; tracked value: <strong>${usd(totalC)}</strong>`;
 
-  const cols = 9 + (showMiscCol ? 1 : 0);
+  const cols = 8 + (showMiscCol ? 1 : 0);
 
   // Render header dynamically so colspan stays correct
   document.getElementById('gear-thead').innerHTML = `<tr>
     <th>Item</th><th>Category</th><th>Weight</th><th>Cost</th>
-    <th>$/gram</th><th>Carry</th><th>Condition</th><th>Usage</th>
+    <th>$/gram</th><th>Condition</th><th>Usage</th>
     ${showMiscCol ? '<th>Misc</th>' : ''}
     <th></th>
   </tr>`;
@@ -433,7 +466,6 @@ function gearRow(item, cols) {
     <td class="mono">${wg(item.weight_g)}<br><span style="font-size:10px;color:var(--text-3)">${woz(item.weight_g)}</span></td>
     <td>${usd(item.cost_usd)}</td>
     <td class="mono" style="color:var(--text-2)">${dpg(item.cost_usd, item.weight_g)}</td>
-    <td>${badge(CARRY_BADGE[item.carry_type] || 'badge-gray', CARRY_LABEL[item.carry_type] || item.carry_type)}</td>
     <td>${badge(COND_BADGE[item.condition] || 'badge-gray', COND_LABEL[item.condition] || item.condition)}</td>
     <td class="mono" style="font-size:11px;color:var(--text-3)">${item.usage_days || 0}d${item.usage_nights ? ` · ${item.usage_nights}n` : ''}</td>
     ${miscCell}
@@ -479,14 +511,6 @@ function itemFormHtml(item) {
       </div>
       <div class="form-row"><label class="form-label">Weight (grams)</label><input class="input input-full" id="f-weight" type="number" min="0" step="0.1" value="${item.weight_g || ''}"></div>
       <div class="form-row"><label class="form-label">Cost (USD)</label><input class="input input-full" id="f-cost" type="number" min="0" step="0.01" value="${item.cost_usd || ''}"></div>
-      <div class="form-row">
-        <label class="form-label">Carry type</label>
-        <select class="select input-full" id="f-carry">
-          <option value="packed" ${item.carry_type === 'packed' ? 'selected' : ''}>Packed</option>
-          <option value="worn" ${item.carry_type === 'worn' ? 'selected' : ''}>Worn</option>
-          <option value="not_carried" ${item.carry_type === 'not_carried' ? 'selected' : ''}>Not carried</option>
-        </select>
-      </div>
       <div class="form-row">
         <label class="form-label">Condition</label>
         <select class="select input-full" id="f-cond">
@@ -538,7 +562,7 @@ function saveItem(id) {
     category:         document.getElementById('f-cat').value,
     weight_g:         parseFloat(document.getElementById('f-weight').value) || 0,
     cost_usd:         parseFloat(document.getElementById('f-cost').value) || 0,
-    carry_type:       document.getElementById('f-carry').value,
+    carry_type:       undefined,   // carry type now lives on trip/template, not the item
     condition:        document.getElementById('f-cond').value,
     misc_stat:        document.getElementById('f-misc').value.trim() || null,
     purchase_date:    document.getElementById('f-date').value || null,
@@ -660,12 +684,16 @@ function renderTripDetail(trip) {
   const wrap = document.getElementById('trip-detail-wrap');
   wrap.style.display = 'block';
 
-  const tw     = tripWeight(trip);
-  const wornW  = (trip.gear_ids || []).reduce((s, id) => {
+  const tw    = tripWeight(trip);
+  const wornW = (trip.gear_ids || []).reduce((s, id) => {
     const item = state.items.find(i => i.id === id);
-    return s + (item && item.carry_type === 'worn' ? (item.weight_g || 0) : 0);
+    return s + (item && getCarryType(trip, id) === 'worn' ? (item.weight_g || 0) : 0);
   }, 0);
-  const baseW  = tw - wornW;
+  const consW = (trip.gear_ids || []).reduce((s, id) => {
+    const item = state.items.find(i => i.id === id);
+    return s + (item && getCarryType(trip, id) === 'consumable' ? (item.weight_g || 0) : 0);
+  }, 0);
+  const baseW  = tw - wornW - consW;
   const nights = trip.start_date && trip.end_date
     ? Math.round((new Date(trip.end_date) - new Date(trip.start_date)) / 86400000) : null;
   const over   = trip.weight_target_g && tw > trip.weight_target_g;
@@ -694,7 +722,7 @@ function renderTripDetail(trip) {
       <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand || '')}</div></td>
       <td>${badge('badge-gray', item.category)}</td>
       <td class="mono">${wg(effectiveW)}${ov != null ? ` <span style="font-size:10px;color:var(--accent)">(override)</span>` : ''}</td>
-      <td>${badge(CARRY_BADGE[item.carry_type] || 'badge-gray', CARRY_LABEL[item.carry_type] || item.carry_type)}</td>
+      ${carryCell(trip.id, id, false)}
       <td>${usd(item.cost_usd)}</td>
     </tr>`;
   }).join('');
@@ -722,8 +750,13 @@ function renderTripDetail(trip) {
     ${trip.notes ? `<p style="font-size:13px;color:var(--text-2);margin-bottom:1rem;padding:.75rem;background:var(--surface-2);border-radius:var(--r-md)">${esc(trip.notes)}</p>` : ''}
 
     <div style="margin-bottom:1rem">
-      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
-        <span>Total: <strong class="mono">${wg(tw)}</strong> &nbsp; Base: <strong class="mono">${wg(baseW)}</strong> &nbsp; Worn: <strong class="mono">${wg(wornW)}</strong></span>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;flex-wrap:wrap;gap:8px">
+        <span>
+          Base: <strong class="mono">${wg(baseW)}</strong>
+          &nbsp;·&nbsp; Worn: <strong class="mono">${wg(wornW)}</strong>
+          ${consW ? `&nbsp;·&nbsp; Consumable: <strong class="mono">${wg(consW)}</strong>` : ''}
+          &nbsp;·&nbsp; Total: <strong class="mono">${wg(tw)}</strong>
+        </span>
         ${trip.weight_target_g ? `<span style="color:var(--${over ? 'danger' : 'success'})">${over ? '↑ ' + wg(tw - trip.weight_target_g) + ' over' : '↓ ' + wg(trip.weight_target_g - tw) + ' under'} ${wg(trip.weight_target_g)} target</span>` : ''}
       </div>
       ${trip.weight_target_g ? prog(tw, trip.weight_target_g) : ''}
@@ -990,16 +1023,13 @@ let chartWeight = null, chartCost = null;
 
 function renderAnalytics() {
   const allW   = state.items.reduce((s, i) => s + (i.weight_g || 0), 0);
-  const baseW  = state.items.filter(i => i.carry_type === 'packed').reduce((s, i) => s + (i.weight_g || 0), 0);
-  const wornW  = state.items.filter(i => i.carry_type === 'worn').reduce((s, i) => s + (i.weight_g || 0), 0);
   const totalC = state.items.reduce((s, i) => s + (i.cost_usd || 0), 0);
-  const missingCost = state.items.filter(i => !i.cost_usd).length;
-
+  const itemCount = state.items.length;
   document.getElementById('analytics-metrics').innerHTML = `
     <div class="metric-card"><div class="metric-label">Total weight</div><div class="metric-val">${wg(allW)}</div><div class="metric-sub">${woz(allW)}</div></div>
-    <div class="metric-card"><div class="metric-label">Base weight</div><div class="metric-val">${wg(baseW)}</div><div class="metric-sub">worn: ${wg(wornW)}</div></div>
-    <div class="metric-card"><div class="metric-label">Tracked value</div><div class="metric-val">${usd(totalC)}</div><div class="metric-sub">${missingCost} items missing cost</div></div>
-    <div class="metric-card"><div class="metric-label">Items</div><div class="metric-val">${state.items.length}</div><div class="metric-sub">${state.items.filter(i => i.carry_type !== 'not_carried').length} packed or worn</div></div>`;
+    <div class="metric-card"><div class="metric-label">Tracked value</div><div class="metric-val">${usd(totalC)}</div><div class="metric-sub">avg ${usd(totalC / (state.items.filter(i=>i.cost_usd>0).length||1))}/item</div></div>
+    <div class="metric-card"><div class="metric-label">Items in closet</div><div class="metric-val">${itemCount}</div><div class="metric-sub">${state.trips.length} trips logged</div></div>
+    <div class="metric-card"><div class="metric-label">Missing cost data</div><div class="metric-val">${state.items.filter(i=>!i.cost_usd).length}</div><div class="metric-sub">items without a price</div></div>`;
 
   // Aggregate by category
   const cw = {}, cc = {};
@@ -1167,6 +1197,17 @@ function renderTemplateDetail(tmpl) {
   const validIds = (tmpl.gear_ids || []).filter(id => state.items.find(i => i.id === id));
   const missing  = (tmpl.gear_ids || []).length - validIds.length;
 
+  // Weight breakdown using per-template carry types
+  const wornW = validIds.reduce((s, id) => {
+    const item = state.items.find(i => i.id === id);
+    return s + (item && getCarryType(tmpl, id) === 'worn' ? (item.weight_g || 0) : 0);
+  }, 0);
+  const consW = validIds.reduce((s, id) => {
+    const item = state.items.find(i => i.id === id);
+    return s + (item && getCarryType(tmpl, id) === 'consumable' ? (item.weight_g || 0) : 0);
+  }, 0);
+  const baseW = tw - wornW - consW;
+
   // Category pill bar
   const catPills = Object.entries(cats).map(([cat, count]) =>
     `<span class="cat-pill">
@@ -1175,27 +1216,43 @@ function renderTemplateDetail(tmpl) {
     </span>`
   ).join('');
 
-  // Gear grid grouped by category
+  // Gear grouped by category — each item has clickable carry badge
   const byCat = {};
   validIds.forEach(id => {
     const item = state.items.find(i => i.id === id);
     if (!item) return;
     if (!byCat[item.category]) byCat[item.category] = [];
-    byCat[item.category].push(item);
+    byCat[item.category].push({ item, id });
   });
 
-  const gearHtml = Object.entries(byCat).map(([cat, items]) => `
+  const gearHtml = Object.entries(byCat).map(([cat, entries]) => `
     <div style="margin-bottom:1rem">
       <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:5px">${esc(cat)}</div>
       <div class="template-gear-grid">
-        ${items.map(item => `
-          <div class="template-gear-item">
-            <span class="template-gear-dot" style="background:${categoryColor(item.category)}"></span>
-            <div style="min-width:0">
-              <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.name)}</div>
-              <div style="color:var(--text-3);font-size:11px">${wg(item.weight_g)}</div>
+        ${entries.map(({ item, id }) => {
+          const ct = getCarryType(tmpl, id);
+          const carryStyles = {
+            packed:     '',
+            worn:       'background:var(--warning-bg);color:var(--warning-text)',
+            consumable: 'background:var(--info-bg);color:var(--info-text)',
+          };
+          const carryLabels = { packed: '', worn: 'W', consumable: 'C' };
+          return `
+          <div class="template-gear-item" style="justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:7px;min-width:0">
+              <span class="template-gear-dot" style="background:${categoryColor(item.category)}"></span>
+              <div style="min-width:0">
+                <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.name)}</div>
+                <div style="color:var(--text-3);font-size:11px">${wg(item.weight_g)}</div>
+              </div>
             </div>
-          </div>`).join('')}
+            <span onclick="cycleCarryType('${tmpl.id}','${id}',true)"
+              title="Click to cycle: packed → worn → consumable"
+              style="cursor:pointer;flex-shrink:0;margin-left:6px;font-size:11px;font-weight:500;padding:1px 6px;border-radius:20px;${carryStyles[ct]}">
+              ${carryLabels[ct]}
+            </span>
+          </div>`;
+        }).join('')}
       </div>
     </div>`).join('');
 
@@ -1214,15 +1271,17 @@ function renderTemplateDetail(tmpl) {
 
     ${tmpl.description ? `<p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">${esc(tmpl.description)}</p>` : ''}
 
-    <div style="display:flex;gap:20px;font-size:13px;margin-bottom:1rem">
-      <span>Items: <strong>${validIds.length}</strong>${missing ? ` <span style="color:var(--danger);font-size:11px">(${missing} missing from closet)</span>` : ''}</span>
-      <span>Total weight: <strong class="mono">${wg(tw)}</strong></span>
-      <span>Categories: <strong>${Object.keys(cats).length}</strong></span>
+    <div style="display:flex;gap:20px;font-size:13px;margin-bottom:1rem;flex-wrap:wrap">
+      <span>Items: <strong>${validIds.length}</strong>${missing ? ` <span style="color:var(--danger);font-size:11px">(${missing} missing)</span>` : ''}</span>
+      <span>Base: <strong class="mono">${wg(baseW)}</strong></span>
+      ${wornW ? `<span>Worn: <strong class="mono">${wg(wornW)}</strong></span>` : ''}
+      ${consW ? `<span>Consumable: <strong class="mono">${wg(consW)}</strong></span>` : ''}
+      <span style="color:var(--text-3)">Total: <span class="mono">${wg(tw)}</span></span>
       ${tmpl.created_at ? `<span style="color:var(--text-3)">Created: ${tmpl.created_at}</span>` : ''}
     </div>
 
     <div class="cat-pills" style="margin-bottom:1.25rem">${catPills}</div>
-
+    <p style="font-size:11px;color:var(--text-3);margin-bottom:.75rem">Click any item badge to cycle its carry type: blank = packed · <span style="background:var(--warning-bg);color:var(--warning-text);padding:1px 5px;border-radius:10px;font-weight:500">W</span> = worn · <span style="background:var(--info-bg);color:var(--info-text);padding:1px 5px;border-radius:10px;font-weight:500">C</span> = consumable</p>
     ${gearHtml}`;
 }
 
@@ -1296,7 +1355,8 @@ function templateFormHtml(tmpl) {
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     </div>
     <input type="hidden" id="tmf-created-from" value="${esc(tmpl.created_from || '')}">
-    <input type="hidden" id="tmf-original-date" value="${esc(tmpl.created_at || '')}">`;
+    <input type="hidden" id="tmf-original-date" value="${esc(tmpl.created_at || '')}">
+    <input type="hidden" id="tmf-carry-types" value="${esc(JSON.stringify(tmpl.carry_types || {}))}">`;
 }
 
 function toggleCategoryInTemplate(cat) {
@@ -1331,6 +1391,8 @@ function saveTemplate(id) {
   // Read preserved fields from hidden inputs
   const createdFrom = (document.getElementById('tmf-created-from')?.value) || null;
   const originalDate = (document.getElementById('tmf-original-date')?.value) || null;
+  let inheritedCarryTypes = {};
+  try { inheritedCarryTypes = JSON.parse(document.getElementById('tmf-carry-types')?.value || '{}'); } catch(e) {}
 
   const isNew = !id;
   const existing = id ? state.templates.find(t => t.id === id) : null;
@@ -1341,6 +1403,8 @@ function saveTemplate(id) {
     description:  document.getElementById('tmf-desc').value.trim(),
     trip_type:    document.getElementById('tmf-type').value === '__new__' ? 'other' : document.getElementById('tmf-type').value,
     gear_ids:     gearIds,
+    // Carry types: keep existing template's map, or inherit from trip when saving-as-template
+    carry_types:  existing ? (existing.carry_types || {}) : inheritedCarryTypes,
     created_from: existing ? (existing.created_from || null) : (createdFrom || null),
     created_at:   existing ? (existing.created_at || new Date().toISOString().slice(0, 10))
                            : (originalDate || new Date().toISOString().slice(0, 10)),
@@ -1374,17 +1438,16 @@ function deleteTemplate(id) {
 function saveAsTemplate(tripId) {
   const trip = state.trips.find(t => t.id === tripId);
   if (!trip) return;
-  // Pre-fill a new template form using this trip's gear list
   const pseudo = {
     id: '',
     name: trip.name + ' kit',
     description: `Based on my ${trip.name} trip. ${trip.location ? trip.location + '. ' : ''}${trip.notes || ''}`.trim(),
-    trip_type: trip.trip_type || 'backpacking',
-    gear_ids: [...(trip.gear_ids || [])],
+    trip_type:    trip.trip_type || 'backpacking',
+    gear_ids:     [...(trip.gear_ids || [])],
+    carry_types:  { ...(trip.carry_types || {}) },
     created_from: trip.id,
   };
   openModal('Save trip as template', templateFormHtml(pseudo));
-  // Override save to stamp created_from
   setTimeout(updateTemplateCount, 50);
 }
 
@@ -1589,12 +1652,16 @@ function doApplyTemplateFromLib(templateId) {
 
 function _doApply(trip, tmpl, mode) {
   if (mode === 'replace') {
-    trip.gear_ids = [...(tmpl.gear_ids || [])];
+    trip.gear_ids     = [...(tmpl.gear_ids || [])];
     trip.gear_overrides = {};
+    trip.carry_types  = { ...(tmpl.carry_types || {}) };
   } else {
+    // Merge gear ids
     const existing = new Set(trip.gear_ids || []);
     (tmpl.gear_ids || []).forEach(id => existing.add(id));
     trip.gear_ids = [...existing];
+    // Merge carry types: trip's existing types take priority over template's
+    trip.carry_types = { ...(tmpl.carry_types || {}), ...(trip.carry_types || {}) };
   }
   _applySelectedTemplate = null;
   _applySelectedTrip     = null;
@@ -1617,7 +1684,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Gear filters
-  ['gear-search','gear-filter-cat','gear-filter-packed','gear-filter-cond','gear-sort'].forEach(id => {
+  ['gear-search','gear-filter-cat','gear-filter-cond','gear-sort'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', () => { if (currentTab === 'gear') renderGear(); });
     if (el) el.addEventListener('change', () => { if (currentTab === 'gear') renderGear(); });
