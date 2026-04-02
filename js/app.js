@@ -1,9 +1,9 @@
 // ============================================================
-// TrailKit — Application Logic
+// Gearnomic — Application Logic
 // ============================================================
 
 // ── State ──────────────────────────────────────────────────
-let state = { items: [], trips: [], wishlist: [], categories: [] };
+let state = { items: [], trips: [], wishlist: [], categories: [], templates: [] };
 
 // ── Persistence ────────────────────────────────────────────
 function saveState() {
@@ -13,7 +13,12 @@ function saveState() {
 function loadState() {
   try {
     const raw = localStorage.getItem('trailkit_v1');
-    if (raw) { state = JSON.parse(raw); return; }
+    if (raw) {
+      state = JSON.parse(raw);
+      // Migrate: older saves won't have templates
+      if (!state.templates) state.templates = JSON.parse(JSON.stringify(SEED_DATA.templates));
+      return;
+    }
   } catch(e) {}
   // First run — load seed data
   state = {
@@ -21,6 +26,7 @@ function loadState() {
     trips:      JSON.parse(JSON.stringify(SEED_DATA.trips)),
     wishlist:   JSON.parse(JSON.stringify(SEED_DATA.wishlist)),
     categories: JSON.parse(JSON.stringify(SEED_DATA.categories)),
+    templates:  JSON.parse(JSON.stringify(SEED_DATA.templates)),
   };
   saveState();
 }
@@ -123,7 +129,7 @@ function showTab(name) {
   currentTab = name;
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
-  const renders = { dashboard: renderDashboard, gear: renderGear, trips: renderTrips, wishlist: renderWishlist, analytics: renderAnalytics };
+  const renders = { dashboard: renderDashboard, gear: renderGear, trips: renderTrips, templates: renderTemplates, wishlist: renderWishlist, analytics: renderAnalytics };
   if (renders[name]) renders[name]();
 }
 
@@ -576,6 +582,7 @@ function renderTripDetail(trip) {
       </div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-sm" onclick="openEditTrip('${trip.id}')">Edit trip</button>
+        <button class="btn btn-sm" style="border-color:var(--accent);color:var(--accent)" onclick="saveAsTemplate('${trip.id}')">Save as template</button>
         <button class="btn btn-sm btn-danger" onclick="deleteTrip('${trip.id}')">Delete</button>
         <button class="btn btn-sm btn-ghost" onclick="closeTripDetail()">Close ✕</button>
       </div>
@@ -601,7 +608,10 @@ function renderTripDetail(trip) {
 
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
       <span style="font-size:13px;font-weight:500">Packed gear (${(trip.gear_ids||[]).length} items)</span>
-      <button class="btn btn-sm" onclick="toggleGearPicker('${trip.id}')">+ Add / remove gear</button>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" style="border-color:var(--accent);color:var(--accent)" onclick="openApplyTemplate('${trip.id}')">Apply template</button>
+        <button class="btn btn-sm" onclick="toggleGearPicker('${trip.id}')">+ Add / remove gear</button>
+      </div>
     </div>
     <div id="gear-picker-${trip.id}" style="display:none">
       <div class="picker-grid">${state.items.map(item => {
@@ -932,7 +942,518 @@ function renderAnalytics() {
 }
 
 // ============================================================
-// INIT
+// TEMPLATES
+// ============================================================
+let activeTemplateId = null;
+
+// ── Helpers ────────────────────────────────────────────────
+function templateWeight(tmpl) {
+  return (tmpl.gear_ids || []).reduce((s, id) => {
+    const item = state.items.find(i => i.id === id);
+    return s + (item ? (item.weight_g || 0) : 0);
+  }, 0);
+}
+
+function templateCategorySummary(tmpl) {
+  const cats = {};
+  (tmpl.gear_ids || []).forEach(id => {
+    const item = state.items.find(i => i.id === id);
+    if (item) cats[item.category] = (cats[item.category] || 0) + 1;
+  });
+  return cats;
+}
+
+// ── Render grid ────────────────────────────────────────────
+function renderTemplates() {
+  document.getElementById('templates-summary').textContent =
+    `${state.templates.length} saved template${state.templates.length !== 1 ? 's' : ''} — apply any to a trip to replace or merge gear`;
+
+  const grid = document.getElementById('templates-grid');
+  if (!state.templates.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <p>No templates yet.<br>Create one from scratch, or open a trip and click "Save as template".</p>
+      <button class="btn btn-primary" onclick="openTemplateForm()">+ New Template</button>
+    </div>`;
+  } else {
+    grid.innerHTML = state.templates.map(t => templateCard(t)).join('');
+  }
+
+  if (activeTemplateId) {
+    const still = state.templates.find(t => t.id === activeTemplateId);
+    if (still) renderTemplateDetail(still);
+    else closeTemplateDetail();
+  }
+}
+
+function templateCard(tmpl) {
+  const tw = templateWeight(tmpl);
+  const cats = templateCategorySummary(tmpl);
+  const catCount = Object.keys(cats).length;
+  const sourceTrip = tmpl.created_from ? state.trips.find(t => t.id === tmpl.created_from) : null;
+
+  return `<div class="template-card ${activeTemplateId === tmpl.id ? 'active' : ''}" onclick="openTemplateDetail('${tmpl.id}')">
+    <div class="template-card-accent"></div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div class="template-card-name">${esc(tmpl.name)}</div>
+      ${badge('badge-gray', tmpl.trip_type || 'backpacking')}
+    </div>
+    <div class="template-card-desc">${esc(tmpl.description || 'No description')}</div>
+    <div class="template-card-stats">
+      <span><strong>${(tmpl.gear_ids || []).length}</strong> items</span>
+      <span><strong class="mono">${wg(tw)}</strong> total</span>
+      <span><strong>${catCount}</strong> categories</span>
+    </div>
+    ${sourceTrip ? `<div style="font-size:11px;color:var(--text-3);margin-top:6px;padding-left:4px">Saved from: ${esc(sourceTrip.name)}</div>` : ''}
+    <div class="template-card-actions" onclick="event.stopPropagation()">
+      <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Apply to trip…</button>
+      <button class="btn btn-sm" onclick="openTemplateForm('${tmpl.id}')">Edit</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteTemplate('${tmpl.id}')">Delete</button>
+    </div>
+  </div>`;
+}
+
+// ── Detail view ────────────────────────────────────────────
+function openTemplateDetail(id) {
+  activeTemplateId = id;
+  const tmpl = state.templates.find(t => t.id === id);
+  if (!tmpl) return;
+  renderTemplates();
+  renderTemplateDetail(tmpl);
+  setTimeout(() => document.getElementById('template-detail-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+}
+
+function closeTemplateDetail() {
+  activeTemplateId = null;
+  document.getElementById('template-detail-wrap').style.display = 'none';
+  renderTemplates();
+}
+
+function renderTemplateDetail(tmpl) {
+  const wrap = document.getElementById('template-detail-wrap');
+  wrap.style.display = 'block';
+
+  const tw = templateWeight(tmpl);
+  const cats = templateCategorySummary(tmpl);
+  const validIds = (tmpl.gear_ids || []).filter(id => state.items.find(i => i.id === id));
+  const missing  = (tmpl.gear_ids || []).length - validIds.length;
+
+  // Category pill bar
+  const catPills = Object.entries(cats).map(([cat, count]) =>
+    `<span class="cat-pill">
+      <span class="cat-pill-dot" style="background:${categoryColor(cat)}"></span>
+      ${esc(cat)} <span style="color:var(--text-3)">(${count})</span>
+    </span>`
+  ).join('');
+
+  // Gear grid grouped by category
+  const byCat = {};
+  validIds.forEach(id => {
+    const item = state.items.find(i => i.id === id);
+    if (!item) return;
+    if (!byCat[item.category]) byCat[item.category] = [];
+    byCat[item.category].push(item);
+  });
+
+  const gearHtml = Object.entries(byCat).map(([cat, items]) => `
+    <div style="margin-bottom:1rem">
+      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:5px">${esc(cat)}</div>
+      <div class="template-gear-grid">
+        ${items.map(item => `
+          <div class="template-gear-item">
+            <span class="template-gear-dot" style="background:${categoryColor(item.category)}"></span>
+            <div style="min-width:0">
+              <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.name)}</div>
+              <div style="color:var(--text-3);font-size:11px">${wg(item.weight_g)}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+
+  document.getElementById('template-detail').innerHTML = `
+    <div class="card-header" style="margin-bottom:.75rem">
+      <div>
+        <span class="card-title" style="font-size:17px;font-family:var(--font-disp)">${esc(tmpl.name)}</span>
+        &nbsp;${badge('badge-gray', tmpl.trip_type || 'backpacking')}
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Apply to trip…</button>
+        <button class="btn btn-sm" onclick="openTemplateForm('${tmpl.id}')">Edit</button>
+        <button class="btn btn-sm btn-ghost" onclick="closeTemplateDetail()">Close ✕</button>
+      </div>
+    </div>
+
+    ${tmpl.description ? `<p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">${esc(tmpl.description)}</p>` : ''}
+
+    <div style="display:flex;gap:20px;font-size:13px;margin-bottom:1rem">
+      <span>Items: <strong>${validIds.length}</strong>${missing ? ` <span style="color:var(--danger);font-size:11px">(${missing} missing from closet)</span>` : ''}</span>
+      <span>Total weight: <strong class="mono">${wg(tw)}</strong></span>
+      <span>Categories: <strong>${Object.keys(cats).length}</strong></span>
+      ${tmpl.created_at ? `<span style="color:var(--text-3)">Created: ${tmpl.created_at}</span>` : ''}
+    </div>
+
+    <div class="cat-pills" style="margin-bottom:1.25rem">${catPills}</div>
+
+    ${gearHtml}`;
+}
+
+// ── Template form (create / edit) ──────────────────────────
+function openTemplateForm(id) {
+  const tmpl = id ? state.templates.find(t => t.id === id) : null;
+  openModal(tmpl ? 'Edit template' : 'New template', templateFormHtml(tmpl));
+}
+
+function templateFormHtml(tmpl) {
+  tmpl = tmpl || {};
+  const selectedIds = new Set(tmpl.gear_ids || []);
+
+  const byCat = {};
+  state.items.forEach(item => {
+    if (!byCat[item.category]) byCat[item.category] = [];
+    byCat[item.category].push(item);
+  });
+
+  const gearPickerHtml = Object.entries(byCat).map(([cat, items]) => `
+    <div style="margin-bottom:.875rem">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+        <span style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3)">${esc(cat)}</span>
+        <button type="button" class="btn btn-xs" onclick="toggleCategoryInTemplate('${esc(cat)}')">Toggle all</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${items.map(item => `
+          <label style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1px solid var(--border);border-radius:var(--r-md);font-size:12px;cursor:pointer;transition:all .12s;background:${selectedIds.has(item.id) ? 'var(--accent-l)' : 'var(--surface)'}">
+            <input type="checkbox" value="${item.id}" ${selectedIds.has(item.id) ? 'checked' : ''}
+              style="width:13px;height:13px;accent-color:var(--accent)"
+              onchange="this.parentElement.style.background=this.checked?'var(--accent-l)':'var(--surface)';this.parentElement.style.borderColor=this.checked?'var(--accent)':'var(--border)'">
+            <span>${esc(item.name)}</span>
+            <span style="color:var(--text-3);font-size:10px">${wg(item.weight_g)}</span>
+          </label>`).join('')}
+      </div>
+    </div>`).join('');
+
+  return `
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Template name *</label><input class="input input-full" id="tmf-name" value="${esc(tmpl.name || '')}" placeholder="e.g. 3-Season Ultralight Base"></div>
+      <div class="form-row">
+        <label class="form-label">Trip type</label>
+        <select class="select input-full" id="tmf-type">
+          <option value="backpacking" ${(!tmpl.trip_type||tmpl.trip_type==='backpacking')?'selected':''}>Backpacking</option>
+          <option value="bikepacking" ${tmpl.trip_type==='bikepacking'?'selected':''}>Bikepacking</option>
+          <option value="car_camping" ${tmpl.trip_type==='car_camping'?'selected':''}>Car camping</option>
+          <option value="day_hike" ${tmpl.trip_type==='day_hike'?'selected':''}>Day hike</option>
+          <option value="other" ${tmpl.trip_type==='other'?'selected':''}>Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row"><label class="form-label">Description</label>
+      <input class="input input-full" id="tmf-desc" value="${esc(tmpl.description || '')}" placeholder="When would you use this kit?"></div>
+
+    <div style="margin-bottom:.5rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+        <label class="form-label" style="margin:0">Gear items</label>
+        <span id="tmf-count" style="font-size:12px;color:var(--text-3)"></span>
+      </div>
+      <div style="max-height:340px;overflow-y:auto;padding:.75rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md)" id="tmf-picker" oninput="updateTemplateCount()">
+        ${gearPickerHtml}
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveTemplate('${tmpl.id || ''}')">Save template</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`;
+}
+
+function toggleCategoryInTemplate(cat) {
+  const boxes = document.querySelectorAll('#tmf-picker input[type=checkbox]');
+  // Find if all items in this cat are checked
+  const catBoxes = [...boxes].filter(cb => {
+    const item = state.items.find(i => i.id === cb.value);
+    return item && item.category === cat;
+  });
+  const allChecked = catBoxes.every(cb => cb.checked);
+  catBoxes.forEach(cb => {
+    cb.checked = !allChecked;
+    cb.parentElement.style.background = cb.checked ? 'var(--accent-l)' : 'var(--surface)';
+    cb.parentElement.style.borderColor = cb.checked ? 'var(--accent)' : 'var(--border)';
+  });
+  updateTemplateCount();
+}
+
+function updateTemplateCount() {
+  const checked = document.querySelectorAll('#tmf-picker input[type=checkbox]:checked').length;
+  const el = document.getElementById('tmf-count');
+  if (el) el.textContent = `${checked} item${checked !== 1 ? 's' : ''} selected`;
+}
+
+function saveTemplate(id) {
+  const name = document.getElementById('tmf-name').value.trim();
+  if (!name) { alert('Template name is required.'); return; }
+
+  const gearIds = [...document.querySelectorAll('#tmf-picker input[type=checkbox]:checked')].map(cb => cb.value);
+
+  const data = {
+    id: id || uid('tmpl'),
+    name,
+    description: document.getElementById('tmf-desc').value.trim(),
+    trip_type:   document.getElementById('tmf-type').value,
+    gear_ids:    gearIds,
+    created_from: id ? (state.templates.find(t => t.id === id)?.created_from || null) : null,
+    created_at:  id ? (state.templates.find(t => t.id === id)?.created_at || new Date().toISOString().slice(0,10)) : new Date().toISOString().slice(0,10),
+  };
+
+  if (id) {
+    const idx = state.templates.findIndex(t => t.id === id);
+    if (idx >= 0) state.templates[idx] = data;
+  } else {
+    state.templates.push(data);
+  }
+
+  saveState(); closeModal();
+  activeTemplateId = data.id;
+  if (currentTab === 'templates') renderTemplates();
+  toast(id ? 'Template updated!' : 'Template created!');
+}
+
+function deleteTemplate(id) {
+  if (!confirm('Delete this template?')) return;
+  state.templates = state.templates.filter(t => t.id !== id);
+  saveState();
+  if (activeTemplateId === id) closeTemplateDetail();
+  else renderTemplates();
+  toast('Template deleted.');
+}
+
+// ── Save trip → template ────────────────────────────────────
+function saveAsTemplate(tripId) {
+  const trip = state.trips.find(t => t.id === tripId);
+  if (!trip) return;
+  // Pre-fill a new template form using this trip's gear list
+  const pseudo = {
+    id: '',
+    name: trip.name + ' kit',
+    description: `Based on my ${trip.name} trip. ${trip.location ? trip.location + '. ' : ''}${trip.notes || ''}`.trim(),
+    trip_type: trip.trip_type || 'backpacking',
+    gear_ids: [...(trip.gear_ids || [])],
+    created_from: trip.id,
+  };
+  openModal('Save trip as template', templateFormHtml(pseudo));
+  // Override save to stamp created_from
+  setTimeout(updateTemplateCount, 50);
+}
+
+// ── Apply template to a trip ───────────────────────────────
+// Called from trip detail "Apply template" button
+function openApplyTemplate(tripId) {
+  if (!state.templates.length) {
+    toast('No templates saved yet. Create one first.');
+    return;
+  }
+  const trip = state.trips.find(t => t.id === tripId);
+  if (!trip) return;
+  openModal('Apply template to trip', applyTemplatePicker(tripId, trip));
+}
+
+// Called from template card / detail "Apply to trip…" button
+function openApplyTemplateFromLib(templateId) {
+  if (!state.trips.length) {
+    toast('No trips yet. Create a trip first.');
+    return;
+  }
+  const tmpl = state.templates.find(t => t.id === templateId);
+  if (!tmpl) return;
+  openModal('Apply template to trip', applyTemplateTripPicker(templateId, tmpl));
+}
+
+function applyTemplatePicker(tripId, trip) {
+  const options = state.templates.map(tmpl => {
+    const tw = templateWeight(tmpl);
+    return `<div class="apply-option" onclick="selectTemplateForApply(this,'${tmpl.id}')" data-tid="${tmpl.id}">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="apply-option-title">${esc(tmpl.name)}</div>
+        <span class="mono" style="font-size:12px;color:var(--text-3)">${wg(tw)}</span>
+      </div>
+      <div class="apply-option-desc">${esc(tmpl.description || '')} &nbsp;· ${(tmpl.gear_ids||[]).length} items</div>
+    </div>`;
+  }).join('');
+
+  return `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">Choose a template to apply to <strong>${esc(trip.name)}</strong>:</p>
+    <div id="template-picker-list" style="max-height:260px;overflow-y:auto;margin-bottom:1rem">${options}</div>
+    <div id="apply-mode-row" style="display:none;margin-bottom:1rem">
+      <p style="font-size:12px;color:var(--text-2);margin-bottom:.5rem;font-weight:500">How would you like to apply it?</p>
+      <div class="apply-option" onclick="selectApplyMode(this,'replace')">
+        <div class="apply-option-title">Replace gear list</div>
+        <div class="apply-option-desc">Clear all current gear and load the template. Existing overrides are removed.</div>
+      </div>
+      <div class="apply-option" onclick="selectApplyMode(this,'merge')">
+        <div class="apply-option-title">Merge with current gear</div>
+        <div class="apply-option-desc">Add template items that aren't already in the trip. Existing gear is kept.</div>
+      </div>
+    </div>
+    <div id="apply-preview" style="display:none;font-size:12px;color:var(--text-2);padding:.625rem .875rem;background:var(--surface-2);border-radius:var(--r-md);margin-bottom:1rem"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="btn-do-apply" style="display:none" onclick="doApplyTemplate('${tripId}')">Apply</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`;
+}
+
+function applyTemplateTripPicker(templateId, tmpl) {
+  const options = state.trips.map(trip => {
+    const tw = tripWeight(trip);
+    return `<div class="apply-option" onclick="selectTripForApply(this,'${trip.id}')" data-tripid="${trip.id}">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="apply-option-title">${esc(trip.name)}</div>
+        ${badge(STATUS_BADGE[trip.status]||'badge-gray', STATUS_LABEL[trip.status]||trip.status)}
+      </div>
+      <div class="apply-option-desc">${esc(trip.location||'')} · ${(trip.gear_ids||[]).length} items · ${wg(tw)}</div>
+    </div>`;
+  }).join('');
+
+  return `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">Apply <strong>${esc(tmpl.name)}</strong> to which trip?</p>
+    <div id="trip-picker-list" style="max-height:220px;overflow-y:auto;margin-bottom:1rem">${options}</div>
+    <div id="apply-mode-row2" style="display:none;margin-bottom:1rem">
+      <p style="font-size:12px;color:var(--text-2);margin-bottom:.5rem;font-weight:500">How would you like to apply it?</p>
+      <div class="apply-option" onclick="selectApplyMode2(this,'replace')">
+        <div class="apply-option-title">Replace gear list</div>
+        <div class="apply-option-desc">Clear all current gear and load the template.</div>
+      </div>
+      <div class="apply-option" onclick="selectApplyMode2(this,'merge')">
+        <div class="apply-option-title">Merge with current gear</div>
+        <div class="apply-option-desc">Add template items that aren't already in the trip.</div>
+      </div>
+    </div>
+    <div id="apply-preview2" style="display:none;font-size:12px;color:var(--text-2);padding:.625rem .875rem;background:var(--surface-2);border-radius:var(--r-md);margin-bottom:1rem"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="btn-do-apply2" style="display:none" onclick="doApplyTemplateFromLib('${templateId}')">Apply</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`;
+}
+
+// Selection state for apply modals
+let _applySelectedTemplate = null;
+let _applySelectedTrip     = null;
+let _applyMode             = null;
+
+function selectTemplateForApply(el, templateId) {
+  document.querySelectorAll('#template-picker-list .apply-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  _applySelectedTemplate = templateId;
+  _applyMode = null;
+  document.getElementById('apply-mode-row').style.display = 'block';
+  document.querySelectorAll('#apply-mode-row .apply-option').forEach(o => o.classList.remove('selected'));
+  document.getElementById('apply-preview').style.display = 'none';
+  document.getElementById('btn-do-apply').style.display = 'none';
+}
+
+function selectApplyMode(el, mode) {
+  document.querySelectorAll('#apply-mode-row .apply-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  _applyMode = mode;
+  showApplyPreview('apply-preview', 'btn-do-apply');
+}
+
+function selectTripForApply(el, tripId) {
+  document.querySelectorAll('#trip-picker-list .apply-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  _applySelectedTrip = tripId;
+  _applyMode = null;
+  document.getElementById('apply-mode-row2').style.display = 'block';
+  document.querySelectorAll('#apply-mode-row2 .apply-option').forEach(o => o.classList.remove('selected'));
+  document.getElementById('apply-preview2').style.display = 'none';
+  document.getElementById('btn-do-apply2').style.display = 'none';
+}
+
+function selectApplyMode2(el, mode) {
+  document.querySelectorAll('#apply-mode-row2 .apply-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  _applyMode = mode;
+  showApplyPreview('apply-preview2', 'btn-do-apply2');
+}
+
+function showApplyPreview(previewId, btnId) {
+  const tmplId  = _applySelectedTemplate || (document.getElementById('btn-do-apply') ? _applySelectedTemplate : null);
+  const tripId  = _applySelectedTrip;
+  const previewEl = document.getElementById(previewId);
+  const btnEl   = document.getElementById(btnId);
+  if (!previewEl || !btnEl) return;
+
+  // Determine template and trip from context
+  const tmpl = state.templates.find(t => t.id === (previewId === 'apply-preview' ? _applySelectedTemplate : tmplId));
+  const trip = state.trips.find(t => t.id === (previewId === 'apply-preview2' ? _applySelectedTrip : _applySelectedTrip));
+  if (!tmpl && !_applySelectedTemplate) return;
+
+  const resolvedTmpl = tmpl || state.templates.find(t => t.id === _applySelectedTemplate);
+  const resolvedTrip = trip;
+
+  let newIds;
+  if (_applyMode === 'replace') {
+    newIds = [...(resolvedTmpl.gear_ids || [])];
+  } else {
+    const existing = new Set(resolvedTrip ? (resolvedTrip.gear_ids || []) : []);
+    newIds = [...existing];
+    (resolvedTmpl.gear_ids || []).forEach(id => { if (!existing.has(id)) newIds.push(id); });
+  }
+
+  const newW = newIds.reduce((s, id) => {
+    const item = state.items.find(i => i.id === id);
+    return s + (item ? item.weight_g || 0 : 0);
+  }, 0);
+
+  const currentCount = resolvedTrip ? (resolvedTrip.gear_ids || []).length : 0;
+  const added = _applyMode === 'merge'
+    ? newIds.length - currentCount
+    : newIds.length - currentCount;
+
+  previewEl.style.display = 'block';
+  previewEl.innerHTML = _applyMode === 'replace'
+    ? `Result: <strong>${newIds.length} items</strong>, <strong class="mono">${wg(newW)}</strong> total weight`
+    : `Result: <strong>${newIds.length} items</strong> (+${Math.max(0, newIds.length - currentCount)} added), <strong class="mono">${wg(newW)}</strong> total weight`;
+
+  btnEl.style.display = 'inline-flex';
+}
+
+function doApplyTemplate(tripId) {
+  if (!_applySelectedTemplate || !_applyMode) return;
+  const tmpl = state.templates.find(t => t.id === _applySelectedTemplate);
+  const trip = state.trips.find(t => t.id === tripId);
+  if (!tmpl || !trip) return;
+  _doApply(trip, tmpl, _applyMode);
+  closeModal();
+  renderTripDetail(trip);
+  renderTrips();
+  toast(`Template "${tmpl.name}" applied!`);
+}
+
+function doApplyTemplateFromLib(templateId) {
+  if (!_applySelectedTrip || !_applyMode) return;
+  const tmpl = state.templates.find(t => t.id === templateId);
+  const trip = state.trips.find(t => t.id === _applySelectedTrip);
+  if (!tmpl || !trip) return;
+  _doApply(trip, tmpl, _applyMode);
+  closeModal();
+  // Navigate to trip
+  showTab('trips');
+  activeTripId = trip.id;
+  renderTrips();
+  openTripDetail(trip.id);
+  toast(`Template "${tmpl.name}" applied to ${trip.name}!`);
+}
+
+function _doApply(trip, tmpl, mode) {
+  if (mode === 'replace') {
+    trip.gear_ids = [...(tmpl.gear_ids || [])];
+    trip.gear_overrides = {};
+  } else {
+    const existing = new Set(trip.gear_ids || []);
+    (tmpl.gear_ids || []).forEach(id => existing.add(id));
+    trip.gear_ids = [...existing];
+  }
+  _applySelectedTemplate = null;
+  _applySelectedTrip     = null;
+  _applyMode             = null;
+  saveState();
+}
+
 // ============================================================
 function refreshAll() {
   renderDashboard();
@@ -959,6 +1480,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', () => { if (currentTab === 'wishlist') renderWishlist(); });
   });
+
+  // Templates
+  document.getElementById('btn-add-template').addEventListener('click', () => openTemplateForm());
 
   // Initial render
   renderDashboard();

@@ -1,5 +1,5 @@
 // ============================================================
-// TrailKit — Seed Data
+// Gearnomic — Seed Data
 // Imported from Camping_Gear_comparisons.xlsx
 // ============================================================
 
@@ -139,5 +139,63 @@ const SEED_DATA = {
     { name: 'Fishing',              target_g: 200,  color: '#2A6A6A' },
     { name: 'Navigation',           target_g: 150,  color: '#4A6A2A' },
     { name: 'Food and Water',       target_g: null, color: '#6A4A2A' },
+  ],
+
+  templates: [
+    {
+      id: 'tmpl001',
+      name: '3-Season Ultralight Base',
+      description: 'Core kit for 2–4 night trips in good weather. No bear can, no camera. Lean and fast.',
+      trip_type: 'backpacking',
+      created_from: null,
+      created_at: '2024-06-01',
+      gear_ids: [
+        'i001','i002','i003',        // Pack
+        'i004','i005','i006','i007','i008', // Shelter (no footprint)
+        'i010','i011','i012','i013','i014', // Sleep
+        'i015','i016','i017','i018','i019','i020','i021', // Worn clothing
+        'i022','i023','i024','i025', // Packed clothing
+        'i026','i027','i028','i029','i031','i032', // Cook/water (no bear can)
+        'i033','i034','i035','i036','i037','i038','i039','i040','i041','i042', // Health
+        'i044','i045','i046','i047','i049', // Electronics (no power bank)
+      ]
+    },
+    {
+      id: 'tmpl002',
+      name: 'Full Kit — Camera + Power',
+      description: 'Everything including camera gear and power bank. Good for longer trips or when shooting.',
+      trip_type: 'backpacking',
+      created_from: null,
+      created_at: '2024-06-01',
+      gear_ids: [
+        'i001','i002','i003',
+        'i004','i005','i006','i007','i008',
+        'i010','i011','i012','i013','i014',
+        'i015','i016','i017','i018','i019','i020','i021',
+        'i022','i023','i024','i025',
+        'i026','i027','i028','i029','i031','i032',
+        'i033','i034','i035','i036','i037','i038','i039','i040','i041','i042',
+        'i044','i045','i046','i047','i048','i049','i050',
+        'i051','i053', // Camera gear
+      ]
+    },
+    {
+      id: 'tmpl003',
+      name: 'Coastal / Beach Trip',
+      description: 'Pt. Reyes style. Sandals, rain layer, no need for bear can on coast.',
+      trip_type: 'backpacking',
+      created_from: 't001',
+      created_at: '2024-09-15',
+      gear_ids: [
+        'i001','i002','i003',
+        'i004','i005','i006','i007','i008',
+        'i010','i011','i012','i013','i014',
+        'i015','i016','i017','i018','i019','i020','i021',
+        'i022','i023','i024','i025', // Sandals are key for coast
+        'i026','i027','i028','i029','i031','i032',
+        'i033','i034','i035','i036','i037','i038','i039','i040','i041','i042',
+        'i044','i045','i046','i047','i048','i049','i050',
+      ]
+    }
   ]
 };

@@ -1,4 +1,4 @@
-# TrailKit — Gear Manager
+# Gearnomic — Gear Manager
 
 A web app for hikers, backpackers, and bikepackers to organize gear, plan trips, and track weight.
 
@@ -21,8 +21,8 @@ A web app for hikers, backpackers, and bikepackers to organize gear, plan trips,
 Just open `index.html` in any modern browser. No build step, no server, no dependencies beyond the CDN-loaded Chart.js.
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/trailkit.git
-cd trailkit
+git clone https://github.com/YOUR_USERNAME/gearnomic.git
+cd gearnomic
 open index.html   # macOS
 # or
 start index.html  # Windows
@@ -37,14 +37,14 @@ Data is stored in your browser's `localStorage` under the key `trailkit_v1`.
 1. Push this folder to a GitHub repository.
 2. Go to **Settings → Pages**.
 3. Set **Source** to `Deploy from a branch`, choose `main`, folder `/` (root).
-4. Click **Save**. Your site will be live at `https://YOUR_USERNAME.github.io/trailkit` within a minute or two.
+4. Click **Save**. Your site will be live at `https://YOUR_USERNAME.github.io/gearnomic` within a minute or two.
 
 ---
 
 ## File structure
 
 ```
-trailkit/
+gearnomic/
 ├── index.html          # App shell + HTML structure
 ├── css/
 │   └── style.css       # Full design system

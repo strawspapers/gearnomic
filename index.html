@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="TrailKit — Gear management for hikers, backpackers, and bikepackers">
-  <title>TrailKit — Gear Manager</title>
+  <meta name="description" content="Gearnomic — Gear management for hikers, backpackers, and bikepackers">
+  <title>Gearnomic — Gear Manager</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap" rel="stylesheet">
@@ -14,13 +14,14 @@
   <header id="site-header">
     <div class="header-inner">
       <div class="logo">
-        <div class="logo-mark">TK</div>
-        <span class="logo-name">TrailKit</span>
+        <div class="logo-mark">GN</div>
+        <span class="logo-name">Gearnomic</span>
       </div>
       <nav class="main-nav" id="main-nav">
         <button class="nav-tab active" data-tab="dashboard">Dashboard</button>
         <button class="nav-tab" data-tab="gear">Gear Closet</button>
         <button class="nav-tab" data-tab="trips">Trips</button>
+        <button class="nav-tab" data-tab="templates">Templates</button>
         <button class="nav-tab" data-tab="wishlist">Wishlist</button>
         <button class="nav-tab" data-tab="analytics">Analytics</button>
       </nav>
@@ -138,6 +139,21 @@
       <div class="trips-grid" id="trips-grid"></div>
       <div id="trip-detail-wrap" style="display:none">
         <div class="card" id="trip-detail"></div>
+      </div>
+    </section>
+
+    <!-- TEMPLATES -->
+    <section id="tab-templates" class="tab-panel">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Templates</h1>
+          <p class="page-sub" id="templates-summary">Save standard loadouts — apply them to any trip in one click</p>
+        </div>
+        <button class="btn btn-primary" id="btn-add-template">+ New Template</button>
+      </div>
+      <div id="templates-grid" class="templates-grid"></div>
+      <div id="template-detail-wrap" style="display:none">
+        <div class="card" id="template-detail"></div>
       </div>
     </section>
 
