@@ -416,10 +416,27 @@ function renderGear() {
 
   let html = '';
   let lastCat = null;
+  const inCatSort = sort === 'category';
+
+  if (inCatSort && filtered.length) {
+    html += `<tr><td colspan="${cols}" class="drag-hint">
+      <span>↕</span> Drag any row onto a category header to move it
+    </td></tr>`;
+  }
+
   filtered.forEach(item => {
-    if (sort === 'category' && item.category !== lastCat) {
+    if (inCatSort && item.category !== lastCat) {
       lastCat = item.category;
-      html += `<tr class="cat-header-row"><td colspan="${cols}">${esc(item.category)}</td></tr>`;
+      html += `<tr class="cat-header-row"
+        data-cat="${esc(item.category)}"
+        ondragover="onCatDragOver(event)"
+        ondragleave="onCatDragLeave(event)"
+        ondrop="onCatDrop(event)">
+        <td colspan="${cols}">
+          ${esc(item.category)}
+          <span style="font-size:10px;color:var(--text-3);font-weight:400;margin-left:6px">drop here to move</span>
+        </td>
+      </tr>`;
     }
     html += gearRow(item, cols);
   });
@@ -459,7 +476,11 @@ function gearRow(item, cols) {
     ? `<td style="font-size:12px;color:var(--text-2);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(item.misc_stat || '')}">${esc(item.misc_stat || '—')}</td>`
     : '';
 
-  return `<tr class="expandable" onclick="toggleExpand('${item.id}')">
+  return `<tr class="expandable"
+    draggable="true" data-item-id="${item.id}"
+    ondragstart="onItemDragStart(event,'${item.id}')"
+    ondragend="onItemDragEnd(event)"
+    onclick="toggleExpand('${item.id}')">
     <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand || '')}</div></td>
     <td>${badge('badge-gray', item.category)}</td>
     <td class="mono">${wg(item.weight_g)}<br><span style="font-size:10px;color:var(--text-3)">${woz(item.weight_g)}</span></td>
@@ -504,7 +525,10 @@ function itemFormHtml(item) {
       <div class="form-row"><label class="form-label">Brand</label><input class="input input-full" id="f-brand" value="${esc(item.brand || '')}" placeholder="e.g. Zpacks"></div>
       <div class="form-row"><label class="form-label">Model</label><input class="input input-full" id="f-model" value="${esc(item.model || '')}" placeholder="e.g. Arc Blast 55"></div>
       <div class="form-row">
-        <label class="form-label">Category</label>
+        <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
+          Category
+          <button type="button" class="btn btn-xs btn-ghost" style="font-size:11px" onclick="openManageCategoriesFromForm()">Manage</button>
+        </label>
         <select class="select input-full" id="f-cat">${catOptions(item.category || 'Pack')}</select>
       </div>
       <div class="form-row"><label class="form-label">Weight (grams)</label><input class="input input-full" id="f-weight" type="number" min="0" step="0.1" value="${item.weight_g || ''}"></div>
@@ -595,13 +619,15 @@ function deleteItem(id) {
 // ── Populate category filter ────────────────────────────────
 function populateCatFilter(elId) {
   const el = document.getElementById(elId);
-  if (!el || el.dataset.populated) return;
-  el.dataset.populated = '1';
+  if (!el) return;
+  const current = el.value;
+  while (el.options.length > 1) el.remove(1);
   categoryNames().forEach(c => {
     const o = document.createElement('option');
     o.value = c; o.textContent = c;
     el.appendChild(o);
   });
+  if ([...el.options].some(o => o.value === current)) el.value = current;
 }
 
 // ============================================================
@@ -1668,7 +1694,240 @@ function _doApply(trip, tmpl, mode) {
 }
 
 // ============================================================
-function refreshAll() {
+// DRAG & DROP — gear rows to category headers
+// ============================================================
+let _dragItemId = null;
+
+function onItemDragStart(e, itemId) {
+  _dragItemId = itemId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', itemId);
+  setTimeout(() => {
+    const row = document.querySelector(`tr[data-item-id="${itemId}"]`);
+    if (row) row.classList.add('gear-row-dragging');
+  }, 0);
+}
+
+function onItemDragEnd() {
+  _dragItemId = null;
+  document.querySelectorAll('.gear-row-dragging').forEach(r => r.classList.remove('gear-row-dragging'));
+  document.querySelectorAll('.drop-target').forEach(r => r.classList.remove('drop-target'));
+}
+
+function onCatDragOver(e) {
+  if (!_dragItemId) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drop-target');
+}
+
+function onCatDragLeave(e) {
+  e.currentTarget.classList.remove('drop-target');
+}
+
+function onCatDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drop-target');
+  const catName = e.currentTarget.dataset.cat;
+  const itemId  = e.dataTransfer.getData('text/plain') || _dragItemId;
+  if (!catName || !itemId) return;
+  const item = state.items.find(i => i.id === itemId);
+  if (!item || item.category === catName) return;
+  const oldCat = item.category;
+  item.category = catName;
+  saveState();
+  renderGear();
+  toast(`Moved "${item.name}" → ${catName}`);
+}
+
+// ============================================================
+// CATEGORY MANAGEMENT
+// ============================================================
+const CAT_COLORS = [
+  '#2A7048','#1A5C8A','#6B4E9E','#B87B0A','#8A4A2A',
+  '#2A6A6A','#8A2A6A','#4A6A2A','#6A4A2A','#5A2A8A',
+  '#C47B2A','#2A5A8A','#8A5A2A','#4A8A2A','#8A2A4A',
+];
+
+let _catDragIdx = null;
+
+function openManageCategories() {
+  const rows = state.categories.map((cat, idx) => `
+    <div class="cat-mgmt-row" data-idx="${idx}"
+      draggable="true"
+      ondragstart="onCatMgmtDragStart(event,${idx})"
+      ondragover="onCatMgmtDragOver(event,${idx})"
+      ondragleave="onCatMgmtDragLeave(event,${idx})"
+      ondrop="onCatMgmtDrop(event,${idx})"
+      ondragend="onCatMgmtDragEnd()">
+      <span class="cat-mgmt-handle" title="Drag to reorder">⠿</span>
+      <span class="cat-color-dot" style="background:${cat.color}"
+        onclick="openColorPicker(${idx})" title="Change color"></span>
+      <span class="cat-mgmt-name" id="cat-lbl-${idx}"
+        onclick="startRenameCategory(${idx})" title="Click to rename">${esc(cat.name)}</span>
+      <input class="input cat-mgmt-target" id="cat-inp-${idx}" type="number" min="0" step="100"
+        value="${cat.target_g || ''}" placeholder="Target g"
+        title="Weight target in grams"
+        onchange="updateCategoryTarget(${idx}, this.value)"
+        onclick="event.stopPropagation()">
+      <button class="btn btn-xs btn-danger" onclick="event.stopPropagation();deleteCategory('${esc(cat.name)}')" title="Delete">✕</button>
+    </div>`).join('');
+
+  const usedByItems = new Set(state.items.map(i => i.category));
+  const itemCount = name => state.items.filter(i => i.category === name).length;
+
+  openModal('Manage categories', `
+    <p style="font-size:12.5px;color:var(--text-2);margin-bottom:.875rem">
+      Drag ⠿ to reorder · Click a name to rename · Set a weight target per category
+    </p>
+    <div id="cat-mgmt-list">${rows}</div>
+    <div style="margin-top:1rem;padding-top:.875rem;border-top:1px solid var(--border-2)">
+      <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Add new category</div>
+      <div style="display:flex;gap:8px">
+        <input class="input" id="new-cat-name" placeholder="Category name…" style="flex:1"
+          onkeydown="if(event.key==='Enter')addCategory()">
+        <button class="btn btn-sm btn-primary" onclick="addCategory()">Add</button>
+      </div>
+    </div>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>
+    <div id="color-picker-wrap" style="display:none;margin-top:.5rem;padding:.75rem;background:var(--surface-2);border-radius:var(--r-md);border:.5px solid var(--border)">
+      <div style="font-size:11px;color:var(--text-3);margin-bottom:.5rem">Choose colour</div>
+      <div class="color-swatches">${CAT_COLORS.map(c =>
+        `<div class="color-swatch" style="background:${c}" data-color="${c}" onclick="pickColor(event,'${c}')"></div>`
+      ).join('')}</div>
+    </div>`);
+}
+
+// ── Category reorder drag ────────────────────────────────────
+function onCatMgmtDragStart(e, idx) {
+  _catDragIdx = idx;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(idx));
+}
+function onCatMgmtDragOver(e, idx) {
+  e.preventDefault();
+  if (_catDragIdx === null || _catDragIdx === idx) return;
+  document.querySelectorAll('.cat-mgmt-row').forEach(r => r.classList.remove('cat-drag-over'));
+  document.querySelector(`.cat-mgmt-row[data-idx="${idx}"]`)?.classList.add('cat-drag-over');
+}
+function onCatMgmtDragLeave(e, idx) {
+  document.querySelector(`.cat-mgmt-row[data-idx="${idx}"]`)?.classList.remove('cat-drag-over');
+}
+function onCatMgmtDrop(e, toIdx) {
+  e.preventDefault();
+  document.querySelectorAll('.cat-drag-over').forEach(r => r.classList.remove('cat-drag-over'));
+  if (_catDragIdx === null || _catDragIdx === toIdx) return;
+  const moved = state.categories.splice(_catDragIdx, 1)[0];
+  state.categories.splice(toIdx, 0, moved);
+  _catDragIdx = null;
+  saveState();
+  openManageCategories();
+  if (currentTab === 'gear') renderGear();
+}
+function onCatMgmtDragEnd() {
+  _catDragIdx = null;
+  document.querySelectorAll('.cat-drag-over').forEach(r => r.classList.remove('cat-drag-over'));
+}
+
+// ── Rename ──────────────────────────────────────────────────
+function startRenameCategory(idx) {
+  const lbl = document.getElementById(`cat-lbl-${idx}`);
+  if (!lbl) return;
+  const cat = state.categories[idx];
+  const html = lbl.outerHTML;
+  lbl.outerHTML = `<input class="input cat-mgmt-name" id="cat-lbl-${idx}"
+    style="flex:1;height:28px;font-size:13px"
+    value="${esc(cat.name)}"
+    onblur="finishRenameCategory(${idx})"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value='${esc(cat.name)}';this.blur();}"
+    onclick="event.stopPropagation()">`;
+  setTimeout(() => { const el = document.getElementById(`cat-lbl-${idx}`); if (el) { el.focus(); el.select(); } }, 0);
+}
+
+function finishRenameCategory(idx) {
+  const input = document.getElementById(`cat-lbl-${idx}`);
+  if (!input || input.tagName !== 'INPUT') return;
+  const newName = input.value.trim();
+  const cat = state.categories[idx];
+  if (!newName || newName === cat.name) { openManageCategories(); return; }
+  if (state.categories.find((c, i) => i !== idx && c.name.toLowerCase() === newName.toLowerCase())) {
+    toast('A category with that name already exists.');
+    input.select(); return;
+  }
+  const oldName = cat.name;
+  cat.name = newName;
+  state.items.forEach(item => { if (item.category === oldName) item.category = newName; });
+  saveState();
+  openManageCategories();
+  if (currentTab === 'gear') renderGear();
+  toast(`Renamed to "${newName}"`);
+}
+
+// ── Add / delete ────────────────────────────────────────────
+function addCategory() {
+  const input = document.getElementById('new-cat-name');
+  const name = input?.value.trim();
+  if (!name) { input?.focus(); return; }
+  if (state.categories.find(c => c.name.toLowerCase() === name.toLowerCase())) {
+    toast('That category already exists.'); return;
+  }
+  const color = CAT_COLORS[state.categories.length % CAT_COLORS.length];
+  state.categories.push({ name, target_g: null, color });
+  saveState();
+  openManageCategories();
+  if (currentTab === 'gear') renderGear();
+  toast(`"${name}" added!`);
+}
+
+function deleteCategory(name) {
+  const count = state.items.filter(i => i.category === name).length;
+  const msg = count
+    ? `"${name}" is used by ${count} item${count !== 1 ? 's' : ''}. Delete the category anyway? Those items will keep their category label but won't appear in any category group until you reassign them.`
+    : `Delete category "${name}"?`;
+  if (!confirm(msg)) return;
+  state.categories = state.categories.filter(c => c.name !== name);
+  saveState();
+  openManageCategories();
+  if (currentTab === 'gear') renderGear();
+  toast(`"${name}" deleted.`);
+}
+
+function updateCategoryTarget(idx, value) {
+  const cat = state.categories[idx];
+  if (cat) { cat.target_g = parseInt(value) || null; saveState(); }
+}
+
+// ── Colour picker ────────────────────────────────────────────
+let _colorPickerIdx = null;
+function openColorPicker(idx) {
+  _colorPickerIdx = idx;
+  const wrap = document.getElementById('color-picker-wrap');
+  if (!wrap) return;
+  const cat = state.categories[idx];
+  wrap.style.display = 'block';
+  wrap.querySelectorAll('.color-swatch').forEach(s => {
+    s.classList.toggle('selected', s.dataset.color === cat.color);
+  });
+}
+function pickColor(e, color) {
+  e.stopPropagation();
+  if (_colorPickerIdx === null) return;
+  state.categories[_colorPickerIdx].color = color;
+  saveState();
+  openManageCategories();
+  if (currentTab === 'gear') renderGear();
+  if (currentTab === 'analytics') renderAnalytics();
+}
+
+// ── Also expose "Add category" from gear form ────────────────
+function openManageCategoriesFromForm() {
+  const prev = document.getElementById('f-cat')?.value;
+  openManageCategories();
+  // After closing, the form will rebuild its select from state
+  window._pendingCatSelect = prev;
+}
+
+// ============================================================
   renderDashboard();
   if (currentTab !== 'dashboard') showTab(currentTab);
 }
