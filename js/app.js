@@ -374,7 +374,6 @@ function renderGear() {
 
   const q    = document.getElementById('gear-search').value.toLowerCase();
   const cat  = document.getElementById('gear-filter-cat').value;
-  const pk   = document.getElementById('gear-filter-packed').value;
   const cond = document.getElementById('gear-filter-cond').value;
   const sort = document.getElementById('gear-sort').value;
 
@@ -483,7 +482,6 @@ function toggleExpand(id) {
 function clearGearFilters() {
   document.getElementById('gear-search').value = '';
   document.getElementById('gear-filter-cat').value = '';
-  document.getElementById('gear-filter-packed').value = '';
   document.getElementById('gear-filter-cond').value = '';
   renderGear();
 }
