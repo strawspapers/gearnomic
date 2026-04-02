@@ -3,7 +3,7 @@
 // ============================================================
 
 // ── State ──────────────────────────────────────────────────
-let state = { items: [], trips: [], wishlist: [], categories: [], templates: [] };
+let state = { items: [], trips: [], wishlist: [], categories: [], templates: [], trip_types: [] };
 
 // ── Persistence ────────────────────────────────────────────
 function saveState() {
@@ -15,18 +15,18 @@ function loadState() {
     const raw = localStorage.getItem('trailkit_v1');
     if (raw) {
       state = JSON.parse(raw);
-      // Migrate: older saves won't have templates
-      if (!state.templates) state.templates = JSON.parse(JSON.stringify(SEED_DATA.templates));
+      if (!state.templates)  state.templates  = JSON.parse(JSON.stringify(SEED_DATA.templates));
+      if (!state.trip_types) state.trip_types = JSON.parse(JSON.stringify(SEED_DATA.trip_types));
       return;
     }
   } catch(e) {}
-  // First run — load seed data
   state = {
     items:      JSON.parse(JSON.stringify(SEED_DATA.items)),
     trips:      JSON.parse(JSON.stringify(SEED_DATA.trips)),
     wishlist:   JSON.parse(JSON.stringify(SEED_DATA.wishlist)),
     categories: JSON.parse(JSON.stringify(SEED_DATA.categories)),
     templates:  JSON.parse(JSON.stringify(SEED_DATA.templates)),
+    trip_types: JSON.parse(JSON.stringify(SEED_DATA.trip_types)),
   };
   saveState();
 }
@@ -133,6 +133,106 @@ function showTab(name) {
   if (renders[name]) renders[name]();
 }
 
+// ============================================================
+// TRIP TYPES  — dynamic, user-extensible
+// ============================================================
+
+function tripTypeOptions(selected) {
+  const opts = state.trip_types.map(t =>
+    `<option value="${esc(t.value)}" ${t.value === selected ? 'selected' : ''}>${esc(t.label)}</option>`
+  ).join('');
+  return opts + `<option value="__new__" style="color:var(--accent)">＋ Add new type…</option>`;
+}
+
+function handleTripTypeChange(prefix) {
+  const sel = document.getElementById(prefix + '-type');
+  const row = document.getElementById(prefix + '-new-type-row');
+  if (!sel || !row) return;
+  if (sel.value === '__new__') {
+    row.style.display = 'flex';
+    const input = document.getElementById(prefix + '-new-type-input');
+    if (input) { input.value = ''; input.focus(); }
+  } else {
+    row.style.display = 'none';
+  }
+}
+
+function confirmNewTripType(prefix) {
+  const input = document.getElementById(prefix + '-new-type-input');
+  const sel   = document.getElementById(prefix + '-type');
+  if (!input || !sel) return;
+  const label = input.value.trim();
+  if (!label) { input.focus(); return; }
+  const value = label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+  if (!value) { toast('Type name must contain letters or numbers.'); return; }
+  if (state.trip_types.find(t =>
+    t.value === value || t.label.toLowerCase() === label.toLowerCase()
+  )) { toast('That trip type already exists.'); input.select(); return; }
+  state.trip_types.push({ value, label, system: false });
+  saveState();
+  sel.innerHTML = tripTypeOptions(value);
+  sel.value = value;
+  document.getElementById(prefix + '-new-type-row').style.display = 'none';
+  input.value = '';
+  toast(`"${label}" added as a trip type!`);
+}
+
+function cancelNewTripType(prefix) {
+  const sel = document.getElementById(prefix + '-type');
+  const row = document.getElementById(prefix + '-new-type-row');
+  if (sel) sel.value = state.trip_types.find(t => t.value !== '__new__')?.value || 'backpacking';
+  if (row) row.style.display = 'none';
+  const input = document.getElementById(prefix + '-new-type-input');
+  if (input) input.value = '';
+}
+
+function newTripTypeKeydown(e, prefix) {
+  if (e.key === 'Enter') { e.preventDefault(); confirmNewTripType(prefix); }
+  if (e.key === 'Escape') cancelNewTripType(prefix);
+}
+
+function openManageTripTypes() {
+  const custom = state.trip_types.filter(t => !t.system);
+  const html = `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
+      Built-in types can't be removed. Deleting a custom type won't affect trips already using it — they keep the stored value.
+    </p>
+    <div style="margin-bottom:1rem">
+      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">Built-in</div>
+      ${state.trip_types.filter(t => t.system).map(t =>
+        `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-md);background:var(--surface-2);margin-bottom:4px;font-size:13px">
+          <span>${esc(t.label)}</span>
+          <span style="font-size:11px;color:var(--text-3);font-family:monospace">${esc(t.value)}</span>
+        </div>`).join('')}
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">Custom</div>
+      ${custom.length
+        ? custom.map(t =>
+            `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-md);border:1px solid var(--border);margin-bottom:4px;font-size:13px">
+              <span>${esc(t.label)}</span>
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:11px;color:var(--text-3);font-family:monospace">${esc(t.value)}</span>
+                <button class="btn btn-xs btn-danger" onclick="deleteTripType('${esc(t.value)}')">Delete</button>
+              </div>
+            </div>`).join('')
+        : `<div style="font-size:13px;color:var(--text-3);padding:8px 0">No custom types yet — add one from any trip or template form.</div>`
+      }
+    </div>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`;
+  openModal('Manage trip types', html);
+}
+
+function deleteTripType(value) {
+  const t = state.trip_types.find(t => t.value === value);
+  if (!t || t.system) return;
+  if (!confirm(`Delete trip type "${t.label}"?`)) return;
+  state.trip_types = state.trip_types.filter(t => t.value !== value);
+  saveState();
+  openManageTripTypes();
+  toast(`"${t.label}" deleted.`);
+}
+
 // ── Modal ──────────────────────────────────────────────────
 function openModal(title, html) {
   document.getElementById('modal-title').textContent = title;
@@ -220,6 +320,17 @@ function renderDashboard() {
 // GEAR CLOSET
 // ============================================================
 let gearExpandedId = null;
+let showMiscCol    = false;
+
+function toggleMiscCol() {
+  showMiscCol = !showMiscCol;
+  const btn = document.getElementById('btn-toggle-misc');
+  if (btn) {
+    btn.textContent = showMiscCol ? 'Misc on' : 'Misc off';
+    btn.classList.toggle('btn-primary', showMiscCol);
+  }
+  renderGear();
+}
 
 function renderGear() {
   populateCatFilter('gear-filter-cat');
@@ -261,36 +372,44 @@ function renderGear() {
   document.getElementById('gear-summary').innerHTML =
     `<strong>${filtered.length}</strong> items &nbsp;·&nbsp; base: <strong>${wg(baseW)}</strong> &nbsp;·&nbsp; worn: <strong>${wg(wornW)}</strong> &nbsp;·&nbsp; total: <strong>${wg(totalW)}</strong> &nbsp;·&nbsp; tracked value: <strong>${usd(totalC)}</strong>`;
 
+  const cols = 9 + (showMiscCol ? 1 : 0);
+
+  // Render header dynamically so colspan stays correct
+  document.getElementById('gear-thead').innerHTML = `<tr>
+    <th>Item</th><th>Category</th><th>Weight</th><th>Cost</th>
+    <th>$/gram</th><th>Carry</th><th>Condition</th><th>Usage</th>
+    ${showMiscCol ? '<th>Misc</th>' : ''}
+    <th></th>
+  </tr>`;
+
   let html = '';
   let lastCat = null;
   filtered.forEach(item => {
     if (sort === 'category' && item.category !== lastCat) {
       lastCat = item.category;
-      html += `<tr class="cat-header-row"><td colspan="9">${esc(item.category)}</td></tr>`;
+      html += `<tr class="cat-header-row"><td colspan="${cols}">${esc(item.category)}</td></tr>`;
     }
-    html += gearRow(item);
+    html += gearRow(item, cols);
   });
 
   if (!filtered.length) {
-    html = `<tr><td colspan="9"><div class="empty-state"><p>No items match your filters.</p><button class="btn btn-sm" onclick="clearGearFilters()">Clear filters</button></div></td></tr>`;
+    html = `<tr><td colspan="${cols}"><div class="empty-state"><p>No items match your filters.</p><button class="btn btn-sm" onclick="clearGearFilters()">Clear filters</button></div></td></tr>`;
   }
 
   document.getElementById('gear-tbody').innerHTML = html;
 }
 
-function gearRow(item) {
+function gearRow(item, cols) {
   const isExpanded = gearExpandedId === item.id;
   const detailHtml = isExpanded ? `
     <tr class="detail-row" id="det-${item.id}">
-      <td colspan="9">
+      <td colspan="${cols}">
         <div class="detail-inner">
           <div class="info-grid">
-            ${item.model ? `<div class="info-pair"><div class="info-key">Model</div><div class="info-val">${esc(item.model)}</div></div>` : ''}
-            ${item.volume_liters ? `<div class="info-pair"><div class="info-key">Volume</div><div class="info-val">${item.volume_liters}L</div></div>` : ''}
-            ${item.frame_type ? `<div class="info-pair"><div class="info-key">Frame</div><div class="info-val">${esc(item.frame_type)}</div></div>` : ''}
-            ${item.misc_stat ? `<div class="info-pair"><div class="info-key">Spec</div><div class="info-val">${esc(item.misc_stat)}</div></div>` : ''}
-            ${item.purchase_date ? `<div class="info-pair"><div class="info-key">Purchased</div><div class="info-val">${item.purchase_date}</div></div>` : ''}
-            ${item.purchase_retailer ? `<div class="info-pair"><div class="info-key">Retailer</div><div class="info-val">${esc(item.purchase_retailer)}</div></div>` : ''}
+            ${item.model            ? `<div class="info-pair"><div class="info-key">Model</div><div class="info-val">${esc(item.model)}</div></div>` : ''}
+            ${item.misc_stat        ? `<div class="info-pair"><div class="info-key">Misc</div><div class="info-val">${esc(item.misc_stat)}</div></div>` : ''}
+            ${item.purchase_date    ? `<div class="info-pair"><div class="info-key">Purchased</div><div class="info-val">${item.purchase_date}</div></div>` : ''}
+            ${item.purchase_retailer? `<div class="info-pair"><div class="info-key">Retailer</div><div class="info-val">${esc(item.purchase_retailer)}</div></div>` : ''}
           </div>
           ${item.notes ? `<p style="font-size:12.5px;color:var(--text-2);margin-bottom:10px">${esc(item.notes)}</p>` : ''}
           <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -304,6 +423,10 @@ function gearRow(item) {
       </td>
     </tr>` : '';
 
+  const miscCell = showMiscCol
+    ? `<td style="font-size:12px;color:var(--text-2);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(item.misc_stat || '')}">${esc(item.misc_stat || '—')}</td>`
+    : '';
+
   return `<tr class="expandable" onclick="toggleExpand('${item.id}')">
     <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand || '')}</div></td>
     <td>${badge('badge-gray', item.category)}</td>
@@ -313,6 +436,7 @@ function gearRow(item) {
     <td>${badge(CARRY_BADGE[item.carry_type] || 'badge-gray', CARRY_LABEL[item.carry_type] || item.carry_type)}</td>
     <td>${badge(COND_BADGE[item.condition] || 'badge-gray', COND_LABEL[item.condition] || item.condition)}</td>
     <td class="mono" style="font-size:11px;color:var(--text-3)">${item.usage_days || 0}d${item.usage_nights ? ` · ${item.usage_nights}n` : ''}</td>
+    ${miscCell}
     <td onclick="event.stopPropagation()">
       <button class="btn-icon" title="Edit" onclick="openEditItem('${item.id}')">✎</button>
     </td>
@@ -372,12 +496,14 @@ function itemFormHtml(item) {
           <option value="poor" ${item.condition === 'poor' ? 'selected' : ''}>Poor</option>
         </select>
       </div>
-      <div class="form-row"><label class="form-label">Volume (liters)</label><input class="input input-full" id="f-liters" type="number" min="0" step="0.1" value="${item.volume_liters || ''}" placeholder="optional"></div>
-      <div class="form-row"><label class="form-label">Frame type</label><input class="input input-full" id="f-frame" value="${esc(item.frame_type || '')}" placeholder="e.g. internal aluminum"></div>
       <div class="form-row"><label class="form-label">Purchase date</label><input class="input input-full" id="f-date" type="date" value="${item.purchase_date || ''}"></div>
       <div class="form-row"><label class="form-label">Retailer</label><input class="input input-full" id="f-retailer" value="${esc(item.purchase_retailer || '')}" placeholder="e.g. REI, Amazon"></div>
     </div>
     <div class="form-row"><label class="form-label">Product URL</label><input class="input input-full" id="f-url" value="${esc(item.product_url || '')}" placeholder="https://"></div>
+    <div class="form-row">
+      <label class="form-label">Misc <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">(shown in optional Misc column on Gear Closet)</span></label>
+      <input class="input input-full" id="f-misc" value="${esc(item.misc_stat || '')}" placeholder="e.g. R-value 4.5 · 400 lumens · internal frame · 40L">
+    </div>
     <div class="form-grid">
       <div class="form-row"><label class="form-label">Days used</label><input class="input input-full" id="f-days" type="number" min="0" value="${item.usage_days || 0}"></div>
       <div class="form-row"><label class="form-label">Nights (for sleep/shelter)</label><input class="input input-full" id="f-nights" type="number" min="0" value="${item.usage_nights || 0}"></div>
@@ -414,8 +540,7 @@ function saveItem(id) {
     cost_usd:         parseFloat(document.getElementById('f-cost').value) || 0,
     carry_type:       document.getElementById('f-carry').value,
     condition:        document.getElementById('f-cond').value,
-    volume_liters:    parseFloat(document.getElementById('f-liters').value) || null,
-    frame_type:       document.getElementById('f-frame').value.trim() || null,
+    misc_stat:        document.getElementById('f-misc').value.trim() || null,
     purchase_date:    document.getElementById('f-date').value || null,
     purchase_retailer:document.getElementById('f-retailer').value.trim() || null,
     product_url:      document.getElementById('f-url').value.trim() || null,
@@ -663,14 +788,19 @@ function tripFormHtml(trip) {
         </select>
       </div>
       <div class="form-row">
-        <label class="form-label">Type</label>
-        <select class="select input-full" id="tf-type">
-          <option value="backpacking" ${(!trip.trip_type || trip.trip_type === 'backpacking') ? 'selected' : ''}>Backpacking</option>
-          <option value="bikepacking" ${trip.trip_type === 'bikepacking' ? 'selected' : ''}>Bikepacking</option>
-          <option value="car_camping" ${trip.trip_type === 'car_camping' ? 'selected' : ''}>Car camping</option>
-          <option value="day_hike" ${trip.trip_type === 'day_hike' ? 'selected' : ''}>Day hike</option>
-          <option value="other" ${trip.trip_type === 'other' ? 'selected' : ''}>Other</option>
+        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+          Type
+          <button type="button" class="btn btn-xs btn-ghost" style="font-size:11px" onclick="openManageTripTypes()">Manage types</button>
+        </label>
+        <select class="select input-full" id="tf-type" onchange="handleTripTypeChange('tf')">
+          ${tripTypeOptions(trip.trip_type || 'backpacking')}
         </select>
+        <div id="tf-new-type-row" style="display:none;margin-top:6px;gap:6px;align-items:center">
+          <input class="input" id="tf-new-type-input" placeholder="e.g. Ski touring, Trail running…"
+            style="flex:1" onkeydown="newTripTypeKeydown(event,'tf')">
+          <button type="button" class="btn btn-sm btn-primary" onclick="confirmNewTripType('tf')">Add</button>
+          <button type="button" class="btn btn-sm" onclick="cancelNewTripType('tf')">Cancel</button>
+        </div>
       </div>
       <div class="form-row"><label class="form-label">Weight target (grams)</label><input class="input input-full" id="tf-target" type="number" min="0" value="${trip.weight_target_g || ''}" placeholder="e.g. 10000"></div>
     </div>
@@ -703,7 +833,7 @@ function saveTrip(id) {
     start_date:       document.getElementById('tf-start').value || null,
     end_date:         document.getElementById('tf-end').value || null,
     status:           document.getElementById('tf-status').value,
-    trip_type:        document.getElementById('tf-type').value,
+    trip_type:        document.getElementById('tf-type').value === '__new__' ? 'other' : document.getElementById('tf-type').value,
     weight_target_g:  parseInt(document.getElementById('tf-target').value) || null,
     notes:            document.getElementById('tf-notes').value.trim(),
     gear_ids:         id ? (state.trips.find(t => t.id === id)?.gear_ids || []) : [],
@@ -1134,14 +1264,19 @@ function templateFormHtml(tmpl) {
     <div class="form-grid">
       <div class="form-row"><label class="form-label">Template name *</label><input class="input input-full" id="tmf-name" value="${esc(tmpl.name || '')}" placeholder="e.g. 3-Season Ultralight Base"></div>
       <div class="form-row">
-        <label class="form-label">Trip type</label>
-        <select class="select input-full" id="tmf-type">
-          <option value="backpacking" ${(!tmpl.trip_type||tmpl.trip_type==='backpacking')?'selected':''}>Backpacking</option>
-          <option value="bikepacking" ${tmpl.trip_type==='bikepacking'?'selected':''}>Bikepacking</option>
-          <option value="car_camping" ${tmpl.trip_type==='car_camping'?'selected':''}>Car camping</option>
-          <option value="day_hike" ${tmpl.trip_type==='day_hike'?'selected':''}>Day hike</option>
-          <option value="other" ${tmpl.trip_type==='other'?'selected':''}>Other</option>
+        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+          Trip type
+          <button type="button" class="btn btn-xs btn-ghost" style="font-size:11px" onclick="openManageTripTypes()">Manage types</button>
+        </label>
+        <select class="select input-full" id="tmf-type" onchange="handleTripTypeChange('tmf')">
+          ${tripTypeOptions(tmpl.trip_type || 'backpacking')}
         </select>
+        <div id="tmf-new-type-row" style="display:none;margin-top:6px;gap:6px;align-items:center">
+          <input class="input" id="tmf-new-type-input" placeholder="e.g. Ski touring, Trail running…"
+            style="flex:1" onkeydown="newTripTypeKeydown(event,'tmf')">
+          <button type="button" class="btn btn-sm btn-primary" onclick="confirmNewTripType('tmf')">Add</button>
+          <button type="button" class="btn btn-sm" onclick="cancelNewTripType('tmf')">Cancel</button>
+        </div>
       </div>
     </div>
     <div class="form-row"><label class="form-label">Description</label>
@@ -1204,7 +1339,7 @@ function saveTemplate(id) {
     id:           id || uid('tmpl'),
     name,
     description:  document.getElementById('tmf-desc').value.trim(),
-    trip_type:    document.getElementById('tmf-type').value,
+    trip_type:    document.getElementById('tmf-type').value === '__new__' ? 'other' : document.getElementById('tmf-type').value,
     gear_ids:     gearIds,
     created_from: existing ? (existing.created_from || null) : (createdFrom || null),
     created_at:   existing ? (existing.created_at || new Date().toISOString().slice(0, 10))

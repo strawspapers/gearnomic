@@ -106,22 +106,11 @@
           <option value="name">A–Z</option>
           <option value="usage">Most used</option>
         </select>
+        <button id="btn-toggle-misc" class="btn btn-sm" onclick="toggleMiscCol()" title="Show / hide the Misc column">Misc off</button>
       </div>
       <div class="table-wrap">
         <table class="data-table" id="gear-table">
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Category</th>
-              <th>Weight</th>
-              <th>Cost</th>
-              <th>$/gram</th>
-              <th>Carry</th>
-              <th>Condition</th>
-              <th>Usage</th>
-              <th></th>
-            </tr>
-          </thead>
+          <thead id="gear-thead"></thead>
           <tbody id="gear-tbody"></tbody>
         </table>
       </div>

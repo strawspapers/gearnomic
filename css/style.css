@@ -730,3 +730,6 @@ textarea { height: auto; padding: 8px 10px; resize: vertical; }
   .modal { max-width: 100%; margin: 0; border-radius: var(--r-lg) var(--r-lg) 0 0; }
   #modal-overlay { align-items: flex-end; padding: 0; }
 }
+
+/* ── New trip-type inline input row ── */
+[id$="-new-type-row"] { align-items: center; }

@@ -126,6 +126,15 @@ const SEED_DATA = {
     { id: 'w017', name: 'Tent', brand: 'Durston', model: 'Xmid 2', weight_g: 880, cost_usd: 319, volume_liters: null, frame_type: null, notes: 'For 2-person trips', product_url: null },
   ],
 
+  trip_types: [
+    { value: 'backpacking', label: 'Backpacking',  system: true },
+    { value: 'bikepacking', label: 'Bikepacking',  system: true },
+    { value: 'car_camping', label: 'Car camping',  system: true },
+    { value: 'day_hike',    label: 'Day hike',     system: true },
+    { value: 'thru_hike',   label: 'Thru-hike',    system: true },
+    { value: 'other',       label: 'Other',         system: true },
+  ],
+
   categories: [
     { name: 'Pack',                 target_g: 900,  color: '#2A7048' },
     { name: 'Shelter',              target_g: 1200, color: '#1A5C8A' },
