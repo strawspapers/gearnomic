@@ -1159,7 +1159,9 @@ function templateFormHtml(tmpl) {
     <div class="form-actions">
       <button class="btn btn-primary" onclick="saveTemplate('${tmpl.id || ''}')">Save template</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-    </div>`;
+    </div>
+    <input type="hidden" id="tmf-created-from" value="${esc(tmpl.created_from || '')}">
+    <input type="hidden" id="tmf-original-date" value="${esc(tmpl.created_at || '')}">`;
 }
 
 function toggleCategoryInTemplate(cat) {
@@ -1189,28 +1191,39 @@ function saveTemplate(id) {
   if (!name) { alert('Template name is required.'); return; }
 
   const gearIds = [...document.querySelectorAll('#tmf-picker input[type=checkbox]:checked')].map(cb => cb.value);
+  if (!gearIds.length) { alert('Please select at least one gear item.'); return; }
+
+  // Read preserved fields from hidden inputs
+  const createdFrom = (document.getElementById('tmf-created-from')?.value) || null;
+  const originalDate = (document.getElementById('tmf-original-date')?.value) || null;
+
+  const isNew = !id;
+  const existing = id ? state.templates.find(t => t.id === id) : null;
 
   const data = {
-    id: id || uid('tmpl'),
+    id:           id || uid('tmpl'),
     name,
-    description: document.getElementById('tmf-desc').value.trim(),
-    trip_type:   document.getElementById('tmf-type').value,
-    gear_ids:    gearIds,
-    created_from: id ? (state.templates.find(t => t.id === id)?.created_from || null) : null,
-    created_at:  id ? (state.templates.find(t => t.id === id)?.created_at || new Date().toISOString().slice(0,10)) : new Date().toISOString().slice(0,10),
+    description:  document.getElementById('tmf-desc').value.trim(),
+    trip_type:    document.getElementById('tmf-type').value,
+    gear_ids:     gearIds,
+    created_from: existing ? (existing.created_from || null) : (createdFrom || null),
+    created_at:   existing ? (existing.created_at || new Date().toISOString().slice(0, 10))
+                           : (originalDate || new Date().toISOString().slice(0, 10)),
   };
 
-  if (id) {
+  if (existing) {
     const idx = state.templates.findIndex(t => t.id === id);
     if (idx >= 0) state.templates[idx] = data;
   } else {
     state.templates.push(data);
   }
 
-  saveState(); closeModal();
+  saveState();
+  closeModal();
   activeTemplateId = data.id;
-  if (currentTab === 'templates') renderTemplates();
-  toast(id ? 'Template updated!' : 'Template created!');
+  // Always refresh templates grid so it's ready when user navigates there
+  renderTemplates();
+  toast(isNew ? 'Template created!' : 'Template updated!');
 }
 
 function deleteTemplate(id) {
@@ -1480,9 +1493,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', () => { if (currentTab === 'wishlist') renderWishlist(); });
   });
-
-  // Templates
-  document.getElementById('btn-add-template').addEventListener('click', () => openTemplateForm());
 
   // Initial render
   renderDashboard();
