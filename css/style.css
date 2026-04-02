@@ -1,5 +1,5 @@
 /* ============================================================
-   TrailKit — stylesheet
+   Gearnomic — stylesheet
    Design: warm expedition-log aesthetic
    Fonts: Fraunces (display) + DM Sans (UI)
 ============================================================ */
@@ -617,7 +617,102 @@ textarea { height: auto; padding: 8px 10px; resize: vertical; }
 .info-key { color: var(--text-3); margin-bottom: 2px; }
 .info-val { font-weight: 500; color: var(--text-1); }
 
-/* ── Responsive ── */
+/* ── Templates grid ── */
+.templates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: .875rem;
+  margin-bottom: 1rem;
+}
+.template-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 1.1rem 1.25rem;
+  cursor: pointer;
+  transition: all .15s;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+.template-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+.template-card.active { border-color: var(--accent); border-width: 2px; }
+.template-card-accent {
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--r-xl) 0 0 var(--r-xl);
+}
+.template-card-name { font-size: 15px; font-weight: 500; margin-bottom: 3px; padding-left: 4px; }
+.template-card-desc { font-size: 12px; color: var(--text-3); margin-bottom: 10px; padding-left: 4px; }
+.template-card-stats { display: flex; gap: 16px; font-size: 12px; color: var(--text-2); padding-left: 4px; }
+.template-card-stat strong { color: var(--text-1); font-weight: 500; }
+.template-card-actions {
+  display: flex;
+  gap: 5px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-2);
+}
+
+/* ── Apply template modal ── */
+.apply-option {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  transition: all .15s;
+  margin-bottom: .5rem;
+}
+.apply-option:hover { border-color: var(--accent); background: var(--accent-l); }
+.apply-option.selected { border-color: var(--accent); background: var(--accent-l); border-width: 2px; }
+.apply-option-title { font-weight: 500; margin-bottom: 3px; }
+.apply-option-desc { font-size: 12px; color: var(--text-2); }
+
+/* ── Template detail ── */
+.template-gear-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 5px;
+  margin-bottom: 1rem;
+}
+.template-gear-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-md);
+  font-size: 12px;
+}
+.template-gear-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Category tag pills in template ── */
+.cat-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: .875rem; }
+.cat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+.cat-pill-dot { width: 7px; height: 7px; border-radius: 50%; }
 @media (max-width: 960px) {
   .grid-2 { grid-template-columns: 1fr; }
   .metrics-row { grid-template-columns: 1fr 1fr; }
