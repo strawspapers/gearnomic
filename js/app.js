@@ -664,7 +664,13 @@ function logUsage(id, type) {
 // ── Gear CRUD ──────────────────────────────────────────────
 function itemFormHtml(item) {
   item = item || {};
+  const deleteBanner = item.id ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--danger-bg);border:1px solid var(--danger-bg);border-radius:var(--r-md);padding:8px 12px;margin-bottom:1rem">
+      <span style="font-size:13px;color:var(--danger-text)">${esc(item.name || 'this item')}</span>
+      <button type="button" class="btn btn-sm btn-danger" onclick="deleteItem('${item.id}')">Delete item</button>
+    </div>` : '';
   return `
+    ${deleteBanner}
     <div class="form-grid">
       <div class="form-row"><label class="form-label">Name *</label><input class="input input-full" id="f-name" value="${esc(item.name || '')}" placeholder="e.g. Zpacks Arc Blast" required></div>
       <div class="form-row"><label class="form-label">Brand</label><input class="input input-full" id="f-brand" value="${esc(item.brand || '')}" placeholder="e.g. Zpacks"></div>
@@ -703,13 +709,20 @@ function itemFormHtml(item) {
     <div class="form-actions">
       <button class="btn btn-primary" onclick="saveItem('${item.id || ''}')">Save item</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      ${item.id ? `<span style="flex:1"></span><button class="btn btn-danger" onclick="deleteItem('${item.id}')">Delete item</button>` : ''}
     </div>`;
 }
 
 function openEditItem(id) {
   const item = state.items.find(i => i.id === id);
   if (!item) return;
-  openModal('Edit gear item', itemFormHtml(item));
+  // Set title with Delete button in the header — always visible regardless of form scroll
+  document.getElementById('modal-title').innerHTML =
+    `Edit gear item <button class="btn btn-danger btn-sm" style="margin-left:12px;font-family:var(--font-ui)" onclick="deleteItem('${id}')">Delete item</button>`;
+  document.getElementById('modal-body').innerHTML = itemFormHtml(item);
+  document.getElementById('modal-overlay').style.display = 'flex';
+  const first = document.querySelector('#modal-body input, #modal-body select, #modal-body textarea');
+  if (first) setTimeout(() => first.focus(), 100);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -3005,7 +3018,12 @@ async function diagnoseSupabase() {
 
   // Step 2 — are placeholder values still in place?
   if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_PROJECT_URL') {
-    show('<strong>Project URL not set.</strong> Open <code>js/config.js</code> and replace <code>YOUR_PROJECT_URL</code> with your Supabase URL (e.g. <code>https://abc123.supabase.co</code>).', 'red');
+    show(`<strong>Project URL not set.</strong> The value currently being read from <code>config.js</code> is:<br>
+<code style="word-break:break-all;background:rgba(0,0,0,.06);padding:2px 5px;border-radius:3px">${SUPABASE_URL || '(empty)'}</code><br><br>
+If that doesn't match what you put in the file, GitHub Pages is serving a <strong>cached old version</strong> of config.js. Try:<br>
+1. Hard refresh: <strong>Ctrl+Shift+R</strong> (Windows) / <strong>Cmd+Shift+R</strong> (Mac)<br>
+2. Open an Incognito/Private window and try there<br>
+3. Wait 2–5 minutes for GitHub Pages CDN to clear, then retry`, 'red');
     return;
   }
   if (!SUPABASE_ANON || SUPABASE_ANON === 'YOUR_ANON_PUBLIC_KEY') {
