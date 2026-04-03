@@ -703,7 +703,7 @@ function itemFormHtml(item) {
     <div class="form-actions">
       <button class="btn btn-primary" onclick="saveItem('${item.id || ''}')">Save item</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      ${item.id ? `<button class="btn btn-danger" style="margin-left:auto" onclick="deleteItem('${item.id}')">Delete</button>` : ''}
+      ${item.id ? `<span style="flex:1"></span><button class="btn btn-danger" onclick="deleteItem('${item.id}')">Delete item</button>` : ''}
     </div>`;
 }
 
