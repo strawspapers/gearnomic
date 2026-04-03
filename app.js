@@ -710,7 +710,13 @@ function itemFormHtml(item) {
 function openEditItem(id) {
   const item = state.items.find(i => i.id === id);
   if (!item) return;
-  openModal('Edit gear item', itemFormHtml(item));
+  // Set title with Delete button in the header — always visible regardless of form scroll
+  document.getElementById('modal-title').innerHTML =
+    `Edit gear item <button class="btn btn-danger btn-sm" style="margin-left:12px;font-family:var(--font-ui)" onclick="deleteItem('${id}')">Delete item</button>`;
+  document.getElementById('modal-body').innerHTML = itemFormHtml(item);
+  document.getElementById('modal-overlay').style.display = 'flex';
+  const first = document.querySelector('#modal-body input, #modal-body select, #modal-body textarea');
+  if (first) setTimeout(() => first.focus(), 100);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

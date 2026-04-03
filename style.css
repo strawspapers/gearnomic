@@ -290,7 +290,7 @@ textarea { height: auto; padding: 8px 10px; resize: vertical; }
   font-weight: 500;
 }
 .form-hint { font-size: 11px; color: var(--text-3); margin-top: 4px; }
-.form-actions { display: flex; gap: .5rem; padding-top: .875rem; border-top: 1px solid var(--border-2); margin-top: .875rem; width: 100%; }
+.form-actions { display: flex; gap: .5rem; padding-top: .875rem; border-top: 1px solid var(--border-2); margin-top: .875rem; width: 100%; position: sticky; bottom: 0; background: var(--surface); padding-bottom: .5rem; z-index: 1; }
 
 /* ── Buttons ── */
 .btn {
