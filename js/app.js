@@ -580,22 +580,22 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
     ? `<td style="font-size:12px;color:var(--text-2);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(item.misc_stat || '')}">${esc(item.misc_stat || '—')}</td>`
     : '';
 
+  const dragMode    = inCustomSort ? 'reorder' : 'recategorize';
   const handleFn    = inCustomSort ? `openReorderPickerMobile('${item.id}')` : `openCategoryPickerMobile('${item.id}')`;
   const handleTitle = inCustomSort ? 'Drag to reorder · Tap for options' : 'Drag to move category · Tap on mobile';
   const handleCell  = showHandle
-    ? `<td class="gear-handle-cell" onclick="event.stopPropagation();${handleFn}" title="${handleTitle}">
-        <span class="gear-handle">⠿</span>
+    ? `<td class="gear-handle-cell" title="${handleTitle}" onclick="event.stopPropagation();${handleFn}">
+        <span class="gear-handle"
+          draggable="true"
+          ondragstart="onItemDragStart(event,'${item.id}','${dragMode}')"
+          ondragend="onItemDragEnd()"
+          onclick="event.stopPropagation();${handleFn}">⠿</span>
        </td>`
     : `<td style="width:28px"></td>`;
 
-  const dragMode = inCustomSort ? 'reorder' : 'recategorize';
-
   return `<tr class="expandable"
-    draggable="${showHandle}"
     data-item-id="${item.id}"
     data-item-cat="${esc(item.category)}"
-    ondragstart="onItemDragStart(event,'${item.id}','${dragMode}')"
-    ondragend="onItemDragEnd()"
     ondragover="onRowDragOver(event,'${esc(item.category)}','${dragMode}')"
     ondragleave="onRowDragLeave(event)"
     ondrop="onRowDrop(event,'${dragMode}')"
@@ -1875,11 +1875,11 @@ let _dropTargetId  = null;   // item id we're hovering (for reorder)
 let _dropPosition  = null;   // 'before' | 'after'
 
 function onItemDragStart(e, itemId, mode) {
-  if (!e.target.closest('.gear-handle-cell')) { e.preventDefault(); return; }
   _dragItemId = itemId;
   _dragMode   = mode || 'recategorize';
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', itemId);
+  // Show whole row as faded while dragging
   setTimeout(() => {
     document.querySelector(`tr[data-item-id="${itemId}"]`)?.classList.add('gear-row-dragging');
   }, 0);
