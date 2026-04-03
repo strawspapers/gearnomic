@@ -3117,6 +3117,202 @@ async function continueWithoutAccount() {
 }
 
 // ============================================================
+// FORGOT PASSWORD & RECOVERY
+// ============================================================
+
+function showForgotPassword() {
+  document.getElementById('forgot-panel').style.display = 'block';
+  document.getElementById('auth-error').style.display = 'none';
+  const email = document.getElementById('auth-email')?.value;
+  const fp = document.getElementById('forgot-email');
+  if (fp && email) fp.value = email;
+  setTimeout(() => fp?.focus(), 50);
+}
+
+function hideForgotPassword() {
+  document.getElementById('forgot-panel').style.display = 'none';
+}
+
+async function sendPasswordReset() {
+  const email = document.getElementById('forgot-email')?.value.trim();
+  if (!email) { document.getElementById('forgot-email')?.focus(); return; }
+  if (!_supabaseReady()) { setAuthError('Supabase not configured.'); return; }
+
+  const btn = document.querySelector('#forgot-panel button');
+  if (btn) { btn.textContent = 'Sending…'; btn.disabled = true; }
+
+  const { error } = await _sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href.split('#')[0],
+  });
+
+  if (btn) { btn.textContent = 'Send reset link'; btn.disabled = false; }
+
+  if (error) {
+    setAuthError(error.message);
+  } else {
+    document.getElementById('forgot-panel').innerHTML = `
+      <div style="text-align:center;padding:.5rem 0">
+        <div style="font-size:24px;margin-bottom:.5rem">📬</div>
+        <div style="font-size:14px;font-weight:500;margin-bottom:.375rem">Check your inbox</div>
+        <p style="font-size:12px;color:#888">A reset link has been sent to <strong>${esc(email)}</strong>. Click it to set a new password.</p>
+      </div>`;
+  }
+}
+
+async function submitNewPassword() {
+  const pw = document.getElementById('new-password')?.value;
+  if (!pw || pw.length < 6) {
+    setAuthError('Password must be at least 6 characters.');
+    return;
+  }
+  if (!_supabaseReady()) return;
+
+  const btn = document.querySelector('#recovery-panel button');
+  if (btn) { btn.textContent = 'Updating…'; btn.disabled = true; }
+
+  const { error } = await _sb.auth.updateUser({ password: pw });
+
+  if (btn) { btn.textContent = 'Update password'; btn.disabled = false; }
+
+  if (error) {
+    setAuthError(error.message);
+  } else {
+    document.getElementById('recovery-panel').style.display = 'none';
+    hideAuthModal();
+    toast('Password updated! You are now signed in.');
+  }
+}
+
+// ============================================================
+// USER SETTINGS & PROFILE
+// ============================================================
+
+function openSettings() {
+  if (!_user) { toast('Sign in to access settings.'); return; }
+
+  const profile = state.profile || {};
+  const email   = _user.email || '';
+
+  openModal('Settings', `
+    <div style="display:flex;flex-direction:column;gap:1.25rem">
+
+      <!-- Profile -->
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Profile</div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label class="form-label">Display name</label>
+            <input class="input input-full" id="s-display-name" value="${esc(profile.display_name || '')}" placeholder="Your name on trail">
+          </div>
+          <div class="form-row">
+            <label class="form-label">Email</label>
+            <input class="input input-full" value="${esc(email)}" disabled style="color:var(--text-3);cursor:not-allowed">
+          </div>
+        </div>
+      </div>
+
+      <!-- Preferences -->
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Preferences</div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label class="form-label">Units</label>
+            <select class="select input-full" id="s-units">
+              <option value="metric"   ${(profile.units||'metric')==='metric'   ?'selected':''}>Metric (kg / g)</option>
+              <option value="imperial" ${profile.units==='imperial'?'selected':''}>Imperial (lb / oz)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Base weight target (g)</label>
+            <input class="input input-full" id="s-bw-target" type="number" min="0" step="100"
+              value="${profile.base_weight_target_g || ''}" placeholder="e.g. 4500">
+          </div>
+        </div>
+      </div>
+
+      <!-- Data -->
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Data</div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button class="btn btn-sm" onclick="exportData()">Export all data as JSON</button>
+          <button class="btn btn-sm" onclick="document.getElementById('import-file').click()">Import from JSON</button>
+          <button class="btn btn-sm" onclick="syncToCloud().then(()=>toast('Synced!'))">Force sync to cloud</button>
+        </div>
+      </div>
+
+      <!-- Security -->
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Security</div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label class="form-label">New password</label>
+            <input class="input input-full" id="s-new-pw" type="password" placeholder="Leave blank to keep current">
+          </div>
+          <div class="form-row">
+            <label class="form-label">Confirm new password</label>
+            <input class="input input-full" id="s-confirm-pw" type="password" placeholder="Repeat new password">
+          </div>
+        </div>
+        <button class="btn btn-sm" onclick="changePassword()">Update password</button>
+      </div>
+
+      <!-- Danger zone -->
+      <div style="border-top:.5px solid var(--border);padding-top:1rem">
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--danger);margin-bottom:.625rem">Account</div>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-sm btn-danger" onclick="signOut();closeModal()">Sign out</button>
+          <button class="btn btn-sm" style="color:var(--danger);border-color:var(--danger-bg)" onclick="confirmDeleteAccount()">Delete account</button>
+        </div>
+      </div>
+
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveSettings()">Save changes</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+
+async function saveSettings() {
+  if (!state.profile) state.profile = {};
+  state.profile.display_name     = document.getElementById('s-display-name')?.value.trim() || null;
+  state.profile.units            = document.getElementById('s-units')?.value || 'metric';
+  state.profile.base_weight_target_g = parseInt(document.getElementById('s-bw-target')?.value) || null;
+  saveState();
+  closeModal();
+  toast('Settings saved!');
+}
+
+async function changePassword() {
+  const pw1 = document.getElementById('s-new-pw')?.value;
+  const pw2 = document.getElementById('s-confirm-pw')?.value;
+  if (!pw1) { toast('Enter a new password first.'); return; }
+  if (pw1.length < 6) { toast('Password must be at least 6 characters.'); return; }
+  if (pw1 !== pw2) { toast('Passwords do not match.'); return; }
+  if (!_supabaseReady()) return;
+  const { error } = await _sb.auth.updateUser({ password: pw1 });
+  if (error) toast('Error: ' + error.message);
+  else {
+    document.getElementById('s-new-pw').value = '';
+    document.getElementById('s-confirm-pw').value = '';
+    toast('Password updated!');
+  }
+}
+
+async function confirmDeleteAccount() {
+  if (!confirm('Delete your account? This permanently removes all your data from the cloud. Your local copy is unaffected.\n\nThis cannot be undone.')) return;
+  if (!_supabaseReady()) return;
+  // Delete cloud data row first, then the auth user
+  await _sb.from('user_data').delete().eq('user_id', _user.id);
+  const { error } = await _sb.auth.admin?.deleteUser(_user.id).catch(() => ({ error: null }));
+  // Fall back to signOut if admin API not available (it won't be from client)
+  await _sb.auth.signOut();
+  _user = null;
+  closeModal();
+  updateHeaderAuth();
+  toast('Account data deleted. You have been signed out.');
+}
+
+// ============================================================
 function refreshAll() {
   renderDashboard();
   if (currentTab !== 'dashboard') showTab(currentTab);
@@ -3166,18 +3362,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     showAuthModal();
   }
 
-  // React to sign-in / sign-out events (handles email magic links, OAuth, etc.)
+  // React to sign-in / sign-out / password recovery events
   _sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      // User clicked the reset link — show the new-password panel
+      _user = session?.user || null;
+      showAuthModal();
+      // Hide normal sign-in UI, show recovery panel
+      ['auth-tab-signin','auth-tab-signup','auth-submit-btn','forgot-panel'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      document.getElementById('recovery-panel').style.display = 'block';
+      document.getElementById('auth-error').style.display = 'none';
+      const titleEl = document.querySelector('#auth-modal-overlay [style*="font-size:20px"]');
+      if (titleEl) titleEl.textContent = 'Set new password';
+      setTimeout(() => document.getElementById('new-password')?.focus(), 100);
+      return;
+    }
+
     if (event === 'SIGNED_IN' && session?.user) {
       _user = session.user;
       hideAuthModal();
-
-      // If cloud has data, load it; otherwise push local data up
       const cloudLoaded = await loadFromCloud();
-      if (!cloudLoaded) {
-        // First login — upload existing local data
-        await syncToCloud();
-      }
+      if (!cloudLoaded) await syncToCloud();
       refreshAll();
       updateHeaderAuth();
       toast('Signed in! Your data is syncing.');
