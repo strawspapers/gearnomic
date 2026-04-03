@@ -664,7 +664,13 @@ function logUsage(id, type) {
 // ── Gear CRUD ──────────────────────────────────────────────
 function itemFormHtml(item) {
   item = item || {};
+  const deleteBanner = item.id ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--danger-bg);border:1px solid var(--danger-bg);border-radius:var(--r-md);padding:8px 12px;margin-bottom:1rem">
+      <span style="font-size:13px;color:var(--danger-text)">${esc(item.name || 'this item')}</span>
+      <button type="button" class="btn btn-sm btn-danger" onclick="deleteItem('${item.id}')">Delete item</button>
+    </div>` : '';
   return `
+    ${deleteBanner}
     <div class="form-grid">
       <div class="form-row"><label class="form-label">Name *</label><input class="input input-full" id="f-name" value="${esc(item.name || '')}" placeholder="e.g. Zpacks Arc Blast" required></div>
       <div class="form-row"><label class="form-label">Brand</label><input class="input input-full" id="f-brand" value="${esc(item.brand || '')}" placeholder="e.g. Zpacks"></div>
