@@ -866,3 +866,16 @@ tr.cat-header-row.cat-section-highlight td {
 /* ── Drag reorder drop-line indicators ── */
 tr.drop-line-before td { box-shadow: inset 0 2px 0 0 var(--accent); }
 tr.drop-line-after  td { box-shadow: inset 0 -2px 0 0 var(--accent); }
+
+/* ── Category header drag handle ── */
+.cat-drag-handle {
+  opacity: 0;
+  transition: opacity .12s;
+  cursor: grab;
+  font-size: 14px;
+  color: var(--text-3);
+  user-select: none;
+  display: inline-block;
+}
+.cat-header-row:hover .cat-drag-handle { opacity: 1; }
+.cat-drag-handle:active { cursor: grabbing; }
