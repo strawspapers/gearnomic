@@ -452,8 +452,9 @@ function renderGear() {
       const db = b.cost_usd && b.weight_g ? b.cost_usd / b.weight_g : 9999;
       return da - db;
     }
-    if (sort === 'name')  return a.name.localeCompare(b.name);
-    if (sort === 'usage') return (b.usage_days || 0) - (a.usage_days || 0);
+    if (sort === 'name')   return a.name.localeCompare(b.name);
+    if (sort === 'usage')  return (b.usage_days || 0) - (a.usage_days || 0);
+    if (sort === 'custom') return 0; // preserve state.items insertion order (already filtered in that order)
     // default: category
     const cc = a.category.localeCompare(b.category);
     return cc !== 0 ? cc : a.name.localeCompare(b.name);
@@ -479,7 +480,9 @@ function renderGear() {
 
   let html = '';
   let lastCat = null;
-  const inCatSort = sort === 'category';
+  const inCatSort    = sort === 'category';
+  const inCustomSort = sort === 'custom';
+  const showHandle   = inCatSort || inCustomSort;
 
   filtered.forEach(item => {
     if (inCatSort && item.category !== lastCat) {
@@ -488,7 +491,7 @@ function renderGear() {
         <td colspan="${cols}">${esc(item.category)}</td>
       </tr>`;
     }
-    html += gearRow(item, cols, inCatSort, visibleCustomFields);
+    html += gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields);
   });
 
   if (!filtered.length) {
@@ -498,8 +501,9 @@ function renderGear() {
   document.getElementById('gear-tbody').innerHTML = html;
 }
 
-function gearRow(item, cols, inCatSort, visibleCustomFields) {
+function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
   visibleCustomFields = visibleCustomFields || [];
+  const showHandle = inCatSort || inCustomSort;
   const isExpanded = gearExpandedId === item.id;
   const customVals = item.custom_values || {};
   const allFields  = state.custom_fields || [];
@@ -573,21 +577,23 @@ function gearRow(item, cols, inCatSort, visibleCustomFields) {
     ? `<td style="font-size:12px;color:var(--text-2);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(item.misc_stat || '')}">${esc(item.misc_stat || '—')}</td>`
     : '';
 
-  const handleCell = inCatSort
-    ? `<td class="gear-handle-cell" onclick="event.stopPropagation();openCategoryPickerMobile('${item.id}')" title="Drag to move category · Tap to pick on mobile">
+  const handleCell = showHandle
+    ? `<td class="gear-handle-cell"
+        onclick="event.stopPropagation();${inCustomSort ? `openReorderPickerMobile('${item.id}')` : `openCategoryPickerMobile('${item.id}')`}"
+        title="${inCustomSort ? 'Drag to reorder' : 'Drag to move category · Tap on mobile'}">
         <span class="gear-handle">⠿</span>
        </td>`
     : `<td style="width:28px"></td>`;
 
   return `<tr class="expandable"
-    draggable="${inCatSort}"
+    draggable="${showHandle}"
     data-item-id="${item.id}"
     data-item-cat="${esc(item.category)}"
-    ondragstart="onItemDragStart(event,'${item.id}')"
+    ondragstart="onItemDragStart(event,'${item.id}','${inCustomSort?'reorder':'recategorize'}')"
     ondragend="onItemDragEnd()"
-    ondragover="onRowDragOver(event,'${esc(item.category)}')"
+    ondragover="onRowDragOver(event,'${esc(item.category)}','${inCustomSort?'reorder':'recategorize'}')"
     ondragleave="onRowDragLeave(event)"
-    ondrop="onRowDrop(event)"
+    ondrop="onRowDrop(event,'${inCustomSort?'reorder':'recategorize'}')"
     onclick="toggleExpand('${item.id}')">
     ${handleCell}
 
@@ -1855,17 +1861,18 @@ function _doApply(trip, tmpl, mode) {
 }
 
 // ============================================================
-// DRAG & DROP — handle-initiated, section-aware, mobile-friendly
+// DRAG & DROP — handle-initiated, mode-aware (reorder or recategorize)
 // ============================================================
-let _dragItemId   = null;
+let _dragItemId    = null;
+let _dragMode      = null;   // 'reorder' | 'recategorize'
 let _dropTargetCat = null;
+let _dropTargetId  = null;   // item id we're hovering (for reorder)
+let _dropPosition  = null;   // 'before' | 'after'
 
-function onItemDragStart(e, itemId) {
-  // Only allow drag when initiated from the handle cell
-  if (!e.target.closest('.gear-handle-cell')) {
-    e.preventDefault(); return;
-  }
+function onItemDragStart(e, itemId, mode) {
+  if (!e.target.closest('.gear-handle-cell')) { e.preventDefault(); return; }
   _dragItemId = itemId;
+  _dragMode   = mode || 'recategorize';
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', itemId);
   setTimeout(() => {
@@ -1875,44 +1882,91 @@ function onItemDragStart(e, itemId) {
 
 function onItemDragEnd() {
   _dragItemId    = null;
+  _dragMode      = null;
   _dropTargetCat = null;
+  _dropTargetId  = null;
+  _dropPosition  = null;
   document.querySelectorAll('.gear-row-dragging').forEach(r => r.classList.remove('gear-row-dragging'));
   document.querySelectorAll('.cat-section-highlight').forEach(r => r.classList.remove('cat-section-highlight'));
+  document.querySelectorAll('.drop-line-before, .drop-line-after').forEach(r => {
+    r.classList.remove('drop-line-before', 'drop-line-after');
+  });
 }
 
-function onRowDragOver(e, itemCat) {
+function onRowDragOver(e, itemCat, mode) {
   if (!_dragItemId) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
-  if (_dropTargetCat === itemCat) return; // already highlighted
-  _dropTargetCat = itemCat;
-  // Remove previous highlights
-  document.querySelectorAll('.cat-section-highlight').forEach(r => r.classList.remove('cat-section-highlight'));
-  // Highlight every row in this category section
-  document.querySelectorAll(`tr[data-item-cat="${itemCat}"], tr[data-cat="${itemCat}"]`)
-    .forEach(r => r.classList.add('cat-section-highlight'));
-}
 
-function onRowDragLeave(e) {
-  // Clear highlights only when the pointer leaves all draggable rows entirely
-  if (!e.relatedTarget || !e.relatedTarget.closest('[data-item-cat], [data-cat]')) {
+  if ((mode || _dragMode) === 'reorder') {
+    // Show a drop line above or below this row
+    const row = e.currentTarget;
+    const targetId = row.dataset.itemId;
+    if (!targetId || targetId === _dragItemId) return;
+    const rect = row.getBoundingClientRect();
+    const pos  = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    if (_dropTargetId === targetId && _dropPosition === pos) return; // no change
+    // Clear previous indicators
+    document.querySelectorAll('.drop-line-before, .drop-line-after').forEach(r => {
+      r.classList.remove('drop-line-before', 'drop-line-after');
+    });
+    _dropTargetId = targetId;
+    _dropPosition = pos;
+    row.classList.add(pos === 'before' ? 'drop-line-before' : 'drop-line-after');
+  } else {
+    // Recategorize: highlight category section
+    if (_dropTargetCat === itemCat) return;
+    _dropTargetCat = itemCat;
     document.querySelectorAll('.cat-section-highlight').forEach(r => r.classList.remove('cat-section-highlight'));
-    _dropTargetCat = null;
+    document.querySelectorAll(`tr[data-item-cat="${itemCat}"], tr[data-cat="${itemCat}"]`)
+      .forEach(r => r.classList.add('cat-section-highlight'));
   }
 }
 
-function onRowDrop(e) {
+function onRowDragLeave(e) {
+  if (!e.relatedTarget || !e.relatedTarget.closest('[data-item-cat], [data-cat]')) {
+    document.querySelectorAll('.cat-section-highlight').forEach(r => r.classList.remove('cat-section-highlight'));
+    document.querySelectorAll('.drop-line-before, .drop-line-after').forEach(r => {
+      r.classList.remove('drop-line-before', 'drop-line-after');
+    });
+    _dropTargetCat = null;
+    _dropTargetId  = null;
+    _dropPosition  = null;
+  }
+}
+
+function onRowDrop(e, mode) {
   e.preventDefault();
-  const itemId  = e.dataTransfer.getData('text/plain') || _dragItemId;
-  const catName = _dropTargetCat || e.currentTarget.dataset.itemCat;
-  document.querySelectorAll('.cat-section-highlight').forEach(r => r.classList.remove('cat-section-highlight'));
-  if (!itemId || !catName) return;
-  const item = state.items.find(i => i.id === itemId);
-  if (!item || item.category === catName) return;
-  item.category = catName;
-  saveState();
-  renderGear();
-  toast(`Moved "${item.name}" → ${catName}`);
+  const draggedId = e.dataTransfer.getData('text/plain') || _dragItemId;
+
+  if ((mode || _dragMode) === 'reorder') {
+    const targetId = _dropTargetId || e.currentTarget.dataset.itemId;
+    const pos      = _dropPosition || 'after';
+    document.querySelectorAll('.drop-line-before, .drop-line-after').forEach(r => {
+      r.classList.remove('drop-line-before', 'drop-line-after');
+    });
+    if (!draggedId || !targetId || draggedId === targetId) return;
+    // Move in state.items
+    const fromIdx = state.items.findIndex(i => i.id === draggedId);
+    const toIdx   = state.items.findIndex(i => i.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const [moved] = state.items.splice(fromIdx, 1);
+    const insertAt = state.items.findIndex(i => i.id === targetId);
+    state.items.splice(pos === 'before' ? insertAt : insertAt + 1, 0, moved);
+    saveState();
+    renderGear();
+  } else {
+    // Recategorize
+    const catName = _dropTargetCat || e.currentTarget.dataset.itemCat;
+    document.querySelectorAll('.cat-section-highlight').forEach(r => r.classList.remove('cat-section-highlight'));
+    if (!draggedId || !catName) return;
+    const item = state.items.find(i => i.id === draggedId);
+    if (!item || item.category === catName) return;
+    item.category = catName;
+    saveState();
+    renderGear();
+    toast(`Moved "${item.name}" → ${catName}`);
+  }
 }
 
 // Mobile: tap the handle to pick a category from a list
@@ -1943,22 +1997,42 @@ function moveToCat(itemId, catName) {
   item.category = catName;
   saveState();
   closeModal();
-  renderGear();
-  toast(`Moved to ${catName}`);
-}
-
-function moveToCat(itemId, catName) {
-  const item = state.items.find(i => i.id === itemId);
-  if (!item || item.category === catName) { closeModal(); return; }
-  item.category = catName;
-  saveState();
-  closeModal();
-  // Re-render whatever context is currently open
   if (currentTab === 'gear') renderGear();
   else if (currentTab === 'trips' && activeTripId) renderTripDetail(state.trips.find(t => t.id === activeTripId));
   else if (currentTab === 'templates' && activeTemplateId) renderTemplateDetail(state.templates.find(t => t.id === activeTemplateId));
   else renderGear();
   toast(`Moved to ${catName}`);
+}
+
+// Mobile: tap handle in custom sort → pick position in list
+function openReorderPickerMobile(itemId) {
+  const item = state.items.find(i => i.id === itemId);
+  if (!item) return;
+  const idx = state.items.indexOf(item);
+  // Show neighbours to move before/after
+  openModal(`Reorder: ${esc(item.name)}`, `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:.875rem">Move this item relative to another:</p>
+    <div style="display:flex;flex-direction:column;gap:4px;max-height:55vh;overflow-y:auto">
+      ${state.items.filter(i => i.id !== itemId).map(i => `
+        <div style="display:flex;gap:5px">
+          <button class="btn btn-xs" style="flex:1" onclick="reorderItem('${itemId}','${i.id}','before')">↑ Before</button>
+          <span style="font-size:12px;padding:4px 8px;flex:3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(i.name)}</span>
+          <button class="btn btn-xs" style="flex:1" onclick="reorderItem('${itemId}','${i.id}','after')">↓ After</button>
+        </div>`).join('')}
+    </div>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`);
+}
+
+function reorderItem(draggedId, targetId, pos) {
+  const fromIdx = state.items.findIndex(i => i.id === draggedId);
+  if (fromIdx === -1) return;
+  const [moved] = state.items.splice(fromIdx, 1);
+  const insertAt = state.items.findIndex(i => i.id === targetId);
+  if (insertAt === -1) { state.items.push(moved); }
+  else state.items.splice(pos === 'before' ? insertAt : insertAt + 1, 0, moved);
+  saveState();
+  closeModal();
+  renderGear();
 }
 
 // ── Shared category-grouped gear table ──────────────────────
@@ -3117,6 +3191,202 @@ async function continueWithoutAccount() {
 }
 
 // ============================================================
+// FORGOT PASSWORD & RECOVERY
+// ============================================================
+
+function showForgotPassword() {
+  document.getElementById('forgot-panel').style.display = 'block';
+  document.getElementById('auth-error').style.display = 'none';
+  const email = document.getElementById('auth-email')?.value;
+  const fp = document.getElementById('forgot-email');
+  if (fp && email) fp.value = email;
+  setTimeout(() => fp?.focus(), 50);
+}
+
+function hideForgotPassword() {
+  document.getElementById('forgot-panel').style.display = 'none';
+}
+
+async function sendPasswordReset() {
+  const email = document.getElementById('forgot-email')?.value.trim();
+  if (!email) { document.getElementById('forgot-email')?.focus(); return; }
+  if (!_supabaseReady()) { setAuthError('Supabase not configured.'); return; }
+
+  const btn = document.querySelector('#forgot-panel button');
+  if (btn) { btn.textContent = 'Sending…'; btn.disabled = true; }
+
+  const { error } = await _sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href.split('#')[0],
+  });
+
+  if (btn) { btn.textContent = 'Send reset link'; btn.disabled = false; }
+
+  if (error) {
+    setAuthError(error.message);
+  } else {
+    document.getElementById('forgot-panel').innerHTML = `
+      <div style="text-align:center;padding:.5rem 0">
+        <div style="font-size:24px;margin-bottom:.5rem">📬</div>
+        <div style="font-size:14px;font-weight:500;margin-bottom:.375rem">Check your inbox</div>
+        <p style="font-size:12px;color:#888">A reset link has been sent to <strong>${esc(email)}</strong>. Click it to set a new password.</p>
+      </div>`;
+  }
+}
+
+async function submitNewPassword() {
+  const pw = document.getElementById('new-password')?.value;
+  if (!pw || pw.length < 6) {
+    setAuthError('Password must be at least 6 characters.');
+    return;
+  }
+  if (!_supabaseReady()) return;
+
+  const btn = document.querySelector('#recovery-panel button');
+  if (btn) { btn.textContent = 'Updating…'; btn.disabled = true; }
+
+  const { error } = await _sb.auth.updateUser({ password: pw });
+
+  if (btn) { btn.textContent = 'Update password'; btn.disabled = false; }
+
+  if (error) {
+    setAuthError(error.message);
+  } else {
+    document.getElementById('recovery-panel').style.display = 'none';
+    hideAuthModal();
+    toast('Password updated! You are now signed in.');
+  }
+}
+
+// ============================================================
+// USER SETTINGS & PROFILE
+// ============================================================
+
+function openSettings() {
+  if (!_user) { toast('Sign in to access settings.'); return; }
+
+  const profile = state.profile || {};
+  const email   = _user.email || '';
+
+  openModal('Settings', `
+    <div style="display:flex;flex-direction:column;gap:1.25rem">
+
+      <!-- Profile -->
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Profile</div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label class="form-label">Display name</label>
+            <input class="input input-full" id="s-display-name" value="${esc(profile.display_name || '')}" placeholder="Your name on trail">
+          </div>
+          <div class="form-row">
+            <label class="form-label">Email</label>
+            <input class="input input-full" value="${esc(email)}" disabled style="color:var(--text-3);cursor:not-allowed">
+          </div>
+        </div>
+      </div>
+
+      <!-- Preferences -->
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Preferences</div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label class="form-label">Units</label>
+            <select class="select input-full" id="s-units">
+              <option value="metric"   ${(profile.units||'metric')==='metric'   ?'selected':''}>Metric (kg / g)</option>
+              <option value="imperial" ${profile.units==='imperial'?'selected':''}>Imperial (lb / oz)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Base weight target (g)</label>
+            <input class="input input-full" id="s-bw-target" type="number" min="0" step="100"
+              value="${profile.base_weight_target_g || ''}" placeholder="e.g. 4500">
+          </div>
+        </div>
+      </div>
+
+      <!-- Data -->
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Data</div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button class="btn btn-sm" onclick="exportData()">Export all data as JSON</button>
+          <button class="btn btn-sm" onclick="document.getElementById('import-file').click()">Import from JSON</button>
+          <button class="btn btn-sm" onclick="syncToCloud().then(()=>toast('Synced!'))">Force sync to cloud</button>
+        </div>
+      </div>
+
+      <!-- Security -->
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Security</div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label class="form-label">New password</label>
+            <input class="input input-full" id="s-new-pw" type="password" placeholder="Leave blank to keep current">
+          </div>
+          <div class="form-row">
+            <label class="form-label">Confirm new password</label>
+            <input class="input input-full" id="s-confirm-pw" type="password" placeholder="Repeat new password">
+          </div>
+        </div>
+        <button class="btn btn-sm" onclick="changePassword()">Update password</button>
+      </div>
+
+      <!-- Danger zone -->
+      <div style="border-top:.5px solid var(--border);padding-top:1rem">
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--danger);margin-bottom:.625rem">Account</div>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-sm btn-danger" onclick="signOut();closeModal()">Sign out</button>
+          <button class="btn btn-sm" style="color:var(--danger);border-color:var(--danger-bg)" onclick="confirmDeleteAccount()">Delete account</button>
+        </div>
+      </div>
+
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveSettings()">Save changes</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+
+async function saveSettings() {
+  if (!state.profile) state.profile = {};
+  state.profile.display_name     = document.getElementById('s-display-name')?.value.trim() || null;
+  state.profile.units            = document.getElementById('s-units')?.value || 'metric';
+  state.profile.base_weight_target_g = parseInt(document.getElementById('s-bw-target')?.value) || null;
+  saveState();
+  closeModal();
+  toast('Settings saved!');
+}
+
+async function changePassword() {
+  const pw1 = document.getElementById('s-new-pw')?.value;
+  const pw2 = document.getElementById('s-confirm-pw')?.value;
+  if (!pw1) { toast('Enter a new password first.'); return; }
+  if (pw1.length < 6) { toast('Password must be at least 6 characters.'); return; }
+  if (pw1 !== pw2) { toast('Passwords do not match.'); return; }
+  if (!_supabaseReady()) return;
+  const { error } = await _sb.auth.updateUser({ password: pw1 });
+  if (error) toast('Error: ' + error.message);
+  else {
+    document.getElementById('s-new-pw').value = '';
+    document.getElementById('s-confirm-pw').value = '';
+    toast('Password updated!');
+  }
+}
+
+async function confirmDeleteAccount() {
+  if (!confirm('Delete your account? This permanently removes all your data from the cloud. Your local copy is unaffected.\n\nThis cannot be undone.')) return;
+  if (!_supabaseReady()) return;
+  // Delete cloud data row first, then the auth user
+  await _sb.from('user_data').delete().eq('user_id', _user.id);
+  const { error } = await _sb.auth.admin?.deleteUser(_user.id).catch(() => ({ error: null }));
+  // Fall back to signOut if admin API not available (it won't be from client)
+  await _sb.auth.signOut();
+  _user = null;
+  closeModal();
+  updateHeaderAuth();
+  toast('Account data deleted. You have been signed out.');
+}
+
+// ============================================================
 function refreshAll() {
   renderDashboard();
   if (currentTab !== 'dashboard') showTab(currentTab);
@@ -3166,18 +3436,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     showAuthModal();
   }
 
-  // React to sign-in / sign-out events (handles email magic links, OAuth, etc.)
+  // React to sign-in / sign-out / password recovery events
   _sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      // User clicked the reset link — show the new-password panel
+      _user = session?.user || null;
+      showAuthModal();
+      // Hide normal sign-in UI, show recovery panel
+      ['auth-tab-signin','auth-tab-signup','auth-submit-btn','forgot-panel'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      document.getElementById('recovery-panel').style.display = 'block';
+      document.getElementById('auth-error').style.display = 'none';
+      const titleEl = document.querySelector('#auth-modal-overlay [style*="font-size:20px"]');
+      if (titleEl) titleEl.textContent = 'Set new password';
+      setTimeout(() => document.getElementById('new-password')?.focus(), 100);
+      return;
+    }
+
     if (event === 'SIGNED_IN' && session?.user) {
       _user = session.user;
       hideAuthModal();
-
-      // If cloud has data, load it; otherwise push local data up
       const cloudLoaded = await loadFromCloud();
-      if (!cloudLoaded) {
-        // First login — upload existing local data
-        await syncToCloud();
-      }
+      if (!cloudLoaded) await syncToCloud();
       refreshAll();
       updateHeaderAuth();
       toast('Signed in! Your data is syncing.');
