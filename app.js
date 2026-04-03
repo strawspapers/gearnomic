@@ -703,6 +703,7 @@ function itemFormHtml(item) {
     <div class="form-actions">
       <button class="btn btn-primary" onclick="saveItem('${item.id || ''}')">Save item</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      ${item.id ? `<button class="btn btn-danger" style="margin-left:auto" onclick="deleteItem('${item.id}')">Delete</button>` : ''}
     </div>`;
 }
 
@@ -2980,56 +2981,78 @@ function setAuthError(msg) {
 }
 
 async function diagnoseSupabase() {
-  const errEl = document.getElementById('auth-error');
-  if (!errEl) return;
-
-  // 1. Are config values filled in?
-  if (typeof SUPABASE_URL === 'undefined' || !SUPABASE_URL || SUPABASE_URL === 'YOUR_PROJECT_URL') {
-    errEl.style.display = 'block';
-    errEl.innerHTML = '<strong>Config missing:</strong> Open <code>js/config.js</code> and paste your Supabase Project URL.';
-    return;
-  }
-  if (typeof SUPABASE_ANON === 'undefined' || !SUPABASE_ANON || SUPABASE_ANON === 'YOUR_ANON_PUBLIC_KEY') {
-    errEl.style.display = 'block';
-    errEl.innerHTML = '<strong>Config missing:</strong> Open <code>js/config.js</code> and paste your anon public key.';
-    return;
-  }
-
-  // 2. Does the URL look right?
-  if (!SUPABASE_URL.startsWith('https://') || !SUPABASE_URL.includes('.supabase.co')) {
-    errEl.style.display = 'block';
-    errEl.innerHTML = `<strong>Bad URL format.</strong> It should look like:<br><code>https://xxxx.supabase.co</code><br>You have: <code>${SUPABASE_URL}</code>`;
-    return;
-  }
-
-  // 3. Can we actually reach the Supabase project?
-  errEl.style.display = 'block';
-  errEl.style.background = '#e8f4fd';
-  errEl.style.color = '#124471';
-  errEl.innerHTML = 'Testing connection to Supabase…';
-
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
-      headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` }
-    });
-    if (res.ok || res.status === 404) {
-      // 404 is fine — it means the server is reachable, just no route at /
-      errEl.style.background = '#eaf4ee';
-      errEl.style.color = '#1c5736';
-      errEl.innerHTML = '✓ Connection OK. If sign-in still fails, check that <strong>Email</strong> auth is enabled in Supabase → Authentication → Providers.';
+  // Helper — show in modal error div OR fall back to alert
+  function show(html, color) {
+    const el = document.getElementById('auth-error');
+    if (el) {
+      el.style.display = 'block';
+      el.style.background = color === 'green' ? '#eaf4ee' : color === 'blue' ? '#e8f4fd' : '#fdeaea';
+      el.style.color      = color === 'green' ? '#1c5736' : color === 'blue' ? '#124471' : '#8c2020';
+      el.innerHTML = html;
     } else {
-      errEl.style.background = '#fdeaea';
-      errEl.style.color = '#8c2020';
-      errEl.innerHTML = `<strong>Server responded ${res.status}.</strong> Your anon key may be wrong. Copy it fresh from Supabase → Settings → API → anon public.`;
+      // Modal not visible — use toast + console
+      toast('Check browser console (F12) for Supabase diagnostics');
+      console.group('Gearnomic — Supabase Diagnostics');
+      console.log(html.replace(/<[^>]+>/g, ''));
+      console.groupEnd();
+    }
+  }
+
+  // Step 1 — is config.js loaded at all?
+  if (typeof SUPABASE_URL === 'undefined') {
+    show('<strong>config.js not loaded.</strong> Make sure <code>js/config.js</code> is in your repo and listed in index.html before app.js.', 'red');
+    return;
+  }
+
+  // Step 2 — are placeholder values still in place?
+  if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_PROJECT_URL') {
+    show(`<strong>Project URL not set.</strong> The value currently being read from <code>config.js</code> is:<br>
+<code style="word-break:break-all;background:rgba(0,0,0,.06);padding:2px 5px;border-radius:3px">${SUPABASE_URL || '(empty)'}</code><br><br>
+If that doesn't match what you put in the file, GitHub Pages is serving a <strong>cached old version</strong> of config.js. Try:<br>
+1. Hard refresh: <strong>Ctrl+Shift+R</strong> (Windows) / <strong>Cmd+Shift+R</strong> (Mac)<br>
+2. Open an Incognito/Private window and try there<br>
+3. Wait 2–5 minutes for GitHub Pages CDN to clear, then retry`, 'red');
+    return;
+  }
+  if (!SUPABASE_ANON || SUPABASE_ANON === 'YOUR_ANON_PUBLIC_KEY') {
+    show('<strong>Anon key not set.</strong> Open <code>js/config.js</code> and replace <code>YOUR_ANON_PUBLIC_KEY</code> with your anon key from Supabase → Settings → API.', 'red');
+    return;
+  }
+
+  // Step 3 — URL format check
+  const cleanUrl = SUPABASE_URL.trim().replace(/\/$/, '');
+  if (!cleanUrl.startsWith('https://') || !cleanUrl.includes('.supabase.co')) {
+    show(`<strong>URL format looks wrong.</strong><br>Expected: <code>https://abc123.supabase.co</code><br>Got: <code>${cleanUrl}</code><br>Copy it fresh from Supabase → Settings → API.`, 'red');
+    return;
+  }
+
+  // Step 4 — actually try to reach the project
+  show('Testing connection…', 'blue');
+  try {
+    const res = await fetch(`${cleanUrl}/auth/v1/settings`, {
+      headers: { apikey: SUPABASE_ANON.trim() }
+    });
+
+    if (res.status === 200) {
+      const body = await res.json().catch(() => ({}));
+      const emailEnabled = body?.external?.email !== false;
+      if (emailEnabled) {
+        show('✓ <strong>Connection OK and Email auth is enabled.</strong> If sign-in still fails, double-check your email/password, or try "Create account" first.', 'green');
+      } else {
+        show('✓ Connected, but <strong>Email auth is disabled</strong> in your Supabase project.<br>Go to Supabase → Authentication → Providers → Email → enable it.', 'red');
+      }
+    } else if (res.status === 401 || res.status === 403) {
+      show(`<strong>Anon key rejected (${res.status}).</strong> Your key may have extra spaces or be from a different project. Copy it fresh from Supabase → Settings → API → anon public.`, 'red');
+    } else {
+      show(`<strong>Unexpected response ${res.status}.</strong> Your project may be paused. <a href="${cleanUrl}" target="_blank" style="color:inherit">Open your Supabase dashboard</a> to check — free projects pause after 7 days idle.`, 'red');
     }
   } catch(err) {
-    errEl.style.background = '#fdeaea';
-    errEl.style.color = '#8c2020';
-    errEl.innerHTML = `<strong>Cannot reach Supabase.</strong> Likely causes:<br>
-      1. Project URL is wrong — check for typos<br>
-      2. Your Supabase project is paused (free tier pauses after 7 days idle) — <a href="${SUPABASE_URL}" target="_blank" style="color:inherit">open your project</a> to unpause it<br>
-      3. A network/firewall issue on this device<br>
-      <span style="font-size:11px;opacity:.7">Raw error: ${err.message}</span>`;
+    // True network failure
+    show(`<strong>Cannot reach Supabase.</strong> Most likely causes:<br>
+1. <strong>Project is paused</strong> — free tier pauses after 7 days idle. <a href="https://supabase.com/dashboard" target="_blank" style="color:inherit">Open Supabase dashboard</a> and click "Restore".<br>
+2. <strong>URL has a typo</strong> — currently using: <code style="word-break:break-all">${cleanUrl}</code><br>
+3. <strong>Network/firewall</strong> blocking the request on this device.<br>
+<span style="font-size:11px;opacity:.7">Error: ${err.message}</span>`, 'red');
   }
 }
 
