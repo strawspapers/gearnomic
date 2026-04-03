@@ -710,24 +710,24 @@ function populateCatFilter(elId) {
 let activeTripId = null;
 
 function renderTrips() {
-  const upcoming = state.trips.filter(t => t.status !== 'completed' && t.status !== 'cancelled');
-  const past     = state.trips.filter(t => t.status === 'completed' || t.status === 'cancelled');
+  const planning   = state.trips.filter(t => t.status === 'planning');
+  const confirmed  = state.trips.filter(t => t.status === 'confirmed');
+  const past       = state.trips.filter(t => t.status === 'completed' || t.status === 'cancelled');
 
   document.getElementById('trips-summary').textContent =
-    `${state.trips.length} trips · ${upcoming.length} active or planned`;
+    `${state.trips.length} trip${state.trips.length !== 1 ? 's' : ''} · ${planning.length} planning · ${confirmed.length} confirmed`;
 
-  let html = '';
-  if (upcoming.length) {
-    html += `<div class="section-divider">Upcoming</div><div class="trips-grid">` +
-      upcoming.map(t => tripCard(t)).join('') + `</div>`;
+  function section(label, trips) {
+    if (!trips.length) return '';
+    return `<div style="margin-bottom:1.5rem">
+      <div class="section-divider">${label}</div>
+      <div class="trips-grid">${trips.map(t => tripCard(t)).join('')}</div>
+    </div>`;
   }
-  if (past.length) {
-    html += `<div class="section-divider">Past trips</div><div class="trips-grid">` +
-      past.map(t => tripCard(t)).join('') + `</div>`;
-  }
-  if (!state.trips.length) {
-    html = `<div class="empty-state"><p>No trips yet. Plan your first adventure!</p></div>`;
-  }
+
+  const html = planning.length || confirmed.length || past.length
+    ? section('Planning', planning) + section('Confirmed', confirmed) + section('Past trips', past)
+    : `<div class="empty-state"><p>No trips yet. Plan your first adventure!</p><button class="btn btn-primary" onclick="document.getElementById('btn-add-trip').click()">+ New Trip</button></div>`;
 
   document.getElementById('trips-grid').innerHTML = html;
 
@@ -766,9 +766,8 @@ function openTripDetail(id) {
   activeTripId = id;
   const trip = state.trips.find(t => t.id === id);
   if (!trip) return;
+  renderTrips(); // re-renders grid with active card highlighted
   renderTripDetail(trip);
-  document.getElementById('trips-grid').innerHTML = document.getElementById('trips-grid').innerHTML; // force re-render for active class
-  renderTrips(); // re-render to update active card highlight
   setTimeout(() => document.getElementById('trip-detail-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
 }
 
