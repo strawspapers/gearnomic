@@ -664,12 +664,7 @@ function logUsage(id, type) {
 // ── Gear CRUD ──────────────────────────────────────────────
 function itemFormHtml(item) {
   item = item || {};
-  const deleteBanner = item.id ? `
-    <div style="display:flex;justify-content:flex-end;margin-bottom:.75rem">
-      <button type="button" class="btn btn-sm btn-danger" onclick="deleteItem('${item.id}')">Delete item</button>
-    </div>` : '';
   return `
-    ${deleteBanner}
     <div class="form-grid">
       <div class="form-row"><label class="form-label">Name *</label><input class="input input-full" id="f-name" value="${esc(item.name || '')}" placeholder="e.g. Zpacks Arc Blast" required></div>
       <div class="form-row"><label class="form-label">Brand</label><input class="input input-full" id="f-brand" value="${esc(item.brand || '')}" placeholder="e.g. Zpacks"></div>
@@ -715,13 +710,7 @@ function itemFormHtml(item) {
 function openEditItem(id) {
   const item = state.items.find(i => i.id === id);
   if (!item) return;
-  // Set title with Delete button in the header — always visible regardless of form scroll
-  document.getElementById('modal-title').innerHTML =
-    `Edit gear item <button class="btn btn-danger btn-sm" style="margin-left:12px;font-family:var(--font-ui)" onclick="deleteItem('${id}')">Delete item</button>`;
-  document.getElementById('modal-body').innerHTML = itemFormHtml(item);
-  document.getElementById('modal-overlay').style.display = 'flex';
-  const first = document.querySelector('#modal-body input, #modal-body select, #modal-body textarea');
-  if (first) setTimeout(() => first.focus(), 100);
+  openModal('Edit gear item', itemFormHtml(item));
 }
 
 document.addEventListener('DOMContentLoaded', () => {
