@@ -409,10 +409,11 @@ function renderGear() {
   document.getElementById('gear-summary').innerHTML =
     `<strong>${filtered.length}</strong> items &nbsp;·&nbsp; total: <strong>${wg(totalW)}</strong> &nbsp;·&nbsp; tracked value: <strong>${usd(totalC)}</strong>`;
 
-  const cols = 8 + (showMiscCol ? 1 : 0);
+  const cols = 9 + (showMiscCol ? 1 : 0); // +1 for handle column
 
   // Render header dynamically so colspan stays correct
   document.getElementById('gear-thead').innerHTML = `<tr>
+    <th style="width:28px;padding:6px 4px"></th>
     <th>Item</th><th>Category</th><th>Weight</th><th>Cost</th>
     <th>$/gram</th><th>Condition</th><th>Usage</th>
     ${showMiscCol ? '<th>Misc</th>' : ''}
@@ -423,27 +424,14 @@ function renderGear() {
   let lastCat = null;
   const inCatSort = sort === 'category';
 
-  if (inCatSort && filtered.length) {
-    html += `<tr><td colspan="${cols}" class="drag-hint">
-      <span>↕</span> Drag any row onto a category header to move it
-    </td></tr>`;
-  }
-
   filtered.forEach(item => {
     if (inCatSort && item.category !== lastCat) {
       lastCat = item.category;
-      html += `<tr class="cat-header-row"
-        data-cat="${esc(item.category)}"
-        ondragover="onCatDragOver(event)"
-        ondragleave="onCatDragLeave(event)"
-        ondrop="onCatDrop(event)">
-        <td colspan="${cols}">
-          ${esc(item.category)}
-          <span style="font-size:10px;color:var(--text-3);font-weight:400;margin-left:6px">drop here to move</span>
-        </td>
+      html += `<tr class="cat-header-row" data-cat="${esc(item.category)}">
+        <td colspan="${cols}">${esc(item.category)}</td>
       </tr>`;
     }
-    html += gearRow(item, cols);
+    html += gearRow(item, cols, inCatSort);
   });
 
   if (!filtered.length) {
@@ -453,7 +441,7 @@ function renderGear() {
   document.getElementById('gear-tbody').innerHTML = html;
 }
 
-function gearRow(item, cols) {
+function gearRow(item, cols, inCatSort) {
   const isExpanded = gearExpandedId === item.id;
   const detailHtml = isExpanded ? `
     <tr class="detail-row" id="det-${item.id}">
@@ -481,18 +469,31 @@ function gearRow(item, cols) {
     ? `<td style="font-size:12px;color:var(--text-2);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(item.misc_stat || '')}">${esc(item.misc_stat || '—')}</td>`
     : '';
 
+  // Handle cell — drag on desktop, tap for category picker on mobile
+  const handleCell = inCatSort
+    ? `<td class="gear-handle-cell" onclick="event.stopPropagation();openCategoryPickerMobile('${item.id}')" title="Drag to move category · Tap to pick on mobile">
+        <span class="gear-handle">⠿</span>
+       </td>`
+    : `<td style="width:28px"></td>`;
+
   return `<tr class="expandable"
-    draggable="true" data-item-id="${item.id}"
+    draggable="${inCatSort}"
+    data-item-id="${item.id}"
+    data-item-cat="${esc(item.category)}"
     ondragstart="onItemDragStart(event,'${item.id}')"
-    ondragend="onItemDragEnd(event)"
+    ondragend="onItemDragEnd()"
+    ondragover="onRowDragOver(event,'${esc(item.category)}')"
+    ondragleave="onRowDragLeave(event)"
+    ondrop="onRowDrop(event)"
     onclick="toggleExpand('${item.id}')">
+    ${handleCell}
     <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand || '')}</div></td>
     <td>${badge('badge-gray', item.category)}</td>
     <td class="mono">${wg(item.weight_g)}<br><span style="font-size:10px;color:var(--text-3)">${woz(item.weight_g)}</span></td>
     <td>${usd(item.cost_usd)}</td>
     <td class="mono" style="color:var(--text-2)">${dpg(item.cost_usd, item.weight_g)}</td>
     <td>${badge(COND_BADGE[item.condition] || 'badge-gray', COND_LABEL[item.condition] || item.condition)}</td>
-    <td class="mono" style="font-size:11px;color:var(--text-3)">${item.usage_days || 0}d${item.usage_nights ? ` · ${item.usage_nights}n` : ''}</td>
+    <td class="mono" style="font-size:11px;color:var(--text-3)">${item.usage_days || 0}d${item.usage_nights ? ' · ' + item.usage_nights + 'n' : ''}</td>
     ${miscCell}
     <td onclick="event.stopPropagation()">
       <button class="btn-icon" title="Edit" onclick="openEditItem('${item.id}')">✎</button>
@@ -742,20 +743,6 @@ function renderTripDetail(trip) {
       <span class="w-bar-vals">${wg(w)}</span>
     </div>`).join('');
 
-  const gearRows = (trip.gear_ids || []).map(id => {
-    const item = state.items.find(i => i.id === id);
-    if (!item) return '';
-    const ov = (trip.gear_overrides || {})[id];
-    const effectiveW = ov != null ? ov : item.weight_g;
-    return `<tr>
-      <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand || '')}</div></td>
-      <td>${badge('badge-gray', item.category)}</td>
-      <td class="mono">${wg(effectiveW)}${ov != null ? ` <span style="font-size:10px;color:var(--accent)">(override)</span>` : ''}</td>
-      ${carryCell(trip.id, id, false)}
-      <td>${usd(item.cost_usd)}</td>
-    </tr>`;
-  }).join('');
-
   document.getElementById('trip-detail').innerHTML = `
     <div class="card-header" style="margin-bottom:.5rem">
       <div>
@@ -808,8 +795,11 @@ function renderTripDetail(trip) {
     </div>
     <div class="table-wrap">
       <table class="data-table">
-        <thead><tr><th>Item</th><th>Category</th><th>Weight</th><th>Carry</th><th>Cost</th></tr></thead>
-        <tbody>${gearRows || '<tr><td colspan="5"><div class="empty-state">No gear added yet.</div></td></tr>'}</tbody>
+        <thead><tr>
+          <th style="width:28px;padding:6px 4px"></th>
+          <th>Item</th><th>Weight</th><th>Carry</th><th>Cost</th>
+        </tr></thead>
+        <tbody>${catGroupedGearTable(trip.gear_ids||[], trip.id, false, 5) || '<tr><td colspan="5"><div class="empty-state">No gear added yet.</div></td></tr>'}</tbody>
       </table>
     </div>`;
 }
@@ -1245,46 +1235,6 @@ function renderTemplateDetail(tmpl) {
     </span>`
   ).join('');
 
-  // Gear grouped by category — each item has clickable carry badge
-  const byCat = {};
-  validIds.forEach(id => {
-    const item = state.items.find(i => i.id === id);
-    if (!item) return;
-    if (!byCat[item.category]) byCat[item.category] = [];
-    byCat[item.category].push({ item, id });
-  });
-
-  const gearHtml = Object.entries(byCat).map(([cat, entries]) => `
-    <div style="margin-bottom:1rem">
-      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:5px">${esc(cat)}</div>
-      <div class="template-gear-grid">
-        ${entries.map(({ item, id }) => {
-          const ct = getCarryType(tmpl, id);
-          const carryStyles = {
-            packed:     '',
-            worn:       'background:var(--warning-bg);color:var(--warning-text)',
-            consumable: 'background:var(--info-bg);color:var(--info-text)',
-          };
-          const carryLabels = { packed: '', worn: 'W', consumable: 'C' };
-          return `
-          <div class="template-gear-item" style="justify-content:space-between">
-            <div style="display:flex;align-items:center;gap:7px;min-width:0">
-              <span class="template-gear-dot" style="background:${categoryColor(item.category)}"></span>
-              <div style="min-width:0">
-                <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.name)}</div>
-                <div style="color:var(--text-3);font-size:11px">${wg(item.weight_g)}</div>
-              </div>
-            </div>
-            <span onclick="cycleCarryType('${tmpl.id}','${id}',true)"
-              title="Click to cycle: packed → worn → consumable"
-              style="cursor:pointer;flex-shrink:0;margin-left:6px;font-size:11px;font-weight:500;padding:1px 6px;border-radius:20px;${carryStyles[ct]}">
-              ${carryLabels[ct]}
-            </span>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`).join('');
-
   document.getElementById('template-detail').innerHTML = `
     <div class="card-header" style="margin-bottom:.75rem">
       <div>
@@ -1310,8 +1260,20 @@ function renderTemplateDetail(tmpl) {
     </div>
 
     <div class="cat-pills" style="margin-bottom:1.25rem">${catPills}</div>
-    <p style="font-size:11px;color:var(--text-3);margin-bottom:.75rem">Click any item badge to cycle its carry type: blank = packed · <span style="background:var(--warning-bg);color:var(--warning-text);padding:1px 5px;border-radius:10px;font-weight:500">W</span> = worn · <span style="background:var(--info-bg);color:var(--info-text);padding:1px 5px;border-radius:10px;font-weight:500">C</span> = consumable</p>
-    ${gearHtml}`;
+    <p style="font-size:11px;color:var(--text-3);margin-bottom:.75rem">
+      Drag ⠿ to move category · Tap ⠿ on mobile · Click carry badge to cycle: blank = packed ·
+      <span style="background:var(--warning-bg);color:var(--warning-text);padding:1px 5px;border-radius:10px;font-weight:500">W</span> worn ·
+      <span style="background:var(--info-bg);color:var(--info-text);padding:1px 5px;border-radius:10px;font-weight:500">C</span> consumable
+    </p>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:28px;padding:6px 4px"></th>
+          <th>Item</th><th>Weight</th><th>Carry</th><th>Cost</th>
+        </tr></thead>
+        <tbody>${catGroupedGearTable(validIds, tmpl.id, true, 5)}</tbody>
+      </table>
+    </div>`;
 }
 
 // ── Template form (create / edit) ──────────────────────────
@@ -1699,55 +1661,175 @@ function _doApply(trip, tmpl, mode) {
 }
 
 // ============================================================
-// DRAG & DROP — gear rows to category headers
+// DRAG & DROP — handle-initiated, section-aware, mobile-friendly
 // ============================================================
-let _dragItemId = null;
+let _dragItemId   = null;
+let _dropTargetCat = null;
 
 function onItemDragStart(e, itemId) {
+  // Only allow drag when initiated from the handle cell
+  if (!e.target.closest('.gear-handle-cell')) {
+    e.preventDefault(); return;
+  }
   _dragItemId = itemId;
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', itemId);
   setTimeout(() => {
-    const row = document.querySelector(`tr[data-item-id="${itemId}"]`);
-    if (row) row.classList.add('gear-row-dragging');
+    document.querySelector(`tr[data-item-id="${itemId}"]`)?.classList.add('gear-row-dragging');
   }, 0);
 }
 
 function onItemDragEnd() {
-  _dragItemId = null;
+  _dragItemId    = null;
+  _dropTargetCat = null;
   document.querySelectorAll('.gear-row-dragging').forEach(r => r.classList.remove('gear-row-dragging'));
-  document.querySelectorAll('.drop-target').forEach(r => r.classList.remove('drop-target'));
+  document.querySelectorAll('.cat-section-highlight').forEach(r => r.classList.remove('cat-section-highlight'));
 }
 
-function onCatDragOver(e) {
+function onRowDragOver(e, itemCat) {
   if (!_dragItemId) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
-  e.currentTarget.classList.add('drop-target');
+  if (_dropTargetCat === itemCat) return; // already highlighted
+  _dropTargetCat = itemCat;
+  // Remove previous highlights
+  document.querySelectorAll('.cat-section-highlight').forEach(r => r.classList.remove('cat-section-highlight'));
+  // Highlight every row in this category section
+  document.querySelectorAll(`tr[data-item-cat="${itemCat}"], tr[data-cat="${itemCat}"]`)
+    .forEach(r => r.classList.add('cat-section-highlight'));
 }
 
-function onCatDragLeave(e) {
-  e.currentTarget.classList.remove('drop-target');
+function onRowDragLeave(e) {
+  // Clear highlights only when the pointer leaves all draggable rows entirely
+  if (!e.relatedTarget || !e.relatedTarget.closest('[data-item-cat], [data-cat]')) {
+    document.querySelectorAll('.cat-section-highlight').forEach(r => r.classList.remove('cat-section-highlight'));
+    _dropTargetCat = null;
+  }
 }
 
-function onCatDrop(e) {
+function onRowDrop(e) {
   e.preventDefault();
-  e.currentTarget.classList.remove('drop-target');
-  const catName = e.currentTarget.dataset.cat;
   const itemId  = e.dataTransfer.getData('text/plain') || _dragItemId;
-  if (!catName || !itemId) return;
+  const catName = _dropTargetCat || e.currentTarget.dataset.itemCat;
+  document.querySelectorAll('.cat-section-highlight').forEach(r => r.classList.remove('cat-section-highlight'));
+  if (!itemId || !catName) return;
   const item = state.items.find(i => i.id === itemId);
   if (!item || item.category === catName) return;
-  const oldCat = item.category;
   item.category = catName;
   saveState();
   renderGear();
   toast(`Moved "${item.name}" → ${catName}`);
 }
 
-// ============================================================
-// CATEGORY MANAGEMENT
-// ============================================================
+// Mobile: tap the handle to pick a category from a list
+function openCategoryPickerMobile(itemId) {
+  const item = state.items.find(i => i.id === itemId);
+  if (!item) return;
+  const cats = categoryNames();
+  openModal(`Move to category`, `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:.875rem">
+      Moving: <strong>${esc(item.name)}</strong>
+    </p>
+    <div style="display:flex;flex-direction:column;gap:5px">
+      ${cats.map(c => `
+        <button class="btn ${c === item.category ? 'btn-primary' : ''}"
+          style="justify-content:flex-start;gap:10px"
+          onclick="moveToCat('${itemId}','${c.replace(/'/g,"\\'")}')">
+          <span style="width:10px;height:10px;border-radius:50%;background:${categoryColor(c)};flex-shrink:0;display:inline-block"></span>
+          ${esc(c)}
+          ${c === item.category ? '<span style="margin-left:auto;font-size:11px;opacity:.7">current</span>' : ''}
+        </button>`).join('')}
+    </div>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`);
+}
+
+function moveToCat(itemId, catName) {
+  const item = state.items.find(i => i.id === itemId);
+  if (!item || item.category === catName) { closeModal(); return; }
+  item.category = catName;
+  saveState();
+  closeModal();
+  renderGear();
+  toast(`Moved to ${catName}`);
+}
+
+function moveToCat(itemId, catName) {
+  const item = state.items.find(i => i.id === itemId);
+  if (!item || item.category === catName) { closeModal(); return; }
+  item.category = catName;
+  saveState();
+  closeModal();
+  // Re-render whatever context is currently open
+  if (currentTab === 'gear') renderGear();
+  else if (currentTab === 'trips' && activeTripId) renderTripDetail(state.trips.find(t => t.id === activeTripId));
+  else if (currentTab === 'templates' && activeTemplateId) renderTemplateDetail(state.templates.find(t => t.id === activeTemplateId));
+  else renderGear();
+  toast(`Moved to ${catName}`);
+}
+
+// ── Shared category-grouped gear table ──────────────────────
+// Renders tbody rows (with category headers) for a list of item ids.
+// containerId / isTemplate are used only for carry type cycling.
+// cols = total column count including the handle column.
+function catGroupedGearTable(ids, containerId, isTemplate, cols) {
+  const validIds = ids.filter(id => state.items.find(i => i.id === id));
+  if (!validIds.length) return `<tr><td colspan="${cols}"><div class="empty-state">No gear added yet.</div></td></tr>`;
+
+  // Group by category, preserving category order from state.categories
+  const catOrder = categoryNames();
+  const byCat = {};
+  validIds.forEach(id => {
+    const item = state.items.find(i => i.id === id);
+    if (!item) return;
+    if (!byCat[item.category]) byCat[item.category] = [];
+    byCat[item.category].push({ item, id });
+  });
+
+  // Sort categories by global order, unknown cats go at end
+  const sortedCats = Object.keys(byCat).sort((a, b) => {
+    const ai = catOrder.indexOf(a), bi = catOrder.indexOf(b);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1; if (bi === -1) return -1;
+    return ai - bi;
+  });
+
+  return sortedCats.map(cat => {
+    const entries = byCat[cat];
+    const catHeader = `<tr class="cat-header-row" data-cat="${esc(cat)}">
+      <td colspan="${cols}">${esc(cat)}</td>
+    </tr>`;
+
+    const rows = entries.map(({ item, id }) => {
+      const ov = containerId && !isTemplate ? ((state.trips.find(t=>t.id===containerId)?.gear_overrides||{})[id]) : null;
+      const effectiveW = ov != null ? ov : item.weight_g;
+      const container  = isTemplate
+        ? state.templates.find(t => t.id === containerId)
+        : state.trips.find(t => t.id === containerId);
+
+      return `<tr class="expandable"
+        draggable="true"
+        data-item-id="${item.id}"
+        data-item-cat="${esc(item.category)}"
+        ondragstart="onItemDragStart(event,'${item.id}')"
+        ondragend="onItemDragEnd()"
+        ondragover="onRowDragOver(event,'${esc(item.category)}')"
+        ondragleave="onRowDragLeave(event)"
+        ondrop="onRowDrop(event)">
+        <td class="gear-handle-cell"
+          onclick="event.stopPropagation();openCategoryPickerMobile('${item.id}')"
+          title="Drag to move category · Tap on mobile">
+          <span class="gear-handle">⠿</span>
+        </td>
+        <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand||'')}</div></td>
+        <td class="mono">${wg(effectiveW)}${ov!=null?` <span style="font-size:10px;color:var(--accent)">(override)</span>`:''}</td>
+        ${container ? carryCell(containerId, id, isTemplate) : '<td></td>'}
+        <td>${usd(item.cost_usd)}</td>
+      </tr>`;
+    }).join('');
+
+    return catHeader + rows;
+  }).join('');
+}
 const CAT_COLORS = [
   '#2A7048','#1A5C8A','#6B4E9E','#B87B0A','#8A4A2A',
   '#2A6A6A','#8A2A6A','#4A6A2A','#6A4A2A','#5A2A8A',
