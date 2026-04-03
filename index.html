@@ -23,6 +23,7 @@
         <button class="nav-tab" data-tab="trips">Trips</button>
         <button class="nav-tab" data-tab="templates">Templates</button>
         <button class="nav-tab" data-tab="wishlist">Wishlist</button>
+        <button class="nav-tab" data-tab="food">Food</button>
         <button class="nav-tab" data-tab="analytics">Analytics</button>
       </nav>
       <div class="header-actions">
@@ -172,6 +173,37 @@
           </thead>
           <tbody id="wish-tbody"></tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- FOOD PLANNING -->
+    <section id="tab-food" class="tab-panel">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Food Planning</h1>
+          <p class="page-sub" id="food-sub">Plan meals, calories and weight per trip</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" id="btn-food-recipes" onclick="setFoodView('recipes')">Recipe library</button>
+          <button class="btn btn-sm btn-primary" id="btn-food-plan" onclick="setFoodView('plans');openNewFoodPlan()">+ New plan</button>
+        </div>
+      </div>
+
+      <!-- Plans view -->
+      <div id="food-plans-view">
+        <div id="food-plans-grid" class="trips-grid"></div>
+        <div id="food-plan-detail-wrap" style="display:none">
+          <div class="card" id="food-plan-detail"></div>
+        </div>
+      </div>
+
+      <!-- Recipes view -->
+      <div id="food-recipes-view" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.875rem">
+          <span style="font-size:13px;color:var(--text-secondary)">Reusable recipes you can add to any meal plan</span>
+          <button class="btn btn-sm btn-primary" onclick="openRecipeForm()">+ New recipe</button>
+        </div>
+        <div id="recipes-grid"></div>
       </div>
     </section>
 

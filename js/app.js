@@ -3,7 +3,7 @@
 // ============================================================
 
 // ── State ──────────────────────────────────────────────────
-let state = { items: [], trips: [], wishlist: [], categories: [], templates: [], trip_types: [] };
+let state = { items: [], trips: [], wishlist: [], categories: [], templates: [], trip_types: [], food_plans: [], recipes: [] };
 
 // ── Persistence ────────────────────────────────────────────
 function saveState() {
@@ -18,6 +18,8 @@ function loadState() {
       if (!state.templates)  state.templates  = JSON.parse(JSON.stringify(SEED_DATA.templates));
       if (!state.trip_types) state.trip_types = JSON.parse(JSON.stringify(SEED_DATA.trip_types));
       if (!state.categories) state.categories = JSON.parse(JSON.stringify(SEED_DATA.categories));
+      if (!state.food_plans) state.food_plans = [];
+      if (!state.recipes)    state.recipes    = JSON.parse(JSON.stringify(SEED_DATA.recipes));
       // Ensure every category has a color (older saves may lack it)
       state.categories.forEach((cat, i) => {
         if (!cat.color) cat.color = SEED_DATA.categories[i]?.color || '#888';
@@ -35,6 +37,8 @@ function loadState() {
     categories: JSON.parse(JSON.stringify(SEED_DATA.categories)),
     templates:  JSON.parse(JSON.stringify(SEED_DATA.templates)),
     trip_types: JSON.parse(JSON.stringify(SEED_DATA.trip_types)),
+    food_plans: [],
+    recipes:    JSON.parse(JSON.stringify(SEED_DATA.recipes)),
   };
   saveState();
 }
@@ -175,7 +179,7 @@ function showTab(name) {
   currentTab = name;
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
-  const renders = { dashboard: renderDashboard, gear: renderGear, trips: renderTrips, templates: renderTemplates, wishlist: renderWishlist, analytics: renderAnalytics };
+  const renders = { dashboard: renderDashboard, gear: renderGear, trips: renderTrips, templates: renderTemplates, wishlist: renderWishlist, food: renderFood, analytics: renderAnalytics };
   if (renders[name]) renders[name]();
 }
 
@@ -611,6 +615,19 @@ function saveItem(id) {
   saveState(); closeModal(); renderGear();
   if (currentTab === 'dashboard') renderDashboard();
   toast(id ? 'Item updated!' : 'Item added!');
+
+  // Handle wishlist → gear closet conversion
+  if (!id && window._convertFromWishId) {
+    const wid = window._convertFromWishId;
+    window._convertFromWishId = null;
+    setTimeout(() => {
+      if (confirm('Item added to Gear Closet! Remove it from your wishlist?')) {
+        state.wishlist = state.wishlist.filter(w => w.id !== wid);
+        saveState();
+        if (currentTab === 'wishlist') renderWishlist();
+      }
+    }, 300);
+  }
 }
 
 function deleteItem(id) {
@@ -964,6 +981,7 @@ function renderWishlist() {
           <td>
             <div style="display:flex;gap:4px">
               ${w.product_url ? `<a href="${esc(w.product_url)}" target="_blank" class="btn btn-xs">↗</a>` : ''}
+              <button class="btn btn-xs" style="border-color:var(--success);color:var(--success-text)" onclick="convertWishToGear('${w.id}')" title="Move to Gear Closet">→ Closet</button>
               <button class="btn btn-xs" onclick="openEditWish('${w.id}')">✎</button>
               <button class="btn btn-xs btn-danger" onclick="deleteWish('${w.id}')">✕</button>
             </div>
@@ -1035,6 +1053,42 @@ function deleteWish(id) {
   toast('Removed from wishlist.');
 }
 
+function convertWishToGear(id) {
+  const w = state.wishlist.find(w => w.id === id);
+  if (!w) return;
+  // Map wishlist fields to gear item form, pre-fill category from item type name
+  const catMatch = state.categories.find(c =>
+    c.name.toLowerCase().includes(w.name.toLowerCase()) ||
+    w.name.toLowerCase().includes(c.name.toLowerCase().split(' ')[0])
+  );
+  const prefilled = {
+    id: '',
+    name: [w.brand, w.model].filter(Boolean).join(' ') || w.name,
+    brand:        w.brand  || '',
+    model:        w.model  || '',
+    category:     catMatch ? catMatch.name : (state.categories[0]?.name || 'Pack'),
+    weight_g:     w.weight_g  || 0,
+    cost_usd:     w.cost_usd  || 0,
+    volume_liters: w.volume_liters || null,
+    frame_type:   w.frame_type || null,
+    product_url:  w.product_url || null,
+    condition:    'excellent',
+    usage_days:   0,
+    usage_nights: 0,
+    misc_stat:    null,
+    notes:        w.notes || '',
+    purchase_date: null,
+    purchase_retailer: null,
+  };
+  // Store wishlist id to remove after successful save
+  window._convertFromWishId = id;
+  openModal('Add to Gear Closet', itemFormHtml(prefilled) +
+    `<p style="font-size:11.5px;color:var(--text-3);margin-top:.5rem">
+       Saving will add this to your Gear Closet. You can choose to keep or remove the wishlist entry afterwards.
+    </p>`);
+}
+
+// Hook into saveItem to handle the post-conversion wishlist removal
 // ============================================================
 // ANALYTICS
 // ============================================================
@@ -2012,6 +2066,452 @@ function openManageCategoriesFromForm() {
   openManageCategories();
   // After closing, the form will rebuild its select from state
   window._pendingCatSelect = prev;
+}
+
+// ============================================================
+// FOOD PLANNING
+// ============================================================
+const MEAL_TIMES  = ['breakfast','snack','lunch','dinner'];
+const MEAL_LABELS = { breakfast:'Breakfast', snack:'Snack', lunch:'Lunch', dinner:'Dinner' };
+const MEAL_ICONS  = { breakfast:'☀', snack:'🌿', lunch:'☁', dinner:'★' };
+// Backpacking calorie targets per meal (summing to ~3000/day default)
+const MEAL_CAL_GUIDE = { breakfast:650, snack:500, lunch:750, dinner:900 };
+
+let activeFoodPlanId = null;
+let foodView = 'plans'; // 'plans' | 'recipes'
+
+function setFoodView(view) {
+  foodView = view;
+  document.getElementById('food-plans-view').style.display    = view === 'plans'   ? '' : 'none';
+  document.getElementById('food-recipes-view').style.display  = view === 'recipes' ? '' : 'none';
+  const btnPlan    = document.getElementById('btn-food-plan');
+  const btnRecipes = document.getElementById('btn-food-recipes');
+  if (btnPlan)    btnPlan.textContent    = view === 'plans' ? '+ New plan' : 'Meal plans';
+  if (btnRecipes) btnRecipes.textContent = view === 'recipes' ? 'Meal plans' : 'Recipe library';
+  if (btnPlan)    btnPlan.onclick    = view === 'plans' ? () => { setFoodView('plans'); openNewFoodPlan(); } : () => setFoodView('plans');
+  if (btnRecipes) btnRecipes.onclick = view === 'recipes' ? () => setFoodView('plans') : () => setFoodView('recipes');
+  if (view === 'recipes') renderRecipeLibrary();
+  else renderFoodPlanGrid();
+}
+
+function renderFood() {
+  setFoodView(foodView);
+}
+
+// ── Food plan grid ──────────────────────────────────────────
+function renderFoodPlanGrid() {
+  const grid = document.getElementById('food-plans-grid');
+  if (!grid) return;
+  if (!state.food_plans.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <p>No meal plans yet. Create one to start planning food for a trip.</p>
+      <button class="btn btn-primary" onclick="openNewFoodPlan()">+ New plan</button>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = state.food_plans.map(plan => {
+    const trip    = plan.trip_id ? state.trips.find(t => t.id === plan.trip_id) : null;
+    const meals   = plan.meals || [];
+    const totalCal = meals.reduce((s, m) => s + (m.cal || 0), 0);
+    const totalW   = meals.reduce((s, m) => s + (m.weight_g || 0), 0);
+    const targetCal = plan.cal_target_per_day * plan.days;
+    const pct = targetCal ? Math.round(totalCal / targetCal * 100) : 0;
+    return `<div class="trip-card ${activeFoodPlanId === plan.id ? 'active' : ''}" onclick="openFoodPlan('${plan.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <div class="trip-card-name">${esc(plan.name)}</div>
+        <span class="badge badge-gray">${plan.days}d</span>
+      </div>
+      <div class="trip-card-meta">${trip ? esc(trip.name) + ' · ' : ''}${plan.days} days · ${neededMealsSummary(plan)}</div>
+      <div class="trip-card-stats">
+        <span>${meals.length} items logged</span>
+        <span class="mono" style="color:var(--${pct < 60 ? 'danger' : 'success'})">${totalCal.toLocaleString()} cal</span>
+      </div>
+      ${targetCal ? `<div class="prog-track"><div class="prog-fill ${pct < 60 ? 'prog-amber' : pct >= 100 ? 'prog-green' : 'prog-green'}" style="width:${Math.min(100,pct)}%"></div></div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:3px">${pct}% of ${(targetCal/1000).toFixed(1)}k cal target</div>` : ''}
+    </div>`;
+  }).join('');
+  if (activeFoodPlanId) renderFoodPlanDetail(state.food_plans.find(p => p.id === activeFoodPlanId));
+}
+
+function neededMealsSummary(plan) {
+  const d = plan.days, n = plan.nights ?? (plan.days - 1);
+  return `${d}B · ${d}L · ${d}S · ${n}D`;
+}
+
+function openFoodPlan(id) {
+  activeFoodPlanId = id;
+  const plan = state.food_plans.find(p => p.id === id);
+  if (!plan) return;
+  renderFoodPlanGrid();
+  renderFoodPlanDetail(plan);
+  setTimeout(() => document.getElementById('food-plan-detail-wrap')?.scrollIntoView({ behavior:'smooth', block:'start' }), 80);
+}
+
+function closeFoodPlan() {
+  activeFoodPlanId = null;
+  document.getElementById('food-plan-detail-wrap').style.display = 'none';
+  renderFoodPlanGrid();
+}
+
+function renderFoodPlanDetail(plan) {
+  if (!plan) return;
+  const wrap = document.getElementById('food-plan-detail-wrap');
+  wrap.style.display = 'block';
+  const trip  = plan.trip_id ? state.trips.find(t => t.id === plan.trip_id) : null;
+  const meals = plan.meals || [];
+  const nights = plan.nights ?? (plan.days - 1);
+
+  // Totals
+  const totalCal = meals.reduce((s, m) => s + (m.cal || 0), 0);
+  const totalW   = meals.reduce((s, m) => s + (m.weight_g || 0), 0);
+  const avgCalPD = plan.days ? Math.round(totalCal / plan.days) : 0;
+  const avgWPD   = plan.days ? Math.round(totalW   / plan.days) : 0;
+  const targetCal = plan.cal_target_per_day * plan.days;
+  const targetW   = plan.weight_target_g_per_day * plan.days;
+
+  // Guidance banner
+  const guidance = `
+    <div style="background:var(--surface-2);border:.5px solid var(--border);border-radius:var(--r-lg);padding:.875rem 1.25rem;margin-bottom:1rem;font-size:12.5px">
+      <div style="font-weight:500;margin-bottom:.375rem">For this ${plan.days}-day/${nights}-night trip you need:</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;color:var(--text-2)">
+        <span>${MEAL_ICONS.breakfast} <strong>${plan.days}</strong> breakfasts</span>
+        <span>${MEAL_ICONS.snack} <strong>${plan.days}</strong> snack sets</span>
+        <span>${MEAL_ICONS.lunch} <strong>${plan.days}</strong> lunches</span>
+        <span>${MEAL_ICONS.dinner} <strong>${nights}</strong> dinners</span>
+      </div>
+      <div style="margin-top:.5rem;color:var(--text-3)">Target: ${plan.cal_target_per_day.toLocaleString()} cal/day · ${plan.weight_target_g_per_day}g (~${(plan.weight_target_g_per_day/453.6).toFixed(1)}lb) food/day</div>
+    </div>`;
+
+  // Summary metrics
+  const calPct = targetCal ? Math.round(totalCal/targetCal*100) : 0;
+  const wPct   = targetW   ? Math.round(totalW/targetW*100)     : 0;
+  const metrics = `
+    <div class="metrics-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:1rem">
+      <div class="metric-card"><div class="metric-label">Total calories</div><div class="metric-val">${totalCal.toLocaleString()}</div><div class="metric-sub">${calPct}% of ${(targetCal/1000).toFixed(1)}k target</div></div>
+      <div class="metric-card"><div class="metric-label">Cal / day</div><div class="metric-val">${avgCalPD.toLocaleString()}</div><div class="metric-sub">target ${plan.cal_target_per_day.toLocaleString()}</div></div>
+      <div class="metric-card"><div class="metric-label">Total food weight</div><div class="metric-val">${wg(totalW)}</div><div class="metric-sub">${wPct}% of ${wg(targetW)} target</div></div>
+      <div class="metric-card"><div class="metric-label">Weight / day</div><div class="metric-val">${wg(avgWPD)}</div><div class="metric-sub">${(avgWPD/453.6).toFixed(1)} lb · target ${(plan.weight_target_g_per_day/453.6).toFixed(1)} lb</div></div>
+    </div>`;
+
+  // Day-by-day grid
+  const days = Array.from({ length: plan.days }, (_, i) => i + 1);
+  const dayHtml = days.map(day => {
+    const mealTypes = day === plan.days
+      ? ['breakfast','snack','lunch'] // last day: no dinner (usually)
+      : MEAL_TIMES;
+    const dayMeals  = meals.filter(m => m.day === day);
+    const dayCal    = dayMeals.reduce((s,m) => s + (m.cal||0), 0);
+    const dayW      = dayMeals.reduce((s,m) => s + (m.weight_g||0), 0);
+    const slots = mealTypes.map(mt => {
+      const slotMeals = dayMeals.filter(m => m.meal_time === mt);
+      const slotCal   = slotMeals.reduce((s,m) => s + (m.cal||0), 0);
+      const guideCal  = MEAL_CAL_GUIDE[mt];
+      const ok = slotCal >= guideCal * 0.75;
+      return `
+        <div style="border:.5px solid var(--border);border-radius:var(--r-md);padding:.625rem .75rem;min-height:80px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3)">${MEAL_ICONS[mt]} ${MEAL_LABELS[mt]}</span>
+            <div style="display:flex;align-items:center;gap:5px">
+              ${slotCal ? `<span class="mono" style="font-size:11px;color:var(--${ok?'success':'warning'})">${slotCal} cal</span>` : `<span style="font-size:10px;color:var(--text-3)">~${guideCal} cal needed</span>`}
+              <button class="btn btn-xs" onclick="openAddMeal('${plan.id}',${day},'${mt}')" style="padding:2px 7px">+</button>
+            </div>
+          </div>
+          ${slotMeals.map(m => `
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:2px 0;border-top:.5px solid var(--border-2)">
+              <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(m.name)}">${esc(m.name)}</span>
+              <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;margin-left:6px">
+                <span class="mono" style="color:var(--text-3);font-size:11px">${wg(m.weight_g)}</span>
+                <button class="btn btn-xs btn-danger" style="padding:1px 5px" onclick="deleteMealItem('${plan.id}','${m.id}')">✕</button>
+              </div>
+            </div>`).join('')}
+        </div>`;
+    }).join('');
+
+    return `
+      <div style="margin-bottom:.875rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.375rem">
+          <span style="font-weight:500;font-size:13px">Day ${day}${day===1?' (trail start)':day===plan.days?' (last day)':''}</span>
+          <span style="font-size:12px;color:var(--${dayCal >= plan.cal_target_per_day*0.8?'success':'warning'})">
+            ${dayCal ? `${dayCal.toLocaleString()} cal · ${wg(dayW)}` : 'No meals logged yet'}
+          </span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(${mealTypes.length},1fr);gap:6px">${slots}</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('food-plan-detail').innerHTML = `
+    <div class="card-header" style="margin-bottom:.75rem">
+      <div>
+        <span class="card-title" style="font-size:17px;font-family:var(--font-disp)">${esc(plan.name)}</span>
+        ${trip ? `&nbsp;<span style="font-size:12px;color:var(--text-3)">· ${esc(trip.name)}</span>` : ''}
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" onclick="openEditFoodPlan('${plan.id}')">Edit plan</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteFoodPlan('${plan.id}')">Delete</button>
+        <button class="btn btn-sm btn-ghost" onclick="closeFoodPlan()">Close ✕</button>
+      </div>
+    </div>
+    ${guidance}
+    ${metrics}
+    ${dayHtml}`;
+}
+
+// ── Food plan CRUD ──────────────────────────────────────────
+function openNewFoodPlan() {
+  setFoodView('plans');
+  openModal('New meal plan', foodPlanFormHtml());
+}
+
+function openEditFoodPlan(id) {
+  const plan = state.food_plans.find(p => p.id === id);
+  if (!plan) return;
+  openModal('Edit meal plan', foodPlanFormHtml(plan));
+}
+
+function foodPlanFormHtml(plan) {
+  plan = plan || {};
+  const tripOptions = state.trips.map(t =>
+    `<option value="${t.id}" ${plan.trip_id === t.id ? 'selected' : ''}>${esc(t.name)}</option>`
+  ).join('');
+  return `
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Plan name *</label>
+        <input class="input input-full" id="fp-name" value="${esc(plan.name||'')}" placeholder="e.g. Lost Coast 3-Day Food"></div>
+      <div class="form-row"><label class="form-label">Link to trip (optional)</label>
+        <select class="select input-full" id="fp-trip">
+          <option value="">— No trip —</option>${tripOptions}
+        </select></div>
+      <div class="form-row"><label class="form-label">Days out</label>
+        <input class="input input-full" id="fp-days" type="number" min="1" max="30" value="${plan.days||3}">
+        <div class="form-hint">Dinners = days − 1 (no dinner on last day)</div></div>
+      <div class="form-row"><label class="form-label">Calorie target / day</label>
+        <select class="select input-full" id="fp-cal">
+          <option value="2500" ${plan.cal_target_per_day===2500?'selected':''}>2,500 — Easy/moderate day hikes</option>
+          <option value="3000" ${(!plan.cal_target_per_day||plan.cal_target_per_day===3000)?'selected':''}>3,000 — Standard backpacking (default)</option>
+          <option value="3500" ${plan.cal_target_per_day===3500?'selected':''}>3,500 — Big miles / elevation gain</option>
+          <option value="4000" ${plan.cal_target_per_day===4000?'selected':''}>4,000 — Ultra-long days / cold weather</option>
+        </select></div>
+      <div class="form-row"><label class="form-label">Food weight target / day</label>
+        <select class="select input-full" id="fp-wt">
+          <option value="680" ${plan.weight_target_g_per_day===680?'selected':''}>680g (1.5 lb) — Ultralight</option>
+          <option value="800" ${(!plan.weight_target_g_per_day||plan.weight_target_g_per_day===800)?'selected':''}>800g (1.75 lb) — Standard UL (default)</option>
+          <option value="907" ${plan.weight_target_g_per_day===907?'selected':''}>907g (2.0 lb) — Traditional planning</option>
+          <option value="1100" ${plan.weight_target_g_per_day===1100?'selected':''}>1,100g (2.4 lb) — Cold/hard trips</option>
+        </select></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveFoodPlan('${plan.id||''}')">Save plan</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`;
+}
+
+function saveFoodPlan(id) {
+  const name = document.getElementById('fp-name').value.trim();
+  if (!name) { alert('Plan name is required.'); return; }
+  const isNew = !id;
+  const existing = id ? state.food_plans.find(p => p.id === id) : null;
+  const days = parseInt(document.getElementById('fp-days').value) || 3;
+  const data = {
+    id:    id || uid('fp'),
+    name,
+    trip_id: document.getElementById('fp-trip').value || null,
+    days,
+    cal_target_per_day:    parseInt(document.getElementById('fp-cal').value) || 3000,
+    weight_target_g_per_day: parseInt(document.getElementById('fp-wt').value) || 800,
+    meals: existing ? existing.meals : [],
+  };
+
+  if (existing) {
+    const idx = state.food_plans.findIndex(p => p.id === id);
+    if (idx >= 0) state.food_plans[idx] = data;
+  } else {
+    state.food_plans.push(data);
+  }
+  saveState(); closeModal();
+  activeFoodPlanId = data.id;
+  renderFoodPlanGrid();
+  openFoodPlan(data.id);
+  toast(isNew ? 'Meal plan created!' : 'Plan updated!');
+}
+
+function deleteFoodPlan(id) {
+  if (!confirm('Delete this meal plan?')) return;
+  state.food_plans = state.food_plans.filter(p => p.id !== id);
+  saveState(); closeFoodPlan();
+  toast('Plan deleted.');
+}
+
+// ── Meal items ──────────────────────────────────────────────
+function openAddMeal(planId, day, mealTime) {
+  const plan = state.food_plans.find(p => p.id === planId);
+  if (!plan) return;
+  const guideCal = MEAL_CAL_GUIDE[mealTime];
+  // Build recipe options for this meal time
+  const recs = state.recipes.filter(r => !r.meal_time || r.meal_time === mealTime || r.meal_time === 'snack');
+  const recOpts = recs.length
+    ? `<div class="form-row"><label class="form-label">Quick-fill from recipe</label>
+        <select class="select input-full" id="mi-recipe" onchange="fillFromRecipe()">
+          <option value="">— type manually —</option>
+          ${recs.map(r => `<option value="${r.id}" data-cal="${r.cal_per_serving}" data-w="${r.weight_g_per_serving}">${esc(r.name)} (${r.cal_per_serving} cal · ${r.weight_g_per_serving}g)</option>`).join('')}
+        </select></div>` : '';
+
+  openModal(`Add ${MEAL_LABELS[mealTime]} — Day ${day}`, `
+    ${recOpts}
+    <div class="form-row"><label class="form-label">Food / item name *</label>
+      <input class="input input-full" id="mi-name" placeholder="e.g. Instant oats + protein powder"></div>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Calories</label>
+        <input class="input input-full" id="mi-cal" type="number" min="0" placeholder="~${guideCal}"></div>
+      <div class="form-row"><label class="form-label">Weight (grams)</label>
+        <input class="input input-full" id="mi-wg" type="number" min="0" placeholder="grams"></div>
+    </div>
+    <div class="form-row"><label class="form-label">Notes</label>
+      <input class="input input-full" id="mi-notes" placeholder="brand, prep notes…"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveMealItem('${planId}',${day},'${mealTime}')">Add</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+
+function fillFromRecipe() {
+  const sel = document.getElementById('mi-recipe');
+  if (!sel || !sel.value) return;
+  const rec = state.recipes.find(r => r.id === sel.value);
+  if (!rec) return;
+  const nameEl = document.getElementById('mi-name');
+  const calEl  = document.getElementById('mi-cal');
+  const wgEl   = document.getElementById('mi-wg');
+  if (nameEl) nameEl.value = rec.name;
+  if (calEl)  calEl.value  = rec.cal_per_serving;
+  if (wgEl)   wgEl.value   = rec.weight_g_per_serving;
+}
+
+function saveMealItem(planId, day, mealTime) {
+  const name = document.getElementById('mi-name').value.trim();
+  if (!name) { alert('Food name required.'); return; }
+  const plan = state.food_plans.find(p => p.id === planId);
+  if (!plan) return;
+  if (!plan.meals) plan.meals = [];
+  const recipeEl = document.getElementById('mi-recipe');
+  plan.meals.push({
+    id:        uid('meal'),
+    day,
+    meal_time: mealTime,
+    name,
+    cal:       parseInt(document.getElementById('mi-cal').value) || 0,
+    weight_g:  parseInt(document.getElementById('mi-wg').value)  || 0,
+    notes:     document.getElementById('mi-notes').value.trim(),
+    recipe_id: recipeEl?.value || null,
+  });
+  saveState(); closeModal();
+  renderFoodPlanDetail(plan);
+  toast('Added!');
+}
+
+function deleteMealItem(planId, mealId) {
+  const plan = state.food_plans.find(p => p.id === planId);
+  if (!plan) return;
+  plan.meals = (plan.meals || []).filter(m => m.id !== mealId);
+  saveState();
+  renderFoodPlanDetail(plan);
+}
+
+// ── Recipe library ──────────────────────────────────────────
+function renderRecipeLibrary() {
+  const grid = document.getElementById('recipes-grid');
+  if (!grid) return;
+  if (!state.recipes.length) {
+    grid.innerHTML = `<div class="empty-state"><p>No recipes yet.</p><button class="btn btn-primary" onclick="openRecipeForm()">+ Add recipe</button></div>`;
+    return;
+  }
+  grid.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.875rem">` +
+    state.recipes.map(r => `
+      <div class="card" style="margin-bottom:0">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:.5rem">
+          <div>
+            <div style="font-weight:500;font-size:14px">${esc(r.name)}</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:2px">
+              ${MEAL_ICONS[r.meal_time]||''} ${MEAL_LABELS[r.meal_time]||r.meal_time}
+              ${r.source ? ` · ${esc(r.source)}` : ''}
+            </div>
+          </div>
+          <div style="display:flex;gap:5px">
+            <button class="btn btn-xs" onclick="openRecipeForm('${r.id}')">✎</button>
+            <button class="btn btn-xs btn-danger" onclick="deleteRecipe('${r.id}')">✕</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:16px;font-size:12.5px;margin-bottom:.625rem">
+          <span><strong>${r.cal_per_serving}</strong> cal</span>
+          <span><strong>${wg(r.weight_g_per_serving)}</strong></span>
+          <span style="color:var(--text-3)">${(r.cal_per_serving/(r.weight_g_per_serving||1)).toFixed(1)} cal/g</span>
+        </div>
+        ${r.ingredients?.length ? `
+          <div style="font-size:11.5px;color:var(--text-2);margin-bottom:.5rem">
+            ${r.ingredients.map(i => `<span style="margin-right:8px">${esc(i.name)}</span>`).join('')}
+          </div>` : ''}
+        ${r.prep_notes ? `<div style="font-size:11.5px;color:var(--text-3);font-style:italic">${esc(r.prep_notes)}</div>` : ''}
+      </div>`).join('') + '</div>';
+}
+
+function openRecipeForm(id) {
+  const r = id ? state.recipes.find(r => r.id === id) : null;
+  openModal(r ? 'Edit recipe' : 'New recipe', recipeFormHtml(r));
+}
+
+function recipeFormHtml(r) {
+  r = r || {};
+  return `
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Recipe name *</label>
+        <input class="input input-full" id="rf-name" value="${esc(r.name||'')}" placeholder="e.g. Skurka Beans & Rice"></div>
+      <div class="form-row"><label class="form-label">Meal type</label>
+        <select class="select input-full" id="rf-meal">
+          ${MEAL_TIMES.map(mt => `<option value="${mt}" ${(r.meal_time||'dinner')===mt?'selected':''}>${MEAL_LABELS[mt]}</option>`).join('')}
+        </select></div>
+      <div class="form-row"><label class="form-label">Calories (per serving)</label>
+        <input class="input input-full" id="rf-cal" type="number" min="0" value="${r.cal_per_serving||''}"></div>
+      <div class="form-row"><label class="form-label">Weight g (per serving)</label>
+        <input class="input input-full" id="rf-wg" type="number" min="0" value="${r.weight_g_per_serving||''}"></div>
+    </div>
+    <div class="form-row"><label class="form-label">Source / credit</label>
+      <input class="input input-full" id="rf-src" value="${esc(r.source||'')}" placeholder="e.g. Andrew Skurka"></div>
+    <div class="form-row"><label class="form-label">Prep notes</label>
+      <textarea class="input input-full" id="rf-prep" rows="2" style="height:56px">${esc(r.prep_notes||'')}</textarea></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveRecipe('${r.id||''}')">Save recipe</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`;
+}
+
+function saveRecipe(id) {
+  const name = document.getElementById('rf-name').value.trim();
+  if (!name) { alert('Recipe name required.'); return; }
+  const existing = id ? state.recipes.find(r => r.id === id) : null;
+  const data = {
+    id:   id || uid('rec'),
+    name,
+    meal_time:          document.getElementById('rf-meal').value,
+    cal_per_serving:    parseInt(document.getElementById('rf-cal').value) || 0,
+    weight_g_per_serving: parseInt(document.getElementById('rf-wg').value) || 0,
+    source:    document.getElementById('rf-src').value.trim(),
+    prep_notes: document.getElementById('rf-prep').value.trim(),
+    ingredients: existing?.ingredients || [],
+  };
+  if (existing) {
+    const idx = state.recipes.findIndex(r => r.id === id);
+    if (idx >= 0) state.recipes[idx] = data;
+  } else {
+    state.recipes.push(data);
+  }
+  saveState(); closeModal(); renderRecipeLibrary();
+  toast(id ? 'Recipe updated!' : 'Recipe saved!');
+}
+
+function deleteRecipe(id) {
+  if (!confirm('Delete this recipe?')) return;
+  state.recipes = state.recipes.filter(r => r.id !== id);
+  saveState(); renderRecipeLibrary();
+  toast('Recipe deleted.');
 }
 
 // ============================================================

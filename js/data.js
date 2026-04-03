@@ -137,6 +137,95 @@ const SEED_DATA = {
     { value: 'other',       label: 'Other',         system: true },
   ],
 
+  food_plans: [],   // user creates these; start empty
+
+  recipes: [
+    {
+      id: 'rec001',
+      name: 'Skurka Beans & Rice',
+      meal_time: 'dinner',
+      servings: 1,
+      cal_per_serving: 680,
+      weight_g_per_serving: 145,
+      source: 'Andrew Skurka',
+      prep_notes: 'Add 10–12oz boiling water, stir well, cover 5 min. Crumble Fritos on top.',
+      ingredients: [
+        { name: 'Instant refried beans', amount: '2 oz', weight_g: 57, cal: 200 },
+        { name: 'Instant white rice',    amount: '1.5 oz', weight_g: 43, cal: 160 },
+        { name: 'Cheddar cheese',        amount: '1 oz',  weight_g: 28, cal: 110 },
+        { name: 'Fritos corn chips',     amount: '0.5 oz', weight_g: 14, cal: 80 },
+        { name: 'Taco seasoning',        amount: '1 tsp',  weight_g: 3,  cal: 10 },
+      ]
+    },
+    {
+      id: 'rec002',
+      name: 'Instant Oats with Add-ins',
+      meal_time: 'breakfast',
+      servings: 1,
+      cal_per_serving: 590,
+      weight_g_per_serving: 125,
+      source: '',
+      prep_notes: 'Combine oats, protein powder and dried fruit in bag at home. Add 1.5C boiling water, stir, wait 3 min.',
+      ingredients: [
+        { name: 'Instant rolled oats',   amount: '¾ cup',  weight_g: 60, cal: 230 },
+        { name: 'Protein powder',        amount: '1 scoop', weight_g: 30, cal: 120 },
+        { name: 'Dried fruit/raisins',   amount: '2 tbsp', weight_g: 20, cal: 60 },
+        { name: 'Nut butter packet',     amount: '1 packet', weight_g: 32, cal: 190 },
+      ]
+    },
+    {
+      id: 'rec003',
+      name: 'Ramen Bomb',
+      meal_time: 'dinner',
+      servings: 1,
+      cal_per_serving: 780,
+      weight_g_per_serving: 165,
+      source: '',
+      prep_notes: 'Boil 2C water, add ramen + packet. Stir in mashed potato powder. Top with olive oil and bacon bits.',
+      ingredients: [
+        { name: 'Ramen noodle pack',       amount: '1 pack', weight_g: 85, cal: 380 },
+        { name: 'Instant mashed potatoes', amount: '2 tbsp', weight_g: 20, cal: 80 },
+        { name: 'Olive oil',               amount: '1 tbsp', weight_g: 14, cal: 120 },
+        { name: 'Bacon bits',              amount: '2 tbsp', weight_g: 14, cal: 70 },
+        { name: 'Parmesan (packet)',        amount: '1 tbsp', weight_g: 7,  cal: 30 },
+      ]
+    },
+    {
+      id: 'rec004',
+      name: 'Trail Mix (custom)',
+      meal_time: 'snack',
+      servings: 1,
+      cal_per_serving: 520,
+      weight_g_per_serving: 115,
+      source: '',
+      prep_notes: 'Mix at home and split into daily bags. Hits 4.5 cal/gram.',
+      ingredients: [
+        { name: 'Mixed nuts',    amount: '1 oz',   weight_g: 28, cal: 180 },
+        { name: 'Dark chocolate chips', amount: '1 oz', weight_g: 28, cal: 170 },
+        { name: 'Dried cranberries',    amount: '2 tbsp', weight_g: 20, cal: 60 },
+        { name: 'Sunflower seeds', amount: '1 tbsp', weight_g: 14, cal: 80 },
+        { name: 'Pretzels',       amount: '0.5 oz', weight_g: 14, cal: 55 },
+      ]
+    },
+    {
+      id: 'rec005',
+      name: 'Tortilla Wrap Lunch',
+      meal_time: 'lunch',
+      servings: 1,
+      cal_per_serving: 650,
+      weight_g_per_serving: 150,
+      source: '',
+      prep_notes: 'No cook. Spread tortilla with nut butter, layer toppings, roll and eat.',
+      ingredients: [
+        { name: 'Flour tortilla (10")', amount: '1',      weight_g: 50, cal: 190 },
+        { name: 'Almond butter packet', amount: '1 packet', weight_g: 32, cal: 190 },
+        { name: 'Honey packet',         amount: '1',      weight_g: 21, cal: 60 },
+        { name: 'Summer sausage',       amount: '1 oz',   weight_g: 28, cal: 110 },
+        { name: 'Hard cheese',          amount: '0.75 oz', weight_g: 21, cal: 85 },
+      ]
+    },
+  ],
+
   categories: [
     { name: 'Pack',                 target_g: 900,  color: '#2A7048' },
     { name: 'Shelter',              target_g: 1200, color: '#1A5C8A' },
