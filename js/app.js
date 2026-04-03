@@ -1928,6 +1928,7 @@ function openManageCategoriesFromForm() {
 }
 
 // ============================================================
+function refreshAll() {
   renderDashboard();
   if (currentTab !== 'dashboard') showTab(currentTab);
 }
