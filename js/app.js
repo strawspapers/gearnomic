@@ -577,23 +577,25 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
     ? `<td style="font-size:12px;color:var(--text-2);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(item.misc_stat || '')}">${esc(item.misc_stat || '—')}</td>`
     : '';
 
-  const handleCell = showHandle
-    ? `<td class="gear-handle-cell"
-        onclick="event.stopPropagation();${inCustomSort ? `openReorderPickerMobile('${item.id}')` : `openCategoryPickerMobile('${item.id}')`}"
-        title="${inCustomSort ? 'Drag to reorder' : 'Drag to move category · Tap on mobile'}">
+  const handleFn    = inCustomSort ? `openReorderPickerMobile('${item.id}')` : `openCategoryPickerMobile('${item.id}')`;
+  const handleTitle = inCustomSort ? 'Drag to reorder · Tap for options' : 'Drag to move category · Tap on mobile';
+  const handleCell  = showHandle
+    ? `<td class="gear-handle-cell" onclick="event.stopPropagation();${handleFn}" title="${handleTitle}">
         <span class="gear-handle">⠿</span>
        </td>`
     : `<td style="width:28px"></td>`;
+
+  const dragMode = inCustomSort ? 'reorder' : 'recategorize';
 
   return `<tr class="expandable"
     draggable="${showHandle}"
     data-item-id="${item.id}"
     data-item-cat="${esc(item.category)}"
-    ondragstart="onItemDragStart(event,'${item.id}','${inCustomSort?'reorder':'recategorize'}')"
+    ondragstart="onItemDragStart(event,'${item.id}','${dragMode}')"
     ondragend="onItemDragEnd()"
-    ondragover="onRowDragOver(event,'${esc(item.category)}','${inCustomSort?'reorder':'recategorize'}')"
+    ondragover="onRowDragOver(event,'${esc(item.category)}','${dragMode}')"
     ondragleave="onRowDragLeave(event)"
-    ondrop="onRowDrop(event,'${inCustomSort?'reorder':'recategorize'}')"
+    ondrop="onRowDrop(event,'${dragMode}')"
     onclick="toggleExpand('${item.id}')">
     ${handleCell}
 
