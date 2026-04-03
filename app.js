@@ -665,8 +665,7 @@ function logUsage(id, type) {
 function itemFormHtml(item) {
   item = item || {};
   const deleteBanner = item.id ? `
-    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--danger-bg);border:1px solid var(--danger-bg);border-radius:var(--r-md);padding:8px 12px;margin-bottom:1rem">
-      <span style="font-size:13px;color:var(--danger-text)">${esc(item.name || 'this item')}</span>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:.75rem">
       <button type="button" class="btn btn-sm btn-danger" onclick="deleteItem('${item.id}')">Delete item</button>
     </div>` : '';
   return `
