@@ -457,10 +457,13 @@ function renderGear() {
     }
     if (sort === 'name')   return a.name.localeCompare(b.name);
     if (sort === 'usage')  return (b.usage_days || 0) - (a.usage_days || 0);
-    if (sort === 'custom') return 0; // preserve state.items insertion order (already filtered in that order)
-    // default: category
-    const cc = a.category.localeCompare(b.category);
-    return cc !== 0 ? cc : a.name.localeCompare(b.name);
+    if (sort === 'custom') return 0;
+    // "Group by category" — use state.categories order, not alphabetical
+    const catOrd = categoryNames();
+    const ai = catOrd.indexOf(a.category); const bi = catOrd.indexOf(b.category);
+    const ao = ai === -1 ? 999 : ai;      const bo = bi === -1 ? 999 : bi;
+    if (ao !== bo) return ao - bo;
+    return a.name.localeCompare(b.name);
   });
 
   const totalW = filtered.reduce((s, i) => s + (i.weight_g || 0), 0);
@@ -471,7 +474,6 @@ function renderGear() {
   const visibleCustomFields = (state.custom_fields || []).filter(f => f.show_column);
   const cols = 9 + (showMiscCol ? 1 : 0) + visibleCustomFields.length;
 
-  // Render header dynamically so colspan stays correct
   document.getElementById('gear-thead').innerHTML = `<tr>
     <th style="width:28px;padding:6px 4px"></th>
     <th>Item</th><th>Category</th><th>Weight</th><th>Cost</th>
@@ -490,8 +492,19 @@ function renderGear() {
   filtered.forEach(item => {
     if (inCatSort && item.category !== lastCat) {
       lastCat = item.category;
-      html += `<tr class="cat-header-row" data-cat="${esc(item.category)}">
-        <td colspan="${cols}">${esc(item.category)}</td>
+      // Category header: handle span (draggable) + name spanning remaining cols
+      html += `<tr class="cat-header-row" data-cat="${esc(item.category)}"
+        ondragover="onCatHeaderDragOver(event,'${esc(item.category)}')"
+        ondragleave="onCatHeaderDragLeave(event)"
+        ondrop="onCatHeaderDrop(event,'${esc(item.category)}')">
+        <td style="width:28px;padding:0 4px;text-align:center">
+          <span class="gear-handle cat-drag-handle"
+            draggable="true"
+            title="Drag to reorder this category"
+            ondragstart="onCatHeaderDragStart(event,'${esc(item.category)}')"
+            ondragend="onCatHeaderDragEnd()">⠿</span>
+        </td>
+        <td colspan="${cols - 1}">${esc(item.category)}</td>
       </tr>`;
     }
     html += gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields);
@@ -1899,7 +1912,7 @@ function onItemDragEnd() {
 }
 
 function onRowDragOver(e, itemCat, mode) {
-  if (!_dragItemId) return;
+  if (!_dragItemId || _dragCatName) return;  // ignore if dragging a category header
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
 
@@ -1974,7 +1987,82 @@ function onRowDrop(e, mode) {
   }
 }
 
-// Mobile: tap the handle to pick a category from a list
+// ── Category header drag — reorder categories ───────────────
+let _dragCatName     = null;
+let _dropCatTarget   = null;
+
+function onCatHeaderDragStart(e, catName) {
+  _dragCatName = catName;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', catName);
+  setTimeout(() => {
+    document.querySelector(`tr.cat-header-row[data-cat="${catName}"]`)?.classList.add('gear-row-dragging');
+  }, 0);
+}
+
+function onCatHeaderDragEnd() {
+  if (_dragCatName) {
+    document.querySelector(`tr.cat-header-row[data-cat="${_dragCatName}"]`)?.classList.remove('gear-row-dragging');
+  }
+  document.querySelectorAll('.drop-line-before,.drop-line-after').forEach(r => {
+    r.classList.remove('drop-line-before','drop-line-after');
+  });
+  _dragCatName   = null;
+  _dropCatTarget = null;
+}
+
+function onCatHeaderDragOver(e, catName) {
+  if (!_dragCatName || _dragCatName === catName) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  if (_dropCatTarget === catName) return;
+  document.querySelectorAll('.drop-line-before,.drop-line-after').forEach(r => {
+    r.classList.remove('drop-line-before','drop-line-after');
+  });
+  _dropCatTarget = catName;
+  const row = e.currentTarget;
+  const rect = row.getBoundingClientRect();
+  const pos  = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+  row.classList.add(pos === 'before' ? 'drop-line-before' : 'drop-line-after');
+}
+
+function onCatHeaderDragLeave(e) {
+  if (!e.relatedTarget || !e.relatedTarget.closest('tr.cat-header-row')) {
+    document.querySelectorAll('.drop-line-before,.drop-line-after').forEach(r => {
+      r.classList.remove('drop-line-before','drop-line-after');
+    });
+    _dropCatTarget = null;
+  }
+}
+
+function onCatHeaderDrop(e, targetCat) {
+  e.preventDefault();
+  document.querySelectorAll('.drop-line-before,.drop-line-after').forEach(r => {
+    r.classList.remove('drop-line-before','drop-line-after');
+  });
+  const srcCat = _dragCatName;
+  _dragCatName = null; _dropCatTarget = null;
+  if (!srcCat || srcCat === targetCat) return;
+
+  const row = e.currentTarget;
+  const rect = row.getBoundingClientRect();
+  const pos  = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+
+  // Ensure both categories exist in state.categories (items may have cats not in the list)
+  const allCatNames = categoryNames();
+  const cats = allCatNames.map(name => {
+    return state.categories.find(c => c.name === name) || { name, color: '#888', target_g: null };
+  });
+
+  const fromIdx = cats.findIndex(c => c.name === srcCat);
+  const [moved] = cats.splice(fromIdx, 1);
+  const toIdx   = cats.findIndex(c => c.name === targetCat);
+  cats.splice(pos === 'before' ? toIdx : toIdx + 1, 0, moved);
+
+  state.categories = cats;
+  saveState();
+  renderGear();
+}
 function openCategoryPickerMobile(itemId) {
   const item = state.items.find(i => i.id === itemId);
   if (!item) return;
