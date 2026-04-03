@@ -2,12 +2,73 @@
 // Gearnomic — Application Logic
 // ============================================================
 
+// ── Supabase ────────────────────────────────────────────────
+let _sb = null;           // Supabase client
+let _user = null;         // current auth.User
+let _syncTimer = null;    // debounce handle
+
+function _supabaseReady() {
+  if (_sb) return true;
+  if (typeof supabase === 'undefined' || typeof SUPABASE_URL === 'undefined') return false;
+  if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_PROJECT_URL') return false;
+  try { _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON); return true; }
+  catch(e) { return false; }
+}
+
 // ── State ──────────────────────────────────────────────────
 let state = { items: [], trips: [], wishlist: [], categories: [], templates: [], trip_types: [], food_plans: [], recipes: [], custom_fields: [] };
 
 // ── Persistence ────────────────────────────────────────────
 function saveState() {
   try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
+  // Debounced cloud sync — fires 1.5s after last write
+  if (_user) {
+    clearTimeout(_syncTimer);
+    _syncTimer = setTimeout(syncToCloud, 1500);
+  }
+}
+
+async function syncToCloud() {
+  if (!_supabaseReady() || !_user) return;
+  setSyncIndicator('saving');
+  try {
+    const { error } = await _sb.from('user_data').upsert(
+      { user_id: _user.id, data: state },
+      { onConflict: 'user_id' }
+    );
+    if (error) throw error;
+    setSyncIndicator('saved');
+  } catch(e) {
+    setSyncIndicator('error');
+    console.error('Sync failed:', e);
+  }
+}
+
+async function loadFromCloud() {
+  if (!_supabaseReady() || !_user) return false;
+  try {
+    const { data, error } = await _sb.from('user_data')
+      .select('data').eq('user_id', _user.id).single();
+    if (error || !data?.data) return false;
+    state = data.data;
+    applyMigrations();
+    try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
+    return true;
+  } catch(e) { return false; }
+}
+
+function applyMigrations() {
+  if (!state.templates)    state.templates    = JSON.parse(JSON.stringify(SEED_DATA.templates));
+  if (!state.trip_types)   state.trip_types   = JSON.parse(JSON.stringify(SEED_DATA.trip_types));
+  if (!state.categories)   state.categories   = JSON.parse(JSON.stringify(SEED_DATA.categories));
+  if (!state.food_plans)   state.food_plans   = [];
+  if (!state.recipes)      state.recipes      = JSON.parse(JSON.stringify(SEED_DATA.recipes));
+  if (!state.custom_fields) state.custom_fields = [];
+  state.categories.forEach((cat, i) => {
+    if (!cat.color) cat.color = SEED_DATA.categories[i]?.color || '#888';
+  });
+  state.trips.forEach(t => { if (!t.carry_types) t.carry_types = {}; });
+  state.templates.forEach(t => { if (!t.carry_types) t.carry_types = {}; });
 }
 
 function loadState() {
@@ -15,29 +76,17 @@ function loadState() {
     const raw = localStorage.getItem('trailkit_v1');
     if (raw) {
       state = JSON.parse(raw);
-      if (!state.templates)  state.templates  = JSON.parse(JSON.stringify(SEED_DATA.templates));
-      if (!state.trip_types) state.trip_types = JSON.parse(JSON.stringify(SEED_DATA.trip_types));
-      if (!state.categories) state.categories = JSON.parse(JSON.stringify(SEED_DATA.categories));
-      if (!state.food_plans)    state.food_plans    = [];
-      if (!state.recipes)       state.recipes       = JSON.parse(JSON.stringify(SEED_DATA.recipes));
-      if (!state.custom_fields) state.custom_fields = [];
-      // Ensure every category has a color (older saves may lack it)
-      state.categories.forEach((cat, i) => {
-        if (!cat.color) cat.color = SEED_DATA.categories[i]?.color || '#888';
-      });
-      // Migrate: ensure every trip and template has carry_types
-      state.trips.forEach(t => { if (!t.carry_types) t.carry_types = {}; });
-      state.templates.forEach(t => { if (!t.carry_types) t.carry_types = {}; });
+      applyMigrations();
       return;
     }
   } catch(e) {}
   state = {
-    items:      JSON.parse(JSON.stringify(SEED_DATA.items)),
-    trips:      JSON.parse(JSON.stringify(SEED_DATA.trips)),
-    wishlist:   JSON.parse(JSON.stringify(SEED_DATA.wishlist)),
-    categories: JSON.parse(JSON.stringify(SEED_DATA.categories)),
-    templates:  JSON.parse(JSON.stringify(SEED_DATA.templates)),
-    trip_types: JSON.parse(JSON.stringify(SEED_DATA.trip_types)),
+    items:         JSON.parse(JSON.stringify(SEED_DATA.items)),
+    trips:         JSON.parse(JSON.stringify(SEED_DATA.trips)),
+    wishlist:      JSON.parse(JSON.stringify(SEED_DATA.wishlist)),
+    categories:    JSON.parse(JSON.stringify(SEED_DATA.categories)),
+    templates:     JSON.parse(JSON.stringify(SEED_DATA.templates)),
+    trip_types:    JSON.parse(JSON.stringify(SEED_DATA.trip_types)),
     food_plans:    [],
     recipes:       JSON.parse(JSON.stringify(SEED_DATA.recipes)),
     custom_fields: [],
@@ -2857,36 +2906,191 @@ function saveNewCustomField(itemId) {
 }
 
 // ============================================================
+// AUTHENTICATION & SYNC UI
+// ============================================================
+
+function setSyncIndicator(status) {
+  const el = document.getElementById('sync-indicator');
+  if (!el) return;
+  const states = {
+    saving: '↑ Saving…',
+    saved:  '✓ Synced',
+    error:  '⚠ Sync failed',
+    offline:'○ Offline mode',
+  };
+  el.textContent = states[status] || '';
+  el.style.color = status === 'error' ? 'var(--danger)' : status === 'saved' ? 'var(--success)' : 'var(--text-3)';
+}
+
+function updateHeaderAuth() {
+  const userInfo   = document.getElementById('auth-user-info');
+  const anonInfo   = document.getElementById('auth-anon-actions');
+  const loadingEl  = document.getElementById('auth-loading-indicator');
+  const emailEl    = document.getElementById('auth-user-email');
+  if (loadingEl) loadingEl.style.display = 'none';
+  if (_user) {
+    if (userInfo) { userInfo.style.display = 'flex'; }
+    if (anonInfo) { anonInfo.style.display = 'none'; }
+    if (emailEl)  { emailEl.textContent = _user.email; }
+    setSyncIndicator('saved');
+  } else {
+    if (userInfo) { userInfo.style.display = 'none'; }
+    if (anonInfo) { anonInfo.style.display = 'flex'; }
+    setSyncIndicator('offline');
+  }
+}
+
+function showAuthModal() {
+  const el = document.getElementById('auth-modal-overlay');
+  if (el) { el.style.display = 'flex'; }
+  setTimeout(() => document.getElementById('auth-email')?.focus(), 100);
+}
+
+function hideAuthModal() {
+  const el = document.getElementById('auth-modal-overlay');
+  if (el) { el.style.display = 'none'; }
+}
+
+function switchAuthTab(tab) {
+  const isSignin = tab === 'signin';
+  const signinTab = document.getElementById('auth-tab-signin');
+  const signupTab = document.getElementById('auth-tab-signup');
+  const btn = document.getElementById('auth-submit-btn');
+  if (signinTab) {
+    signinTab.style.borderBottomColor = isSignin ? '#2A4032' : 'transparent';
+    signinTab.style.color = isSignin ? '#2A4032' : '#888';
+    signinTab.style.fontWeight = isSignin ? '500' : '400';
+  }
+  if (signupTab) {
+    signupTab.style.borderBottomColor = !isSignin ? '#2A4032' : 'transparent';
+    signupTab.style.color = !isSignin ? '#2A4032' : '#888';
+    signupTab.style.fontWeight = !isSignin ? '500' : '400';
+  }
+  if (btn) btn.textContent = isSignin ? 'Sign in' : 'Create account';
+  const errEl = document.getElementById('auth-error');
+  if (errEl) errEl.style.display = 'none';
+  document.getElementById('auth-email')?.focus();
+}
+
+function setAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+async function submitAuth() {
+  const btn = document.getElementById('auth-submit-btn');
+  const isSignup = btn?.textContent?.includes('Create');
+  const email    = document.getElementById('auth-email')?.value.trim();
+  const password = document.getElementById('auth-password')?.value;
+  setAuthError('');
+
+  if (!email || !password) { setAuthError('Please enter your email and password.'); return; }
+  if (!_supabaseReady()) { setAuthError('Supabase not configured — see js/config.js.'); return; }
+
+  if (btn) { btn.textContent = isSignup ? 'Creating account…' : 'Signing in…'; btn.disabled = true; }
+
+  try {
+    const { data, error } = isSignup
+      ? await _sb.auth.signUp({ email, password })
+      : await _sb.auth.signInWithPassword({ email, password });
+
+    if (error) throw error;
+
+    if (isSignup && data?.user && !data.session) {
+      setAuthError('');
+      if (btn) { btn.textContent = 'Create account'; btn.disabled = false; }
+      toast('Check your email to confirm your account!');
+      return;
+    }
+    // Auth state change listener handles the rest
+  } catch(e) {
+    setAuthError(e.message || 'Authentication failed.');
+    if (btn) { btn.textContent = isSignup ? 'Create account' : 'Sign in'; btn.disabled = false; }
+  }
+}
+
+async function signOut() {
+  if (_supabaseReady()) await _sb.auth.signOut();
+  _user = null;
+  updateHeaderAuth();
+  toast('Signed out.');
+}
+
+async function continueWithoutAccount() {
+  hideAuthModal();
+  updateHeaderAuth();
+}
+
+// ============================================================
 function refreshAll() {
   renderDashboard();
   if (currentTab !== 'dashboard') showTab(currentTab);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Load local data first so UI appears instantly
   loadState();
 
-  // Nav
+  // Set up filter listeners
   document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.addEventListener('click', () => showTab(btn.dataset.tab));
   });
-
-  // Gear filters
   ['gear-search','gear-filter-cat','gear-filter-cond','gear-sort'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('input', () => { if (currentTab === 'gear') renderGear(); });
+    if (el) el.addEventListener('input',  () => { if (currentTab === 'gear') renderGear(); });
     if (el) el.addEventListener('change', () => { if (currentTab === 'gear') renderGear(); });
   });
-
-  // Wishlist filters
   ['wish-filter-cat','wish-sort'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', () => { if (currentTab === 'wishlist') renderWishlist(); });
   });
 
-  // Initial render
+  // Initial render with local data
   renderDashboard();
-
-  // Set today's date
   document.getElementById('dash-date').textContent =
     new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+  // ── Supabase auth ─────────────────────────────────────────
+  if (!_supabaseReady()) {
+    // No Supabase config — run fully locally, show sign-in nudge
+    document.getElementById('auth-loading-indicator').style.display = 'none';
+    document.getElementById('auth-anon-actions').style.display = 'flex';
+    setSyncIndicator('offline');
+    return;
+  }
+
+  // Check for an existing session
+  const { data: { session } } = await _sb.auth.getSession();
+  if (session?.user) {
+    _user = session.user;
+    const loaded = await loadFromCloud();
+    if (loaded) refreshAll();
+    updateHeaderAuth();
+  } else {
+    updateHeaderAuth();
+    showAuthModal();
+  }
+
+  // React to sign-in / sign-out events (handles email magic links, OAuth, etc.)
+  _sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session?.user) {
+      _user = session.user;
+      hideAuthModal();
+
+      // If cloud has data, load it; otherwise push local data up
+      const cloudLoaded = await loadFromCloud();
+      if (!cloudLoaded) {
+        // First login — upload existing local data
+        await syncToCloud();
+      }
+      refreshAll();
+      updateHeaderAuth();
+      toast('Signed in! Your data is syncing.');
+    } else if (event === 'SIGNED_OUT') {
+      _user = null;
+      updateHeaderAuth();
+    }
+  });
 });
