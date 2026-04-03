@@ -3,7 +3,7 @@
 // ============================================================
 
 // ── State ──────────────────────────────────────────────────
-let state = { items: [], trips: [], wishlist: [], categories: [], templates: [], trip_types: [], food_plans: [], recipes: [] };
+let state = { items: [], trips: [], wishlist: [], categories: [], templates: [], trip_types: [], food_plans: [], recipes: [], custom_fields: [] };
 
 // ── Persistence ────────────────────────────────────────────
 function saveState() {
@@ -18,8 +18,9 @@ function loadState() {
       if (!state.templates)  state.templates  = JSON.parse(JSON.stringify(SEED_DATA.templates));
       if (!state.trip_types) state.trip_types = JSON.parse(JSON.stringify(SEED_DATA.trip_types));
       if (!state.categories) state.categories = JSON.parse(JSON.stringify(SEED_DATA.categories));
-      if (!state.food_plans) state.food_plans = [];
-      if (!state.recipes)    state.recipes    = JSON.parse(JSON.stringify(SEED_DATA.recipes));
+      if (!state.food_plans)    state.food_plans    = [];
+      if (!state.recipes)       state.recipes       = JSON.parse(JSON.stringify(SEED_DATA.recipes));
+      if (!state.custom_fields) state.custom_fields = [];
       // Ensure every category has a color (older saves may lack it)
       state.categories.forEach((cat, i) => {
         if (!cat.color) cat.color = SEED_DATA.categories[i]?.color || '#888';
@@ -37,8 +38,9 @@ function loadState() {
     categories: JSON.parse(JSON.stringify(SEED_DATA.categories)),
     templates:  JSON.parse(JSON.stringify(SEED_DATA.templates)),
     trip_types: JSON.parse(JSON.stringify(SEED_DATA.trip_types)),
-    food_plans: [],
-    recipes:    JSON.parse(JSON.stringify(SEED_DATA.recipes)),
+    food_plans:    [],
+    recipes:       JSON.parse(JSON.stringify(SEED_DATA.recipes)),
+    custom_fields: [],
   };
   saveState();
 }
@@ -413,7 +415,8 @@ function renderGear() {
   document.getElementById('gear-summary').innerHTML =
     `<strong>${filtered.length}</strong> items &nbsp;·&nbsp; total: <strong>${wg(totalW)}</strong> &nbsp;·&nbsp; tracked value: <strong>${usd(totalC)}</strong>`;
 
-  const cols = 9 + (showMiscCol ? 1 : 0); // +1 for handle column
+  const visibleCustomFields = (state.custom_fields || []).filter(f => f.show_column);
+  const cols = 9 + (showMiscCol ? 1 : 0) + visibleCustomFields.length;
 
   // Render header dynamically so colspan stays correct
   document.getElementById('gear-thead').innerHTML = `<tr>
@@ -421,6 +424,7 @@ function renderGear() {
     <th>Item</th><th>Category</th><th>Weight</th><th>Cost</th>
     <th>$/gram</th><th>Condition</th><th>Usage</th>
     ${showMiscCol ? '<th>Misc</th>' : ''}
+    ${visibleCustomFields.map(f => `<th style="min-width:80px">${esc(f.name)}${f.unit ? '<span style="font-size:10px;color:var(--text-3);font-weight:400"> '+esc(f.unit)+'</span>' : ''}</th>`).join('')}
     <th></th>
   </tr>`;
 
@@ -435,7 +439,7 @@ function renderGear() {
         <td colspan="${cols}">${esc(item.category)}</td>
       </tr>`;
     }
-    html += gearRow(item, cols, inCatSort);
+    html += gearRow(item, cols, inCatSort, visibleCustomFields);
   });
 
   if (!filtered.length) {
@@ -445,8 +449,54 @@ function renderGear() {
   document.getElementById('gear-tbody').innerHTML = html;
 }
 
-function gearRow(item, cols, inCatSort) {
+function gearRow(item, cols, inCatSort, visibleCustomFields) {
+  visibleCustomFields = visibleCustomFields || [];
   const isExpanded = gearExpandedId === item.id;
+  const customVals = item.custom_values || {};
+  const allFields  = state.custom_fields || [];
+
+  // Custom field cells (inline-editable)
+  const customCells = visibleCustomFields.map(field => {
+    const val = customVals[field.id];
+    const isEditing = _editCell && _editCell.itemId === item.id && _editCell.fieldId === field.id;
+    if (isEditing) {
+      return `<td onclick="event.stopPropagation()" style="padding:4px 8px">
+        <input class="input" id="ce-${item.id}-${field.id}"
+          type="${field.type === 'number' ? 'number' : 'text'}"
+          value="${esc(val != null ? val : '')}"
+          style="width:80px;height:26px;font-size:12px;padding:0 6px"
+          onblur="saveInlineEdit('${item.id}','${field.id}',this.value)"
+          onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){cancelInlineEdit();renderGear();}">
+      </td>`;
+    }
+    return `<td onclick="event.stopPropagation();startInlineEdit('${item.id}','${field.id}')"
+      style="cursor:text;font-size:12px;color:${val!=null?'var(--text-1)':'var(--text-3)'}"
+      title="Click to edit ${esc(field.name)}">
+      ${val != null ? esc(String(val)) : '—'}
+    </td>`;
+  }).join('');
+
+  // Custom fields in the expanded detail panel
+  const customFieldsSection = `
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:6px">Custom fields</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        ${allFields.map(f => {
+          const v = customVals[f.id];
+          return `<div style="display:inline-flex;align-items:center;gap:4px;border:.5px solid var(--border);border-radius:var(--r-md);padding:3px 8px;background:var(--surface)">
+            <span style="font-size:11px;color:var(--text-3)">${esc(f.name)}${f.unit?' ('+esc(f.unit)+')':''}</span>
+            <input type="${f.type==='number'?'number':'text'}"
+              value="${esc(v!=null?v:'')}"
+              placeholder="—"
+              style="width:60px;height:22px;font-size:12px;border:none;background:transparent;outline:none;color:var(--text-1);padding:0 2px"
+              onchange="updateCustomValue('${item.id}','${f.id}',this.value)"
+              onclick="event.stopPropagation()">
+          </div>`;
+        }).join('')}
+        <button class="btn btn-xs" onclick="event.stopPropagation();openAddCustomField('${item.id}')">+ Add field</button>
+      </div>
+    </div>`;
+
   const detailHtml = isExpanded ? `
     <tr class="detail-row" id="det-${item.id}">
       <td colspan="${cols}">
@@ -457,6 +507,7 @@ function gearRow(item, cols, inCatSort) {
             ${item.purchase_date    ? `<div class="info-pair"><div class="info-key">Purchased</div><div class="info-val">${item.purchase_date}</div></div>` : ''}
             ${item.purchase_retailer? `<div class="info-pair"><div class="info-key">Retailer</div><div class="info-val">${esc(item.purchase_retailer)}</div></div>` : ''}
           </div>
+          ${customFieldsSection}
           ${item.notes ? `<p style="font-size:12.5px;color:var(--text-2);margin-bottom:10px">${esc(item.notes)}</p>` : ''}
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn btn-xs" onclick="logUsage('${item.id}','day')">+ Log day</button>
@@ -473,7 +524,6 @@ function gearRow(item, cols, inCatSort) {
     ? `<td style="font-size:12px;color:var(--text-2);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(item.misc_stat || '')}">${esc(item.misc_stat || '—')}</td>`
     : '';
 
-  // Handle cell — drag on desktop, tap for category picker on mobile
   const handleCell = inCatSort
     ? `<td class="gear-handle-cell" onclick="event.stopPropagation();openCategoryPickerMobile('${item.id}')" title="Drag to move category · Tap to pick on mobile">
         <span class="gear-handle">⠿</span>
@@ -499,6 +549,7 @@ function gearRow(item, cols, inCatSort) {
     <td>${badge(COND_BADGE[item.condition] || 'badge-gray', COND_LABEL[item.condition] || item.condition)}</td>
     <td class="mono" style="font-size:11px;color:var(--text-3)">${item.usage_days || 0}d${item.usage_nights ? ' · ' + item.usage_nights + 'n' : ''}</td>
     ${miscCell}
+    ${customCells}
     <td onclick="event.stopPropagation()">
       <button class="btn-icon" title="Edit" onclick="openEditItem('${item.id}')">✎</button>
     </td>
@@ -2512,6 +2563,192 @@ function deleteRecipe(id) {
   state.recipes = state.recipes.filter(r => r.id !== id);
   saveState(); renderRecipeLibrary();
   toast('Recipe deleted.');
+}
+
+// ============================================================
+// CUSTOM FIELDS
+// ============================================================
+let _editCell = null; // { itemId, fieldId }
+
+function startInlineEdit(itemId, fieldId) {
+  _editCell = { itemId, fieldId };
+  renderGear();
+  setTimeout(() => {
+    const el = document.getElementById(`ce-${itemId}-${fieldId}`);
+    if (el) { el.focus(); el.select(); }
+  }, 30);
+}
+
+function cancelInlineEdit() { _editCell = null; }
+
+function saveInlineEdit(itemId, fieldId, value) {
+  const item = state.items.find(i => i.id === itemId);
+  if (item) {
+    if (!item.custom_values) item.custom_values = {};
+    const field = (state.custom_fields || []).find(f => f.id === fieldId);
+    const parsed = field?.type === 'number' ? (value === '' ? null : parseFloat(value)) : (value.trim() || null);
+    if (parsed === null) delete item.custom_values[fieldId];
+    else item.custom_values[fieldId] = parsed;
+    saveState();
+  }
+  _editCell = null;
+  renderGear();
+}
+
+function updateCustomValue(itemId, fieldId, value) {
+  const item = state.items.find(i => i.id === itemId);
+  if (!item) return;
+  if (!item.custom_values) item.custom_values = {};
+  const field = (state.custom_fields || []).find(f => f.id === fieldId);
+  const parsed = field?.type === 'number' ? (value === '' ? null : parseFloat(value)) : (value.trim() || null);
+  if (parsed === null) delete item.custom_values[fieldId];
+  else item.custom_values[fieldId] = parsed;
+  saveState();
+}
+
+// Column manager modal — toggle column visibility, add/delete fields
+function openColumnManager() {
+  const fields = state.custom_fields || [];
+  const fieldRows = fields.length ? fields.map((f, idx) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:.5px solid var(--border-2)">
+      <label style="display:flex;align-items:center;gap:7px;flex:1;cursor:pointer">
+        <input type="checkbox" ${f.show_column ? 'checked' : ''}
+          style="width:15px;height:15px;accent-color:var(--primary)"
+          onchange="toggleCustomColumn('${f.id}',this.checked)">
+        <span style="font-size:13px;font-weight:500">${esc(f.name)}</span>
+        ${f.unit ? `<span style="font-size:11px;color:var(--text-3)">${esc(f.unit)}</span>` : ''}
+        <span class="badge badge-gray">${esc(f.type)}</span>
+      </label>
+      <button class="btn btn-xs btn-danger" onclick="deleteCustomField('${f.id}')">Delete</button>
+    </div>`).join('') : `<p style="font-size:13px;color:var(--text-3);padding:.5rem 0">No custom fields yet. Add one below.</p>`;
+
+  openModal('Columns & custom fields', `
+    <p style="font-size:12.5px;color:var(--text-2);margin-bottom:.875rem">
+      Check fields to show them as columns in the Gear Closet. Click any cell in a column to edit inline.
+    </p>
+    <div style="margin-bottom:1.25rem">${fieldRows}</div>
+    <div style="border-top:.5px solid var(--border);padding-top:.875rem">
+      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">Add new field</div>
+      <div class="form-grid">
+        <div class="form-row"><label class="form-label">Field name</label>
+          <input class="input input-full" id="cf-name" placeholder="e.g. R-value, Fill power, Nights slept"
+            onkeydown="if(event.key==='Enter')addCustomField()"></div>
+        <div class="form-row"><label class="form-label">Type</label>
+          <select class="select input-full" id="cf-type">
+            <option value="number">Number</option>
+            <option value="text">Text</option>
+          </select></div>
+      </div>
+      <div class="form-row"><label class="form-label">Unit (optional)</label>
+        <input class="input" id="cf-unit" placeholder="e.g. °F, fps, nights, L" style="width:180px"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="addCustomField()">Add field</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Done</button>
+    </div>`);
+}
+
+function addCustomField() {
+  const name = document.getElementById('cf-name')?.value.trim();
+  if (!name) { document.getElementById('cf-name')?.focus(); return; }
+  if ((state.custom_fields || []).find(f => f.name.toLowerCase() === name.toLowerCase())) {
+    toast('A field with that name already exists.'); return;
+  }
+  const field = {
+    id:          uid('cf'),
+    name,
+    type:        document.getElementById('cf-type')?.value || 'text',
+    unit:        document.getElementById('cf-unit')?.value.trim() || '',
+    show_column: true,
+  };
+  if (!state.custom_fields) state.custom_fields = [];
+  state.custom_fields.push(field);
+  saveState();
+  openColumnManager(); // re-render modal
+  renderGear();
+  toast(`"${name}" field added!`);
+}
+
+function toggleCustomColumn(fieldId, show) {
+  const field = (state.custom_fields || []).find(f => f.id === fieldId);
+  if (field) { field.show_column = show; saveState(); renderGear(); }
+}
+
+function deleteCustomField(fieldId) {
+  const field = (state.custom_fields || []).find(f => f.id === fieldId);
+  if (!field) return;
+  if (!confirm(`Delete "${field.name}"? Values stored on gear items will also be removed.`)) return;
+  state.custom_fields = state.custom_fields.filter(f => f.id !== fieldId);
+  // Remove values from all items
+  state.items.forEach(item => { if (item.custom_values) delete item.custom_values[fieldId]; });
+  saveState();
+  openColumnManager();
+  renderGear();
+  toast(`"${field.name}" deleted.`);
+}
+
+// Add custom field from the gear detail panel
+function openAddCustomField(itemId) {
+  openModal('Add custom field', `
+    <p style="font-size:12.5px;color:var(--text-2);margin-bottom:.875rem">
+      Fields are shared across all gear items. You can set the value for this item now and fill in others later.
+    </p>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Field name *</label>
+        <input class="input input-full" id="ncf-name" placeholder="e.g. R-value, Fill power, Temp rating"></div>
+      <div class="form-row"><label class="form-label">Type</label>
+        <select class="select input-full" id="ncf-type">
+          <option value="number">Number</option>
+          <option value="text">Text</option>
+        </select></div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Unit (optional)</label>
+        <input class="input input-full" id="ncf-unit" placeholder="e.g. °F, fps, nights"></div>
+      <div class="form-row"><label class="form-label">Value for this item</label>
+        <input class="input input-full" id="ncf-val" placeholder="optional"></div>
+    </div>
+    <div class="form-row" style="display:flex;align-items:center;gap:8px">
+      <input type="checkbox" id="ncf-show" checked style="width:15px;height:15px;accent-color:var(--primary)">
+      <label for="ncf-show" style="font-size:13px;cursor:pointer">Show as column in Gear Closet</label>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveNewCustomField('${itemId}')">Add field</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+  setTimeout(() => document.getElementById('ncf-name')?.focus(), 100);
+}
+
+function saveNewCustomField(itemId) {
+  const name = document.getElementById('ncf-name')?.value.trim();
+  if (!name) { alert('Field name is required.'); return; }
+  if ((state.custom_fields || []).find(f => f.name.toLowerCase() === name.toLowerCase())) {
+    // Field exists — just set the value for this item
+    const existing = state.custom_fields.find(f => f.name.toLowerCase() === name.toLowerCase());
+    const rawVal = document.getElementById('ncf-val')?.value.trim();
+    if (rawVal) updateCustomValue(itemId, existing.id, rawVal);
+    closeModal(); gearExpandedId = itemId; renderGear();
+    toast(`Value set for "${name}"!`);
+    return;
+  }
+  const field = {
+    id:          uid('cf'),
+    name,
+    type:        document.getElementById('ncf-type')?.value || 'number',
+    unit:        document.getElementById('ncf-unit')?.value.trim() || '',
+    show_column: document.getElementById('ncf-show')?.checked ?? true,
+  };
+  if (!state.custom_fields) state.custom_fields = [];
+  state.custom_fields.push(field);
+
+  const rawVal = document.getElementById('ncf-val')?.value.trim();
+  if (rawVal) updateCustomValue(itemId, field.id, rawVal);
+
+  saveState();
+  closeModal();
+  gearExpandedId = itemId; // keep this item expanded after re-render
+  renderGear();
+  toast(`"${name}" field added!`);
 }
 
 // ============================================================
