@@ -80,12 +80,15 @@ function loadState() {
       return;
     }
   } catch(e) {}
+  // First visit — start with a blank slate.
+  // Categories, trip types and starter recipes are seeded so the app is
+  // functional, but items / trips / wishlist / templates are empty.
   state = {
-    items:         JSON.parse(JSON.stringify(SEED_DATA.items)),
-    trips:         JSON.parse(JSON.stringify(SEED_DATA.trips)),
-    wishlist:      JSON.parse(JSON.stringify(SEED_DATA.wishlist)),
+    items:         [],
+    trips:         [],
+    wishlist:      [],
     categories:    JSON.parse(JSON.stringify(SEED_DATA.categories)),
-    templates:     JSON.parse(JSON.stringify(SEED_DATA.templates)),
+    templates:     [],
     trip_types:    JSON.parse(JSON.stringify(SEED_DATA.trip_types)),
     food_plans:    [],
     recipes:       JSON.parse(JSON.stringify(SEED_DATA.recipes)),
