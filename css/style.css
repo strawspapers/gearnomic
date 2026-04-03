@@ -843,3 +843,22 @@ tr.cat-header-row.cat-section-highlight td {
   align-items: center;
   gap: 5px;
 }
+
+/* ── Inline-editable gear cells ── */
+.editable-cell {
+  cursor: text;
+  position: relative;
+}
+.editable-cell:hover::after {
+  content: '✎';
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--text-3);
+  pointer-events: none;
+}
+.data-table td.editable-cell:hover {
+  background: var(--accent-l);
+}

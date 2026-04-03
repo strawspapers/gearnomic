@@ -541,17 +541,52 @@ function gearRow(item, cols, inCatSort, visibleCustomFields) {
     ondrop="onRowDrop(event)"
     onclick="toggleExpand('${item.id}')">
     ${handleCell}
-    <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand || '')}</div></td>
-    <td>${badge('badge-gray', item.category)}</td>
-    <td class="mono">${wg(item.weight_g)}<br><span style="font-size:10px;color:var(--text-3)">${woz(item.weight_g)}</span></td>
-    <td>${usd(item.cost_usd)}</td>
-    <td class="mono" style="color:var(--text-2)">${dpg(item.cost_usd, item.weight_g)}</td>
-    <td>${badge(COND_BADGE[item.condition] || 'badge-gray', COND_LABEL[item.condition] || item.condition)}</td>
-    <td class="mono" style="font-size:11px;color:var(--text-3)">${item.usage_days || 0}d${item.usage_nights ? ' · ' + item.usage_nights + 'n' : ''}</td>
-    ${miscCell}
+
+    ${editableCell(item, 'name',
+        `<div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand || '')}</div>`,
+        cellInput(item.id, 'name', item.name, 'text', 'placeholder="Item name"'))}
+
+    ${editableCell(item, 'category',
+        badge('badge-gray', item.category),
+        cellSelect(item.id, 'category', item.category,
+          categoryNames().map(c => [c, c])))}
+
+    ${editableCell(item, 'weight_g',
+        `<span class="mono">${wg(item.weight_g)}</span><br><span style="font-size:10px;color:var(--text-3)">${woz(item.weight_g)}</span>`,
+        cellInput(item.id, 'weight_g', item.weight_g || '', 'number', 'min="0" step="0.1" placeholder="grams"'))}
+
+    ${editableCell(item, 'cost_usd',
+        usd(item.cost_usd),
+        cellInput(item.id, 'cost_usd', item.cost_usd || '', 'number', 'min="0" step="0.01" placeholder="0.00"'))}
+
+    <td class="mono" style="color:var(--text-3);font-size:12px">${dpg(item.cost_usd, item.weight_g)}</td>
+
+    ${editableCell(item, 'condition',
+        badge(COND_BADGE[item.condition] || 'badge-gray', COND_LABEL[item.condition] || item.condition),
+        cellSelect(item.id, 'condition', item.condition,
+          [['excellent','Excellent'],['good','Good'],['fair','Fair'],['poor','Poor']]))}
+
+    <td onclick="event.stopPropagation()" class="editable-cell" style="white-space:nowrap;font-size:11px">
+      <span onclick="startCellEdit(event,'${item.id}','usage_days')" title="Click to edit days">
+        ${isEditing(item.id, 'usage_days')
+          ? cellInput(item.id, 'usage_days', item.usage_days || 0, 'number', 'min="0" style="width:44px"')
+          : `<span style="color:var(--text-2)">${item.usage_days || 0}d</span>`}
+      </span>
+      ${item.usage_nights != null ? ` · <span onclick="startCellEdit(event,'${item.id}','usage_nights')" title="Click to edit nights">
+        ${isEditing(item.id, 'usage_nights')
+          ? cellInput(item.id, 'usage_nights', item.usage_nights || 0, 'number', 'min="0" style="width:44px"')
+          : `<span style="color:var(--text-3)">${item.usage_nights}n</span>`}
+      </span>` : ''}
+    </td>
+
+    ${showMiscCol ? editableCell(item, 'misc_stat',
+        `<span style="font-size:12px;color:var(--text-2);max-width:120px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(item.misc_stat || '')}">${esc(item.misc_stat || '—')}</span>`,
+        cellInput(item.id, 'misc_stat', item.misc_stat || '', 'text', 'placeholder="notes, specs…"')) : ''}
+
     ${customCells}
+
     <td onclick="event.stopPropagation()">
-      <button class="btn-icon" title="Edit" onclick="openEditItem('${item.id}')">✎</button>
+      <button class="btn-icon" title="Edit all fields" onclick="openEditItem('${item.id}')">✎</button>
     </td>
   </tr>${detailHtml}`;
 }
@@ -751,7 +786,8 @@ function tripCard(t) {
     <div class="trip-card-meta">
       ${esc(t.location || 'Location TBD')}
       ${t.start_date ? ` · ${t.start_date}` : ''}
-      ${nights != null ? ` · ${nights} nights` : ''}
+      ${nights != null ? ` · <strong>${nights}</strong> night${nights !== 1 ? 's' : ''}` : ''}
+      ${t.miles ? ` · <strong>${t.miles}</strong> mi` : ''}
     </div>
     <div class="trip-card-stats">
       <span>${(t.gear_ids || []).length} items</span>
@@ -828,6 +864,7 @@ function renderTripDetail(trip) {
       ${trip.location ? `<div class="info-pair"><div class="info-key">Location</div><div class="info-val">${esc(trip.location)}</div></div>` : ''}
       ${trip.start_date ? `<div class="info-pair"><div class="info-key">Dates</div><div class="info-val">${trip.start_date}${trip.end_date ? ' → ' + trip.end_date : ''}</div></div>` : ''}
       ${nights != null ? `<div class="info-pair"><div class="info-key">Nights</div><div class="info-val">${nights}</div></div>` : ''}
+      ${trip.miles ? `<div class="info-pair"><div class="info-key">Distance</div><div class="info-val">${trip.miles} mi${nights ? ` · ${(trip.miles / nights).toFixed(1)} mi/day` : ''}</div></div>` : ''}
     </div>
 
     ${trip.notes ? `<p style="font-size:13px;color:var(--text-2);margin-bottom:1rem;padding:.75rem;background:var(--surface-2);border-radius:var(--r-md)">${esc(trip.notes)}</p>` : ''}
@@ -922,6 +959,7 @@ function tripFormHtml(trip) {
         </div>
       </div>
       <div class="form-row"><label class="form-label">Weight target (grams)</label><input class="input input-full" id="tf-target" type="number" min="0" value="${trip.weight_target_g || ''}" placeholder="e.g. 10000"></div>
+      <div class="form-row"><label class="form-label">Distance (miles)</label><input class="input input-full" id="tf-miles" type="number" min="0" step="0.1" value="${trip.miles || ''}" placeholder="e.g. 28.5"></div>
     </div>
     <div class="form-row"><label class="form-label">Notes</label><textarea class="input input-full" id="tf-notes" rows="2" style="height:60px">${esc(trip.notes || '')}</textarea></div>
     <div class="form-actions">
@@ -954,9 +992,11 @@ function saveTrip(id) {
     status:           document.getElementById('tf-status').value,
     trip_type:        document.getElementById('tf-type').value === '__new__' ? 'other' : document.getElementById('tf-type').value,
     weight_target_g:  parseInt(document.getElementById('tf-target').value) || null,
+    miles:            parseFloat(document.getElementById('tf-miles').value) || null,
     notes:            document.getElementById('tf-notes').value.trim(),
     gear_ids:         id ? (state.trips.find(t => t.id === id)?.gear_ids || []) : [],
     gear_overrides:   id ? (state.trips.find(t => t.id === id)?.gear_overrides || {}) : {},
+    carry_types:      id ? (state.trips.find(t => t.id === id)?.carry_types || {}) : {},
   };
 
   if (id) {
@@ -2567,8 +2607,74 @@ function deleteRecipe(id) {
 // ============================================================
 // CUSTOM FIELDS
 // ============================================================
-let _editCell = null; // { itemId, fieldId }
+let _editCell = null; // { itemId, field } — shared for both built-in and custom fields
 
+// ── Built-in cell editing helpers ──────────────────────────
+
+function startCellEdit(e, itemId, field) {
+  e.stopPropagation();
+  _editCell = { itemId, field };
+  renderGear();
+  setTimeout(() => {
+    const el = document.getElementById(`gc-${itemId}-${field}`);
+    if (el) { el.focus(); if (el.select) el.select(); }
+  }, 20);
+}
+
+function saveCellEdit(itemId, field, value) {
+  const item = state.items.find(i => i.id === itemId);
+  if (item) {
+    if (field === 'weight_g')  item.weight_g  = parseFloat(value) || 0;
+    else if (field === 'cost_usd') item.cost_usd = parseFloat(value) || 0;
+    else if (field === 'name')     item.name     = value.trim() || item.name;
+    else if (field === 'condition') item.condition = value;
+    else if (field === 'category') { item.category = value; }
+    else if (field === 'misc_stat') item.misc_stat = value.trim() || null;
+    else if (field === 'usage_days')   item.usage_days   = parseInt(value) || 0;
+    else if (field === 'usage_nights') item.usage_nights = parseInt(value) || 0;
+    saveState();
+  }
+  _editCell = null;
+  renderGear();
+  if (currentTab === 'dashboard') renderDashboard();
+}
+
+function cancelCellEdit() { _editCell = null; }
+
+function isEditing(itemId, field) {
+  return _editCell && _editCell.itemId === itemId && _editCell.field === field;
+}
+
+// Render a built-in editable cell
+function editableCell(item, field, displayHtml, inputHtml, stopClick) {
+  if (isEditing(item.id, field)) {
+    return `<td onclick="event.stopPropagation()" style="padding:3px 6px">${inputHtml}</td>`;
+  }
+  return `<td onclick="event.stopPropagation();startCellEdit(event,'${item.id}','${field}')"
+    class="editable-cell" title="Click to edit">${displayHtml}</td>`;
+}
+
+// Input builders
+function cellInput(itemId, field, value, type, extraAttrs) {
+  return `<input id="gc-${itemId}-${field}"
+    type="${type || 'text'}" value="${esc(String(value ?? ''))}"
+    ${extraAttrs || ''}
+    style="width:100%;min-width:60px;height:26px;font-size:12px;padding:0 5px;border:1.5px solid var(--primary);border-radius:4px;background:var(--surface);color:var(--text-1)"
+    onblur="saveCellEdit('${itemId}','${field}',this.value)"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){cancelCellEdit();renderGear();}">`;
+}
+
+function cellSelect(itemId, field, value, options) {
+  const opts = options.map(([v, l]) =>
+    `<option value="${esc(v)}" ${v === value ? 'selected' : ''}>${esc(l)}</option>`).join('');
+  return `<select id="gc-${itemId}-${field}"
+    style="height:26px;font-size:12px;padding:0 4px;border:1.5px solid var(--primary);border-radius:4px;background:var(--surface);color:var(--text-1)"
+    onchange="saveCellEdit('${itemId}','${field}',this.value)"
+    onblur="saveCellEdit('${itemId}','${field}',this.value)"
+    onkeydown="if(event.key==='Escape'){cancelCellEdit();renderGear();}">${opts}</select>`;
+}
+
+// Inline edit for custom fields
 function startInlineEdit(itemId, fieldId) {
   _editCell = { itemId, fieldId };
   renderGear();
