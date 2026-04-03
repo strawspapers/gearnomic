@@ -17,6 +17,11 @@ function loadState() {
       state = JSON.parse(raw);
       if (!state.templates)  state.templates  = JSON.parse(JSON.stringify(SEED_DATA.templates));
       if (!state.trip_types) state.trip_types = JSON.parse(JSON.stringify(SEED_DATA.trip_types));
+      if (!state.categories) state.categories = JSON.parse(JSON.stringify(SEED_DATA.categories));
+      // Ensure every category has a color (older saves may lack it)
+      state.categories.forEach((cat, i) => {
+        if (!cat.color) cat.color = SEED_DATA.categories[i]?.color || '#888';
+      });
       // Migrate: ensure every trip and template has carry_types
       state.trips.forEach(t => { if (!t.carry_types) t.carry_types = {}; });
       state.templates.forEach(t => { if (!t.carry_types) t.carry_types = {}; });
@@ -137,18 +142,18 @@ function tripWeight(trip) {
 }
 
 function categoryColor(name) {
-  const cat = state.categories.find(c => c.name === name);
+  const cat = (state.categories || []).find(c => c.name === name);
   return cat ? cat.color : '#888';
 }
 
 function categoryTarget(name) {
-  const cat = state.categories.find(c => c.name === name);
+  const cat = (state.categories || []).find(c => c.name === name);
   return cat ? cat.target_g : null;
 }
 
 function categoryNames() {
   const fromItems = [...new Set(state.items.map(i => i.category))];
-  const fromCats  = state.categories.map(c => c.name);
+  const fromCats  = (state.categories || []).map(c => c.name);
   return [...new Set([...fromCats, ...fromItems])];
 }
 
