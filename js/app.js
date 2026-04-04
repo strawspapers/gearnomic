@@ -6,6 +6,7 @@
 let _sb = null;           // Supabase client
 let _user = null;         // current auth.User
 let _syncTimer = null;    // debounce handle
+let _isSupporter = false; // paid supporter status
 
 function _supabaseReady() {
   if (_sb) return true;
@@ -21,15 +22,15 @@ let state = { items: [], trips: [], wishlist: [], categories: [], templates: [],
 // ── Persistence ────────────────────────────────────────────
 function saveState() {
   try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
-  // Debounced cloud sync — fires 1.5s after last write
-  if (_user) {
+  // Cloud sync only for Supporters
+  if (_user && _isSupporter) {
     clearTimeout(_syncTimer);
     _syncTimer = setTimeout(syncToCloud, 1500);
   }
 }
 
 async function syncToCloud() {
-  if (!_supabaseReady() || !_user) return;
+  if (!_supabaseReady() || !_user || !_isSupporter) return;
   setSyncIndicator('saving');
   try {
     const { error } = await _sb.from('user_data').upsert(
@@ -48,13 +49,24 @@ async function loadFromCloud() {
   if (!_supabaseReady() || !_user) return false;
   try {
     const { data, error } = await _sb.from('user_data')
-      .select('data').eq('user_id', _user.id).single();
+      .select('data,is_supporter,supporter_since').eq('user_id', _user.id).single();
     if (error || !data?.data) return false;
+    _isSupporter = !!data.is_supporter;
     state = data.data;
     applyMigrations();
     try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
     return true;
   } catch(e) { return false; }
+}
+
+// Called after sign-in to fetch supporter status without overwriting local state
+async function loadSupporterStatus() {
+  if (!_supabaseReady() || !_user) return;
+  try {
+    const { data } = await _sb.from('user_data')
+      .select('is_supporter').eq('user_id', _user.id).single();
+    _isSupporter = !!(data?.is_supporter);
+  } catch(e) { _isSupporter = false; }
 }
 
 function applyMigrations() {
@@ -3401,13 +3413,16 @@ function setSyncIndicator(status) {
   const el = document.getElementById('sync-indicator');
   if (!el) return;
   const states = {
-    saving: '↑ Saving…',
-    saved:  '✓ Synced',
-    error:  '⚠ Sync failed',
-    offline:'○ Offline mode',
+    saving:  '↑ Saving…',
+    saved:   '✓ Synced',
+    error:   '⚠ Sync failed',
+    offline: '○ Local only',
+    nosync:  '',
   };
   el.textContent = states[status] || '';
-  el.style.color = status === 'error' ? 'var(--danger)' : status === 'saved' ? 'var(--success)' : 'var(--text-3)';
+  el.style.color = status === 'error'  ? 'var(--danger)'
+                 : status === 'saved'  ? 'var(--success)'
+                 : 'var(--text-3)';
 }
 
 function updateHeaderAuth() {
@@ -3415,19 +3430,29 @@ function updateHeaderAuth() {
   const anonInfo   = document.getElementById('auth-anon-actions');
   const loadingEl  = document.getElementById('auth-loading-indicator');
   const emailEl    = document.getElementById('auth-user-email');
+  const nudgeEl    = document.getElementById('sync-upgrade-nudge');
   const footerSignin   = document.getElementById('footer-signin-link');
   const footerSettings = document.getElementById('footer-settings-link');
   if (loadingEl) loadingEl.style.display = 'none';
+
   if (_user) {
-    if (userInfo) { userInfo.style.display = 'flex'; }
-    if (anonInfo) { anonInfo.style.display = 'none'; }
-    if (emailEl)  { emailEl.textContent = _user.email; }
+    if (userInfo) userInfo.style.display = 'flex';
+    if (anonInfo) anonInfo.style.display = 'none';
+    if (emailEl)  emailEl.textContent = _user.email;
     if (footerSignin)   footerSignin.style.display   = 'none';
     if (footerSettings) footerSettings.style.display = '';
-    setSyncIndicator('saved');
+
+    if (_isSupporter) {
+      setSyncIndicator('saved');
+      if (nudgeEl) nudgeEl.style.display = 'none';
+    } else {
+      setSyncIndicator('nosync');
+      if (nudgeEl) nudgeEl.style.display = 'flex';
+    }
   } else {
-    if (userInfo) { userInfo.style.display = 'none'; }
-    if (anonInfo) { anonInfo.style.display = 'flex'; }
+    if (userInfo) userInfo.style.display = 'none';
+    if (anonInfo) anonInfo.style.display = 'flex';
+    if (nudgeEl)  nudgeEl.style.display  = 'none';
     if (footerSignin)   footerSignin.style.display   = '';
     if (footerSettings) footerSettings.style.display = 'none';
     setSyncIndicator('offline');
@@ -3680,6 +3705,59 @@ async function submitNewPassword() {
 // USER SETTINGS & PROFILE
 // ============================================================
 
+// ── Stripe price IDs — replace with your real IDs from Stripe Dashboard ──
+// Products → your product → Prices → copy the price_live_... ID
+const STRIPE_MONTHLY_URL = 'https://buy.stripe.com/00w5kCeTg0vBcNF0zi0oM00';
+const STRIPE_ANNUAL_URL  = 'https://buy.stripe.com/aFa9AS9yWbaf8xp6XG0oM01';
+
+function openUpgradeModal() {
+  openModal('Become a Supporter', `
+    <div style="text-align:center;padding:.5rem 0 1rem">
+      <div style="font-size:32px;margin-bottom:.5rem">⛰</div>
+      <p style="font-size:15px;font-weight:500;margin-bottom:.375rem">Sync your gear across every device</p>
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:1.5rem;line-height:1.6">
+        Gearnomic is free forever. Supporters get automatic cloud sync so your
+        gear list is always backed up and available on any device — phone, laptop, tablet.
+      </p>
+    </div>
+
+    <!-- Plan cards -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.25rem">
+      <div style="border:1.5px solid var(--border);border-radius:var(--r-lg);padding:1rem;text-align:center">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.375rem">Monthly</div>
+        <div style="font-size:26px;font-weight:600;font-family:var(--font-disp)">$3.99</div>
+        <div style="font-size:12px;color:var(--text-3);margin-bottom:.875rem">per month</div>
+        <a href="${STRIPE_MONTHLY_URL}?prefilled_email=${encodeURIComponent(_user?.email||'')}"
+          target="_blank" class="btn btn-sm" style="display:block;text-align:center">
+          Subscribe monthly
+        </a>
+      </div>
+      <div style="border:2px solid var(--primary);border-radius:var(--r-lg);padding:1rem;text-align:center;position:relative">
+        <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:10px;font-weight:600;padding:2px 10px;border-radius:99px;white-space:nowrap">BEST VALUE</div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.375rem">Annual</div>
+        <div style="font-size:26px;font-weight:600;font-family:var(--font-disp)">$29</div>
+        <div style="font-size:12px;color:var(--text-3);margin-bottom:.875rem">per year · $2.42/mo</div>
+        <a href="${STRIPE_ANNUAL_URL}?prefilled_email=${encodeURIComponent(_user?.email||'')}"
+          target="_blank" class="btn btn-primary btn-sm" style="display:block;text-align:center">
+          Subscribe annually
+        </a>
+      </div>
+    </div>
+
+    <!-- What you get -->
+    <div style="background:var(--surface-2);border-radius:var(--r-md);padding:.875rem 1rem;margin-bottom:1rem">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">What supporters get</div>
+      ${['☁ Cloud sync — your data on every device','🔄 Automatic backup — never lose your gear list','📱 Access from phone, laptop, and tablet','⚡ Priority support','🏕 Early access to new features'].map(f =>
+        `<div style="font-size:13px;color:var(--text-1);padding:3px 0">✓ ${f}</div>`
+      ).join('')}
+    </div>
+
+    <p style="font-size:11.5px;color:var(--text-3);text-align:center;line-height:1.5">
+      Cancel any time. Sharing, gear management, and all other features stay free forever.
+    </p>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Maybe later</button></div>`);
+}
+
 function openSettings() {
   if (!_user) { toast('Sign in to access settings.'); return; }
 
@@ -3688,6 +3766,22 @@ function openSettings() {
 
   openModal('Settings', `
     <div style="display:flex;flex-direction:column;gap:1.25rem">
+
+      <!-- Supporter status -->
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Supporter</div>
+        ${_isSupporter
+          ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span style="background:var(--primary);color:#fff;font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px">⛰ SUPPORTER</span>
+              <span style="font-size:13px;color:var(--text-2)">Cloud sync is active. Thank you for supporting Gearnomic!</span>
+              <a href="https://billing.stripe.com/p/login/REPLACE_WITH_STRIPE_PORTAL" target="_blank" class="btn btn-sm btn-ghost">Manage subscription</a>
+            </div>`
+          : `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span style="font-size:13px;color:var(--text-2)">Free plan — data saved locally on this device only.</span>
+              <button class="btn btn-sm btn-primary" onclick="closeModal();openUpgradeModal()">Upgrade for sync ☁</button>
+            </div>`
+        }
+      </div>
 
       <!-- Profile -->
       <div>
@@ -3729,7 +3823,7 @@ function openSettings() {
         <div style="display:flex;gap:.5rem;flex-wrap:wrap">
           <button class="btn btn-sm" onclick="exportData()">Export all data as JSON</button>
           <button class="btn btn-sm" onclick="document.getElementById('import-file').click()">Import from JSON</button>
-          <button class="btn btn-sm" onclick="syncToCloud().then(()=>toast('Synced!'))">Force sync to cloud</button>
+          ${_isSupporter ? `<button class="btn btn-sm" onclick="syncToCloud().then(()=>toast('Synced!'))">Force sync to cloud</button>` : ''}
         </div>
       </div>
 
@@ -4205,11 +4299,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (event === 'SIGNED_IN' && session?.user) {
       _user = session.user;
       hideAuthModal();
-      const cloudLoaded = await loadFromCloud();
-      if (!cloudLoaded) await syncToCloud();
+      const cloudLoaded = await loadFromCloud(); // also sets _isSupporter
+      if (!cloudLoaded) {
+        await loadSupporterStatus();
+        await syncToCloud();
+      }
       refreshAll();
       updateHeaderAuth();
-      toast('Signed in! Your data is syncing.');
+      toast('Signed in!' + (_isSupporter ? ' Your data is syncing.' : ' Upgrade to enable cloud sync.'));
 
       // Resume a pending share save if the user signed in to save a shared list
       if (window._pendingShareToken) {
