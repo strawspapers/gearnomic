@@ -31,14 +31,22 @@
       </nav>
       <div class="header-actions">
         <!-- Signed-in: sync indicator + avatar menu -->
-        <div id="auth-user-info" style="display:none;align-items:center;gap:10px">
+        <div id="auth-user-info" style="display:none;align-items:center;gap:8px">
           <span id="sync-indicator" style="font-size:11px;color:var(--text-3)"></span>
+          <!-- Sync nudge — shown for free users, hidden for supporters -->
+          <button id="sync-upgrade-nudge" onclick="openUpgradeModal()"
+            class="btn btn-primary btn-sm"
+            style="display:none;gap:5px;white-space:nowrap">
+            ☁ Enable sync
+          </button>
           <div style="position:relative">
             <button class="btn btn-sm" id="user-menu-btn" onclick="toggleUserMenu()" style="display:flex;align-items:center;gap:6px">
               <span id="auth-user-email" style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
               <span style="font-size:10px;opacity:.6">▾</span>
             </button>
-            <div id="user-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:180px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-md);z-index:200;overflow:hidden">
+            <div id="user-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-md);z-index:200;overflow:hidden">
+              <!-- Supporter status row — changes based on tier -->
+              <div id="user-menu-tier" style="padding:10px 14px;border-bottom:1px solid var(--border-2);font-size:12px"></div>
               <button onclick="openSettings();toggleUserMenu()" style="display:block;width:100%;text-align:left;padding:10px 14px;font-size:13px;background:none;border:none;cursor:pointer;font-family:inherit;color:var(--text-1)" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">⚙ Settings</button>
               <button onclick="exportData();toggleUserMenu()" style="display:block;width:100%;text-align:left;padding:10px 14px;font-size:13px;background:none;border:none;cursor:pointer;font-family:inherit;color:var(--text-1)" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">↓ Export data</button>
               <div style="height:1px;background:var(--border-2);margin:2px 0"></div>
