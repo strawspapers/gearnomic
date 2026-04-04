@@ -58,27 +58,35 @@
           <h1 class="page-title">Dashboard</h1>
           <p class="page-sub" id="dash-date"></p>
         </div>
+        <button class="btn btn-primary" onclick="showTab('gear');setTimeout(()=>document.getElementById('btn-add-item').click(),50)">+ Add gear</button>
       </div>
+
+      <!-- 4 quick stat cards -->
       <div class="metrics-row" id="dash-metrics"></div>
-      <div class="grid-2">
+
+      <!-- Upcoming trips + Next trip gear check -->
+      <div class="grid-2" style="margin-bottom:1rem">
         <div class="card">
           <div class="card-header">
-            <span class="card-title">Weight by category</span>
-            <span class="card-sub">vs. target</span>
-          </div>
-          <div id="dash-cats"></div>
-        </div>
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">Trips</span>
+            <span class="card-title">Upcoming trips</span>
+            <button class="btn btn-sm" onclick="showTab('trips')">All trips →</button>
           </div>
           <div id="dash-trips"></div>
         </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Next trip</span>
+            <span class="card-sub" id="dash-next-trip-name">—</span>
+          </div>
+          <div id="dash-next-trip"></div>
+        </div>
       </div>
+
+      <!-- Heaviest items + Quick add recent -->
       <div class="card">
         <div class="card-header">
           <span class="card-title">Heaviest items</span>
-          <span class="card-sub">upgrade targets</span>
+          <span class="card-sub">potential upgrade targets</span>
         </div>
         <div class="table-wrap">
           <table class="data-table">
@@ -234,29 +242,70 @@
     <section id="tab-analytics" class="tab-panel">
       <div class="page-header">
         <h1 class="page-title">Analytics</h1>
+        <span class="page-sub">Patterns and insights across your full kit</span>
       </div>
+
+      <!-- 4 insight metrics -->
       <div class="metrics-row" id="analytics-metrics"></div>
-      <div class="grid-2">
+
+      <!-- Charts row -->
+      <div class="grid-2" style="margin-bottom:1rem">
         <div class="card">
-          <div class="card-header"><span class="card-title">Weight by category</span></div>
-          <canvas id="chart-weight" height="300"></canvas>
+          <div class="card-header"><span class="card-title">Weight by category</span><span class="card-sub">heaviest first</span></div>
+          <canvas id="chart-weight" height="280"></canvas>
         </div>
         <div class="card">
-          <div class="card-header"><span class="card-title">Cost distribution</span></div>
-          <canvas id="chart-cost" height="300"></canvas>
+          <div class="card-header"><span class="card-title">Cost distribution</span><span class="card-sub">by category</span></div>
+          <canvas id="chart-cost" height="280"></canvas>
         </div>
       </div>
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Weight targets by category</span>
-          <span class="card-sub">current vs. your per-category goal</span>
+
+      <!-- Weight vs targets + Base weight per trip -->
+      <div class="grid-2" style="margin-bottom:1rem">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Weight targets</span>
+            <span class="card-sub">current vs. goal per category</span>
+          </div>
+          <div id="analytics-targets"></div>
         </div>
-        <div id="analytics-targets"></div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Trip weight history</span>
+            <span class="card-sub">base weight per trip</span>
+          </div>
+          <div id="analytics-trips-chart-wrap">
+            <canvas id="chart-trips" height="220"></canvas>
+          </div>
+          <div id="analytics-trips-empty" style="display:none" class="empty-state" style="padding:1rem">
+            <p>No completed trips yet. Weights will appear here after your first trip.</p>
+          </div>
+        </div>
       </div>
+
+      <!-- Value analysis + Most used -->
+      <div class="grid-2" style="margin-bottom:1rem">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Best & worst value</span>
+            <span class="card-sub">$/gram — lower is better</span>
+          </div>
+          <div id="analytics-value"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Gear never used</span>
+            <span class="card-sub">items with 0 days logged</span>
+          </div>
+          <div id="analytics-unused"></div>
+        </div>
+      </div>
+
+      <!-- Most used table -->
       <div class="card">
         <div class="card-header">
           <span class="card-title">Most-used gear</span>
-          <span class="card-sub">by days in field</span>
+          <span class="card-sub">by days in field — workhorses of your kit</span>
         </div>
         <div class="table-wrap">
           <table class="data-table">
