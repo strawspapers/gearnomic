@@ -124,11 +124,13 @@
         <button class="btn btn-sm" onclick="openColumnManager()" title="Add or toggle custom field columns">Columns ▾</button>
         <button class="btn btn-sm" onclick="openManageCategories()">Manage categories</button>
       </div>
-      <div class="table-wrap">
-        <table class="data-table" id="gear-table">
-          <thead id="gear-thead"></thead>
-          <tbody id="gear-tbody"></tbody>
-        </table>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="table-wrap">
+          <table class="data-table" id="gear-table">
+            <thead id="gear-thead"></thead>
+            <tbody id="gear-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
@@ -182,16 +184,18 @@
           </select>
         </div>
       </div>
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Item</th><th>Brand / Model</th><th>Weight</th><th>Cost</th>
-              <th>$/gram</th><th>Liters</th><th>vs. owned</th><th></th>
-            </tr>
-          </thead>
-          <tbody id="wish-tbody"></tbody>
-        </table>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Item</th><th>Brand / Model</th><th>Weight</th><th>Cost</th>
+                <th>$/gram</th><th>Liters</th><th>vs. owned</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="wish-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
