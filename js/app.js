@@ -2385,8 +2385,16 @@ function openManageCategoriesFromForm() {
 const MEAL_TIMES  = ['breakfast','snack','lunch','dinner'];
 const MEAL_LABELS = { breakfast:'Breakfast', snack:'Snack', lunch:'Lunch', dinner:'Dinner' };
 const MEAL_ICONS  = { breakfast:'☀', snack:'🌿', lunch:'☁', dinner:'★' };
-// Backpacking calorie targets per meal (summing to ~3000/day default)
-const MEAL_CAL_GUIDE = { breakfast:650, snack:500, lunch:750, dinner:900 };
+// Default meal calorie splits (percentages, must sum to 100)
+// These are the plan defaults; each plan can store its own meal_splits object.
+const MEAL_DEFAULT_SPLITS = { breakfast: 22, snack: 17, lunch: 25, dinner: 36 };
+
+// Get the calorie target for a specific meal slot in a plan
+function mealCalTarget(plan, mealTime) {
+  const splits = plan.meal_splits || MEAL_DEFAULT_SPLITS;
+  const pct = splits[mealTime] ?? MEAL_DEFAULT_SPLITS[mealTime] ?? 25;
+  return Math.round((pct / 100) * (plan.cal_target_per_day || 3000));
+}
 
 let activeFoodPlanId = null;
 let foodView = 'plans'; // 'plans' | 'recipes'
@@ -2491,6 +2499,10 @@ function renderFoodPlanDetail(plan) {
         <span>${MEAL_ICONS.dinner} <strong>${nights}</strong> dinners</span>
       </div>
       <div style="margin-top:.5rem;color:var(--text-3)">Target: ${plan.cal_target_per_day.toLocaleString()} cal/day · ${plan.weight_target_g_per_day}g (~${(plan.weight_target_g_per_day/453.6).toFixed(1)}lb) food/day</div>
+      <div style="margin-top:.375rem;display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--text-3)">
+        ${MEAL_TIMES.map(mt => `<span>${MEAL_ICONS[mt]} ${MEAL_LABELS[mt]}: <strong>${mealCalTarget(plan, mt)}</strong> cal</span>`).join('')}
+        <button class="btn btn-xs" style="margin-left:auto" onclick="openEditFoodPlan('${plan.id}')">Adjust splits</button>
+      </div>
     </div>`;
 
   // Summary metrics
@@ -2516,7 +2528,7 @@ function renderFoodPlanDetail(plan) {
     const slots = mealTypes.map(mt => {
       const slotMeals = dayMeals.filter(m => m.meal_time === mt);
       const slotCal   = slotMeals.reduce((s,m) => s + (m.cal||0), 0);
-      const guideCal  = MEAL_CAL_GUIDE[mt];
+      const guideCal  = mealCalTarget(plan, mt);
       const ok = slotCal >= guideCal * 0.75;
       return `
         <div style="border:.5px solid var(--border);border-radius:var(--r-md);padding:.625rem .75rem;min-height:80px">
@@ -2596,7 +2608,7 @@ function foodPlanFormHtml(plan) {
         <input class="input input-full" id="fp-days" type="number" min="1" max="30" value="${plan.days||3}">
         <div class="form-hint">Dinners = days − 1 (no dinner on last day)</div></div>
       <div class="form-row"><label class="form-label">Calorie target / day</label>
-        <select class="select input-full" id="fp-cal">
+        <select class="select input-full" id="fp-cal" onchange="updateSplitPreview()">
           <option value="2500" ${plan.cal_target_per_day===2500?'selected':''}>2,500 — Easy/moderate day hikes</option>
           <option value="3000" ${(!plan.cal_target_per_day||plan.cal_target_per_day===3000)?'selected':''}>3,000 — Standard backpacking (default)</option>
           <option value="3500" ${plan.cal_target_per_day===3500?'selected':''}>3,500 — Big miles / elevation gain</option>
@@ -2610,15 +2622,73 @@ function foodPlanFormHtml(plan) {
           <option value="1100" ${plan.weight_target_g_per_day===1100?'selected':''}>1,100g (2.4 lb) — Cold/hard trips</option>
         </select></div>
     </div>
+
+    <div style="border-top:.5px solid var(--border-2);padding-top:.875rem;margin-bottom:.875rem">
+      <label class="form-label" style="margin-bottom:.5rem;display:flex;justify-content:space-between;align-items:center">
+        Calorie split by meal
+        <span id="fp-split-total" style="font-size:11px;font-weight:400;color:var(--text-3)">Total: 100%</span>
+      </label>
+      <p style="font-size:12px;color:var(--text-3);margin-bottom:.75rem">Adjust how daily calories are distributed across meals. Total must equal 100%.</p>
+      ${MEAL_TIMES.map(mt => {
+        const pct = (plan.meal_splits || MEAL_DEFAULT_SPLITS)[mt] ?? MEAL_DEFAULT_SPLITS[mt];
+        const cal = Math.round((pct/100) * (plan.cal_target_per_day || 3000));
+        return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:.625rem">
+          <span style="width:80px;font-size:12px;color:var(--text-2)">${MEAL_ICONS[mt]} ${MEAL_LABELS[mt]}</span>
+          <input type="range" id="fp-split-${mt}" min="5" max="60" value="${pct}"
+            style="flex:1;accent-color:var(--primary)"
+            oninput="updateSplitPreview()">
+          <span style="width:38px;text-align:right;font-size:12px;font-weight:500" id="fp-pct-${mt}">${pct}%</span>
+          <span style="width:55px;text-align:right;font-size:11px;color:var(--text-3)" id="fp-cal-${mt}">${cal} cal</span>
+        </div>`;
+      }).join('')}
+      <div id="fp-split-warning" style="display:none;font-size:12px;color:var(--danger);margin-top:.25rem">⚠ Percentages must sum to 100% before saving</div>
+    </div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="saveFoodPlan('${plan.id||''}')">Save plan</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     </div>`;
 }
 
+function updateSplitPreview() {
+  const calPerDay = parseInt(document.getElementById('fp-cal')?.value) || 3000;
+  let total = 0;
+  MEAL_TIMES.forEach(mt => {
+    const pct = parseInt(document.getElementById(`fp-split-${mt}`)?.value) || 0;
+    total += pct;
+    const cal = Math.round((pct / 100) * calPerDay);
+    const pctEl = document.getElementById(`fp-pct-${mt}`);
+    const calEl = document.getElementById(`fp-cal-${mt}`);
+    if (pctEl) pctEl.textContent = pct + '%';
+    if (calEl) calEl.textContent = cal + ' cal';
+  });
+  const totalEl = document.getElementById('fp-split-total');
+  const warnEl  = document.getElementById('fp-split-warning');
+  const ok = total === 100;
+  if (totalEl) {
+    totalEl.textContent = `Total: ${total}%`;
+    totalEl.style.color = ok ? 'var(--success)' : 'var(--danger)';
+    totalEl.style.fontWeight = ok ? '400' : '600';
+  }
+  if (warnEl) warnEl.style.display = ok ? 'none' : 'block';
+}
+
 function saveFoodPlan(id) {
   const name = document.getElementById('fp-name').value.trim();
   if (!name) { alert('Plan name is required.'); return; }
+
+  // Validate meal splits sum to 100
+  let splitTotal = 0;
+  const meal_splits = {};
+  MEAL_TIMES.forEach(mt => {
+    const pct = parseInt(document.getElementById(`fp-split-${mt}`)?.value) || 0;
+    meal_splits[mt] = pct;
+    splitTotal += pct;
+  });
+  if (splitTotal !== 100) {
+    alert(`Meal calorie splits must sum to 100% (currently ${splitTotal}%). Adjust the sliders before saving.`);
+    return;
+  }
+
   const isNew = !id;
   const existing = id ? state.food_plans.find(p => p.id === id) : null;
   const days = parseInt(document.getElementById('fp-days').value) || 3;
@@ -2627,8 +2697,9 @@ function saveFoodPlan(id) {
     name,
     trip_id: document.getElementById('fp-trip').value || null,
     days,
-    cal_target_per_day:    parseInt(document.getElementById('fp-cal').value) || 3000,
-    weight_target_g_per_day: parseInt(document.getElementById('fp-wt').value) || 800,
+    cal_target_per_day:      parseInt(document.getElementById('fp-cal').value) || 3000,
+    weight_target_g_per_day: parseInt(document.getElementById('fp-wt').value)  || 800,
+    meal_splits,
     meals: existing ? existing.meals : [],
   };
 
@@ -2656,7 +2727,7 @@ function deleteFoodPlan(id) {
 function openAddMeal(planId, day, mealTime) {
   const plan = state.food_plans.find(p => p.id === planId);
   if (!plan) return;
-  const guideCal = MEAL_CAL_GUIDE[mealTime];
+  const guideCal = mealCalTarget(plan, mealTime);
   // Build recipe options for this meal time
   const recs = state.recipes.filter(r => !r.meal_time || r.meal_time === mealTime || r.meal_time === 'snack');
   const recOpts = recs.length
