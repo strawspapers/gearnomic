@@ -386,6 +386,7 @@ textarea { height: auto; padding: 8px 10px; resize: vertical; }
   border-bottom: 1px solid var(--border-2);
   vertical-align: middle;
   color: var(--text-1);
+  background: var(--surface);
 }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tbody tr:hover td { background: var(--surface-2); }
@@ -398,16 +399,17 @@ textarea { height: auto; padding: 8px 10px; resize: vertical; }
 
 .mono { font-family: 'DM Mono', 'Fira Mono', ui-monospace, monospace; font-size: 12px; }
 
-/* ── Category header rows in gear table ── */
+/* ── Category header rows — tan bg matches page, white rows pop out ── */
 .cat-header-row td {
-  background: var(--surface-3) !important;
+  background: var(--bg) !important;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .07em;
   color: var(--text-3);
-  padding: 7px 12px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
 }
 .cat-header-row:hover td { background: var(--surface-3) !important; }
 
@@ -745,7 +747,6 @@ tr.cat-header-row.cat-section-highlight td {
   background: var(--accent-l) !important;
   border-left: 3px solid var(--accent);
 }
-
 /* Handle cell */
 .gear-handle-cell {
   width: 28px;
@@ -862,7 +863,6 @@ tr.cat-header-row.cat-section-highlight td {
 .data-table td.editable-cell:hover {
   background: var(--accent-l);
 }
-
 /* ── Drag reorder drop-line indicators ── */
 tr.drop-line-before td { box-shadow: inset 0 2px 0 0 var(--accent); }
 tr.drop-line-after  td { box-shadow: inset 0 -2px 0 0 var(--accent); }
