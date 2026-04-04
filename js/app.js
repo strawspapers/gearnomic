@@ -4629,6 +4629,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load local data so the app is ready in the background
   loadState();
 
+  // Render dashboard immediately with local data — no waiting for auth
+  renderDashboard();
+
   // Set up filter listeners
   document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.addEventListener('click', () => showTab(btn.dataset.tab));
