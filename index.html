@@ -23,24 +23,33 @@
       <nav class="main-nav" id="main-nav">
         <button class="nav-tab active" data-tab="dashboard">Dashboard</button>
         <button class="nav-tab" data-tab="gear">Gear Closet</button>
+        <button class="nav-tab" data-tab="wishlist">Wishlist</button>
         <button class="nav-tab" data-tab="trips">Trips</button>
         <button class="nav-tab" data-tab="templates">Templates</button>
-        <button class="nav-tab" data-tab="wishlist">Wishlist</button>
         <button class="nav-tab" data-tab="food">Food</button>
         <button class="nav-tab" data-tab="analytics">Analytics</button>
       </nav>
       <div class="header-actions">
+        <!-- Signed-in: sync indicator + avatar menu -->
         <div id="auth-user-info" style="display:none;align-items:center;gap:10px">
-          <span id="auth-user-email" style="font-size:12px;color:var(--text-2)"></span>
           <span id="sync-indicator" style="font-size:11px;color:var(--text-3)"></span>
-          <button class="btn btn-ghost btn-sm" onclick="openSettings()">Settings</button>
-          <button class="btn btn-ghost btn-sm" onclick="exportData()">Export</button>
-          <button class="btn btn-ghost btn-sm" onclick="signOut()">Sign out</button>
+          <div style="position:relative">
+            <button class="btn btn-sm" id="user-menu-btn" onclick="toggleUserMenu()" style="display:flex;align-items:center;gap:6px">
+              <span id="auth-user-email" style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+              <span style="font-size:10px;opacity:.6">▾</span>
+            </button>
+            <div id="user-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:180px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-md);z-index:200;overflow:hidden">
+              <button onclick="openSettings();toggleUserMenu()" style="display:block;width:100%;text-align:left;padding:10px 14px;font-size:13px;background:none;border:none;cursor:pointer;font-family:inherit;color:var(--text-1)" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">⚙ Settings</button>
+              <button onclick="exportData();toggleUserMenu()" style="display:block;width:100%;text-align:left;padding:10px 14px;font-size:13px;background:none;border:none;cursor:pointer;font-family:inherit;color:var(--text-1)" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">↓ Export data</button>
+              <div style="height:1px;background:var(--border-2);margin:2px 0"></div>
+              <button onclick="signOut();toggleUserMenu()" style="display:block;width:100%;text-align:left;padding:10px 14px;font-size:13px;background:none;border:none;cursor:pointer;font-family:inherit;color:var(--danger)" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">→ Sign out</button>
+            </div>
+          </div>
         </div>
+        <!-- Guest: sign in button only -->
         <div id="auth-anon-actions" style="display:none;align-items:center;gap:8px">
           <span style="font-size:12px;color:var(--text-3)">Local only</span>
           <button class="btn btn-sm" onclick="showAuthModal()">Sign in</button>
-          <button class="btn btn-ghost btn-sm" onclick="exportData()">Export</button>
         </div>
         <div id="auth-loading-indicator">
           <span style="font-size:12px;color:var(--text-3)">Loading…</span>
