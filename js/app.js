@@ -3707,8 +3707,8 @@ async function submitNewPassword() {
 
 // ── Stripe price IDs — replace with your real IDs from Stripe Dashboard ──
 // Products → your product → Prices → copy the price_live_... ID
-const STRIPE_MONTHLY_URL = 'https://buy.stripe.com/00w5kCeTg0vBcNF0zi0oM00';
-const STRIPE_ANNUAL_URL  = 'https://buy.stripe.com/aFa9AS9yWbaf8xp6XG0oM01';
+const STRIPE_MONTHLY_URL = 'https://buy.stripe.com/00w5kCeTg0vBcNF0zi0oM00?prefilled_email=';
+const STRIPE_ANNUAL_URL  = 'https://buy.stripe.com/aFa9AS9yWbaf8xp6XG0oM01?prefilled_email=';
 
 function openUpgradeModal() {
   openModal('Become a Supporter', `
