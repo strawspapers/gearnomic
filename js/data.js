@@ -302,3 +302,84 @@ const SEED_DATA = {
     }
   ]
 };
+
+// ============================================================
+// Demo data shown to new users on first visit.
+// Generic labels only — no personal brands or models.
+// ============================================================
+const DEMO_DATA = {
+  items: [
+    // Pack
+    { id: 'd001', name: 'Ultralight Backpack', brand: '', category: 'Pack', weight_g: 680, cost_usd: 220, condition: 'good', notes: 'Your main carry — replace this with your actual pack.', usage_days:0, usage_nights:0 },
+    { id: 'd002', name: 'Pack Rain Cover', brand: '', category: 'Pack', weight_g: 85, cost_usd: 15, condition: 'good', notes: '', usage_days:0, usage_nights:0 },
+    { id: 'd003', name: 'Hip Belt Pockets (pair)', brand: '', category: 'Pack', weight_g: 60, cost_usd: 18, condition: 'good', notes: '', usage_days:0, usage_nights:0 },
+
+    // Shelter
+    { id: 'd004', name: 'Solo Backpacking Tent', brand: '', category: 'Shelter', weight_g: 900, cost_usd: 350, condition: 'good', notes: '1-person, 3-season.', usage_days:0, usage_nights:0 },
+    { id: 'd005', name: 'Tent Stakes (x8)', brand: '', category: 'Shelter', weight_g: 72, cost_usd: 12, condition: 'good', notes: 'Titanium shepherd hook style.', usage_days:0, usage_nights:0 },
+    { id: 'd006', name: 'Ground Cloth', brand: '', category: 'Shelter', weight_g: 60, cost_usd: 10, condition: 'good', notes: 'Cut to footprint size.', usage_days:0, usage_nights:0 },
+
+    // Sleep
+    { id: 'd007', name: 'Sleeping Bag (20°F)', brand: '', category: 'Sleep', weight_g: 900, cost_usd: 300, condition: 'good', notes: '20°F / -7°C synthetic fill.', usage_days:0, usage_nights:0 },
+    { id: 'd008', name: 'Sleeping Pad (R-4)', brand: '', category: 'Sleep', weight_g: 430, cost_usd: 180, condition: 'good', notes: 'Insulated air pad, R-value 4.', usage_days:0, usage_nights:0 },
+    { id: 'd009', name: 'Inflatable Pillow', brand: '', category: 'Sleep', weight_g: 75, cost_usd: 25, condition: 'good', notes: '', usage_days:0, usage_nights:0 },
+
+    // Worn Clothing
+    { id: 'd010', name: 'Trail Running Shoes', brand: '', category: 'Worn Clothing', weight_g: 580, cost_usd: 150, condition: 'good', notes: 'Waterproof or regular — your call.', usage_days:0, usage_nights:0 },
+    { id: 'd011', name: 'Hiking Shirt (sun protection)', brand: '', category: 'Worn Clothing', weight_g: 180, cost_usd: 55, condition: 'good', notes: 'UPF 50+.', usage_days:0, usage_nights:0 },
+    { id: 'd012', name: 'Hiking Shorts / Pants', brand: '', category: 'Worn Clothing', weight_g: 220, cost_usd: 70, condition: 'good', notes: '', usage_days:0, usage_nights:0 },
+
+    // Packed Clothing
+    { id: 'd013', name: 'Puffy Jacket (insulation layer)', brand: '', category: 'Packed Clothing', weight_g: 320, cost_usd: 180, condition: 'good', notes: 'Down or synthetic — for camp and cold snaps.', usage_days:0, usage_nights:0 },
+    { id: 'd014', name: 'Rain Jacket', brand: '', category: 'Packed Clothing', weight_g: 280, cost_usd: 150, condition: 'good', notes: 'Hardshell or light softshell.', usage_days:0, usage_nights:0 },
+    { id: 'd015', name: 'Camp Shoes / Sandals', brand: '', category: 'Packed Clothing', weight_g: 240, cost_usd: 60, condition: 'good', notes: 'For stream crossings and camp.', usage_days:0, usage_nights:0 },
+
+    // Cooking and Water
+    { id: 'd016', name: 'Canister Stove + Fuel', brand: '', category: 'Cooking and Water', weight_g: 220, cost_usd: 50, condition: 'good', notes: '100g fuel canister included.', usage_days:0, usage_nights:0 },
+    { id: 'd017', name: 'Titanium Pot (700ml)', brand: '', category: 'Cooking and Water', weight_g: 110, cost_usd: 35, condition: 'good', notes: '', usage_days:0, usage_nights:0 },
+    { id: 'd018', name: 'Water Filter', brand: '', category: 'Cooking and Water', weight_g: 90, cost_usd: 40, condition: 'good', notes: 'Squeeze-style or inline.', usage_days:0, usage_nights:0 },
+
+    // Health and Safety
+    { id: 'd019', name: 'First Aid Kit', brand: '', category: 'Health and Safety', weight_g: 80, cost_usd: 25, condition: 'good', notes: 'Customized — blister care, antiseptic, SAM splint.', usage_days:0, usage_nights:0 },
+    { id: 'd020', name: 'Headlamp + spare batteries', brand: '', category: 'Health and Safety', weight_g: 90, cost_usd: 35, condition: 'good', notes: '300+ lumen.', usage_days:0, usage_nights:0 },
+    { id: 'd021', name: 'Navigation (map + compass)', brand: '', category: 'Health and Safety', weight_g: 60, cost_usd: 20, condition: 'good', notes: 'Printed topo + baseplate compass. Never rely only on a phone.', usage_days:0, usage_nights:0 },
+
+    // Electronics and Misc
+    { id: 'd022', name: 'Smartphone', brand: '', category: 'Electronics and Misc', weight_g: 220, cost_usd: 0, condition: 'good', notes: 'GPS, camera, emergency contact. Download offline maps.', usage_days:0, usage_nights:0 },
+    { id: 'd023', name: 'Portable Battery (10,000 mAh)', brand: '', category: 'Electronics and Misc', weight_g: 200, cost_usd: 45, condition: 'good', notes: '', usage_days:0, usage_nights:0 },
+    { id: 'd024', name: 'Trowel + waste kit', brand: '', category: 'Electronics and Misc', weight_g: 45, cost_usd: 15, condition: 'good', notes: 'Leave No Trace essentials.', usage_days:0, usage_nights:0 },
+  ],
+
+  trip: {
+    id: 'tdemo',
+    name: 'My First Backpacking Trip',
+    location: 'Local Trailhead',
+    start_date: (() => {
+      const d = new Date(); d.setDate(d.getDate() + 30);
+      return d.toISOString().slice(0,10);
+    })(),
+    end_date: (() => {
+      const d = new Date(); d.setDate(d.getDate() + 32);
+      return d.toISOString().slice(0,10);
+    })(),
+    status: 'planning',
+    trip_type: 'backpacking',
+    weight_target_g: 10000,
+    miles: 18,
+    notes: 'This is a demo trip — edit it or delete it and create your own!',
+    gear_ids: ['d001','d002','d004','d005','d007','d008','d009','d010','d011','d012','d013','d014','d016','d017','d018','d019','d020','d021','d022'],
+    gear_overrides: {},
+    carry_types: { 'd010':'worn','d011':'worn','d012':'worn' },
+  },
+
+  template: {
+    id: 'tmpl_demo',
+    name: 'Weekend Backpacking Base Kit',
+    description: 'A solid starting-point loadout for a 2–3 night 3-season trip. Edit item names and weights to match your own gear.',
+    trip_type: 'backpacking',
+    created_from: null,
+    created_at: new Date().toISOString().slice(0,10),
+    carry_types: { 'd010':'worn','d011':'worn','d012':'worn' },
+    gear_ids: ['d001','d002','d004','d005','d007','d008','d009','d010','d011','d012','d013','d014','d016','d017','d018','d019','d020','d021','d022'],
+  },
+};

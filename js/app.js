@@ -80,15 +80,18 @@ function loadState() {
       return;
     }
   } catch(e) {}
-  // First visit — start with a blank slate.
-  // Categories, trip types and starter recipes are seeded so the app is
-  // functional, but items / trips / wishlist / templates are empty.
+  // First visit — start with demo data so new users can explore the app.
+  // Generic labeled items only (no personal data).
+  const demoItems = JSON.parse(JSON.stringify(DEMO_DATA.items));
+  const demoTrip  = JSON.parse(JSON.stringify(DEMO_DATA.trip));
+  const demoTmpl  = JSON.parse(JSON.stringify(DEMO_DATA.template));
+
   state = {
-    items:         [],
-    trips:         [],
+    items:         demoItems,
+    trips:         [demoTrip],
     wishlist:      [],
     categories:    JSON.parse(JSON.stringify(SEED_DATA.categories)),
-    templates:     [],
+    templates:     [demoTmpl],
     trip_types:    JSON.parse(JSON.stringify(SEED_DATA.trip_types)),
     food_plans:    [],
     recipes:       JSON.parse(JSON.stringify(SEED_DATA.recipes)),
