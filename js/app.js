@@ -3265,15 +3265,21 @@ function updateHeaderAuth() {
   const anonInfo   = document.getElementById('auth-anon-actions');
   const loadingEl  = document.getElementById('auth-loading-indicator');
   const emailEl    = document.getElementById('auth-user-email');
+  const footerSignin   = document.getElementById('footer-signin-link');
+  const footerSettings = document.getElementById('footer-settings-link');
   if (loadingEl) loadingEl.style.display = 'none';
   if (_user) {
     if (userInfo) { userInfo.style.display = 'flex'; }
     if (anonInfo) { anonInfo.style.display = 'none'; }
     if (emailEl)  { emailEl.textContent = _user.email; }
+    if (footerSignin)   footerSignin.style.display   = 'none';
+    if (footerSettings) footerSettings.style.display = '';
     setSyncIndicator('saved');
   } else {
     if (userInfo) { userInfo.style.display = 'none'; }
     if (anonInfo) { anonInfo.style.display = 'flex'; }
+    if (footerSignin)   footerSignin.style.display   = '';
+    if (footerSettings) footerSettings.style.display = 'none';
     setSyncIndicator('offline');
   }
 }
@@ -3649,8 +3655,53 @@ async function confirmDeleteAccount() {
   toast('Account data deleted. You have been signed out.');
 }
 
+function openPrivacyPolicy() {
+  openModal('Privacy Policy', `
+    <div style="font-size:13px;color:var(--text-2);line-height:1.7;max-height:60vh;overflow-y:auto">
+      <p style="margin-bottom:.875rem"><strong>Last updated:</strong> ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</p>
+
+      <p style="margin-bottom:.875rem"><strong>What we collect</strong><br>
+      When you create an account, we store your email address and the gear, trip, and planning data you enter into Gearnomic. This data is stored securely via Supabase.</p>
+
+      <p style="margin-bottom:.875rem"><strong>What we don't collect</strong><br>
+      We do not use advertising trackers, third-party analytics, or sell your data to anyone. We do not use cookies beyond what Supabase requires for authentication sessions.</p>
+
+      <p style="margin-bottom:.875rem"><strong>Local storage</strong><br>
+      Your data is also cached in your browser's localStorage for fast offline access. Clearing your browser data will remove this local copy but your cloud backup remains intact if you have an account.</p>
+
+      <p style="margin-bottom:.875rem"><strong>Data deletion</strong><br>
+      You can delete your account and all associated data at any time from Settings → Account → Delete account.</p>
+
+      <p style="margin-bottom:.875rem"><strong>Contact</strong><br>
+      For privacy questions, email <a href="mailto:hello@gearnomic.com">hello@gearnomic.com</a>.</p>
+    </div>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
+}
+
+function openTerms() {
+  openModal('Terms of Use', `
+    <div style="font-size:13px;color:var(--text-2);line-height:1.7;max-height:60vh;overflow-y:auto">
+      <p style="margin-bottom:.875rem"><strong>Last updated:</strong> ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</p>
+
+      <p style="margin-bottom:.875rem"><strong>Use at your own risk</strong><br>
+      Gearnomic is a gear management and planning tool. Weight calculations, calorie estimates, and other metrics are for planning purposes only. Always exercise your own judgment when preparing for backcountry travel.</p>
+
+      <p style="margin-bottom:.875rem"><strong>Your data</strong><br>
+      You own your data. We don't claim any rights to the gear lists, trips, or other content you create. You can export or delete it at any time.</p>
+
+      <p style="margin-bottom:.875rem"><strong>Service availability</strong><br>
+      Gearnomic is provided free of charge. We reserve the right to modify or discontinue the service at any time. Data sync requires an active Supabase backend — offline/local mode always works without it.</p>
+
+      <p style="margin-bottom:.875rem"><strong>Acceptable use</strong><br>
+      Don't use Gearnomic to store illegal content or attempt to access other users' data. Shared links are public — don't include sensitive personal information in trip names or notes you intend to share.</p>
+
+      <p style="margin-bottom:.875rem"><strong>Contact</strong><br>
+      Questions? Email <a href="mailto:hello@gearnomic.com">hello@gearnomic.com</a>.</p>
+    </div>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
+}
+
 // ============================================================
-// SHARING — public URLs for trips and templates
 // ============================================================
 
 // Generate a short random token (no external lib needed)
@@ -3957,8 +4008,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el) el.addEventListener('change', () => { if (currentTab === 'wishlist') renderWishlist(); });
   });
 
-  // Initial render with local data
-  renderDashboard();
+  // Footer
+  const yearEl = document.getElementById('footer-year');
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
   document.getElementById('dash-date').textContent =
     new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
