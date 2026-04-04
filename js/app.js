@@ -2518,24 +2518,53 @@ function renderFoodPlanDetail(plan) {
 
   // Day-by-day grid
   const days = Array.from({ length: plan.days }, (_, i) => i + 1);
+  const dayConfig = plan.day_config || {};
+
+  // Helper: is a meal slot enabled for a given day?
+  // Default: all meals enabled except dinner on the last day
+  function slotEnabled(day, mt) {
+    const dc = dayConfig[day];
+    if (dc && mt in dc) return dc[mt];
+    return !(day === plan.days && mt === 'dinner'); // smart default
+  }
+
   const dayHtml = days.map(day => {
-    const mealTypes = day === plan.days
-      ? ['breakfast','snack','lunch'] // last day: no dinner (usually)
-      : MEAL_TIMES;
-    const dayMeals  = meals.filter(m => m.day === day);
-    const dayCal    = dayMeals.reduce((s,m) => s + (m.cal||0), 0);
-    const dayW      = dayMeals.reduce((s,m) => s + (m.weight_g||0), 0);
-    const slots = mealTypes.map(mt => {
+    const dayMeals = meals.filter(m => m.day === day);
+    const dayCal   = dayMeals.reduce((s,m) => s + (m.cal||0), 0);
+    const dayW     = dayMeals.reduce((s,m) => s + (m.weight_g||0), 0);
+
+    const slots = MEAL_TIMES.map(mt => {
+      const enabled   = slotEnabled(day, mt);
       const slotMeals = dayMeals.filter(m => m.meal_time === mt);
       const slotCal   = slotMeals.reduce((s,m) => s + (m.cal||0), 0);
       const guideCal  = mealCalTarget(plan, mt);
       const ok = slotCal >= guideCal * 0.75;
+
+      if (!enabled) {
+        // Slot is disabled — show a minimal "skipped" tile with re-enable option
+        return `
+          <div style="border:.5px dashed var(--border-2);border-radius:var(--r-md);padding:.5rem .75rem;min-height:60px;display:flex;flex-direction:column;justify-content:space-between;opacity:.55">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3)">${MEAL_ICONS[mt]} ${MEAL_LABELS[mt]}</span>
+              <button class="btn btn-xs" style="font-size:10px;color:var(--text-3)"
+                onclick="toggleMealSlot('${plan.id}',${day},'${mt}',true)" title="Add this meal">+ Add</button>
+            </div>
+            <span style="font-size:10px;color:var(--text-3);margin-top:4px">Skipped</span>
+          </div>`;
+      }
+
       return `
         <div style="border:.5px solid var(--border);border-radius:var(--r-md);padding:.625rem .75rem;min-height:80px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-            <span style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3)">${MEAL_ICONS[mt]} ${MEAL_LABELS[mt]}</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3)">${MEAL_ICONS[mt]} ${MEAL_LABELS[mt]}</span>
+              <button class="btn btn-xs" style="font-size:10px;padding:1px 5px;color:var(--text-3);border-color:var(--border-2)"
+                onclick="toggleMealSlot('${plan.id}',${day},'${mt}',false)" title="Skip this meal">Skip</button>
+            </div>
             <div style="display:flex;align-items:center;gap:5px">
-              ${slotCal ? `<span class="mono" style="font-size:11px;color:var(--${ok?'success':'warning'})">${slotCal} cal</span>` : `<span style="font-size:10px;color:var(--text-3)">~${guideCal} cal needed</span>`}
+              ${slotCal
+                ? `<span class="mono" style="font-size:11px;color:var(--${ok?'success':'warning'})">${slotCal} cal</span>`
+                : `<span style="font-size:10px;color:var(--text-3)">~${guideCal} cal</span>`}
               <button class="btn btn-xs" onclick="openAddMeal('${plan.id}',${day},'${mt}')" style="padding:2px 7px">+</button>
             </div>
           </div>
@@ -2558,7 +2587,7 @@ function renderFoodPlanDetail(plan) {
             ${dayCal ? `${dayCal.toLocaleString()} cal · ${wg(dayW)}` : 'No meals logged yet'}
           </span>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(${mealTypes.length},1fr);gap:6px">${slots}</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${slots}</div>
       </div>`;
   }).join('');
 
@@ -2837,6 +2866,26 @@ function deleteMealItem(planId, mealId) {
   const plan = state.food_plans.find(p => p.id === planId);
   if (!plan) return;
   plan.meals = (plan.meals || []).filter(m => m.id !== mealId);
+  saveState();
+  renderFoodPlanDetail(plan);
+}
+
+function toggleMealSlot(planId, day, mealTime, enabled) {
+  const plan = state.food_plans.find(p => p.id === planId);
+  if (!plan) return;
+  if (!plan.day_config) plan.day_config = {};
+  if (!plan.day_config[day]) plan.day_config[day] = {};
+
+  if (enabled) {
+    // Re-enabling — just remove the explicit override so it falls back to default (enabled)
+    delete plan.day_config[day][mealTime];
+    if (Object.keys(plan.day_config[day]).length === 0) delete plan.day_config[day];
+  } else {
+    // Disabling — also remove any logged meals for this slot
+    plan.meals = (plan.meals || []).filter(m => !(m.day === day && m.meal_time === mealTime));
+    plan.day_config[day][mealTime] = false;
+  }
+
   saveState();
   renderFoodPlanDetail(plan);
 }
