@@ -3381,6 +3381,22 @@ function saveNewCustomField(itemId) {
 // AUTHENTICATION & SYNC UI
 // ============================================================
 
+function toggleUserMenu() {
+  const menu = document.getElementById('user-menu');
+  if (!menu) return;
+  const open = menu.style.display === 'block';
+  menu.style.display = open ? 'none' : 'block';
+}
+
+// Close user menu when clicking anywhere outside it
+document.addEventListener('click', e => {
+  const btn  = document.getElementById('user-menu-btn');
+  const menu = document.getElementById('user-menu');
+  if (menu && menu.style.display === 'block' && !btn?.contains(e.target) && !menu.contains(e.target)) {
+    menu.style.display = 'none';
+  }
+});
+
 function setSyncIndicator(status) {
   const el = document.getElementById('sync-indicator');
   if (!el) return;
