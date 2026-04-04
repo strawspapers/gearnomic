@@ -100,6 +100,10 @@ function applyMigrations() {
   if (!state.trip_types)    state.trip_types    = JSON.parse(JSON.stringify(SEED_DATA.trip_types));
   if (!state.categories)    state.categories    = JSON.parse(JSON.stringify(SEED_DATA.categories));
   if (!state.food_plans)    state.food_plans    = [];
+  // Ensure demo food plan exists so free users can explore the feature
+  if (!state.food_plans.find(p => p.id === 'fp_demo')) {
+    state.food_plans.unshift(JSON.parse(JSON.stringify(DEMO_FOOD_PLAN)));
+  }
   if (!state.recipes)       state.recipes       = JSON.parse(JSON.stringify(SEED_DATA.recipes));
   if (!state.custom_fields) state.custom_fields = [];
   state.categories.forEach((cat, i) => {
@@ -160,7 +164,7 @@ function loadState() {
     categories:    JSON.parse(JSON.stringify(SEED_DATA.categories)),
     templates:     [demoTmpl],
     trip_types:    JSON.parse(JSON.stringify(SEED_DATA.trip_types)),
-    food_plans:    [],
+    food_plans:    [JSON.parse(JSON.stringify(DEMO_FOOD_PLAN))],
     recipes:       JSON.parse(JSON.stringify(SEED_DATA.recipes)),
     custom_fields: [],
   };
@@ -3328,8 +3332,37 @@ function openAddMeal(planId, day, mealTime) {
   const plan = state.food_plans.find(p => p.id === planId);
   if (!plan) return;
   const guideCal = mealCalTarget(plan, mealTime);
-  // Build recipe options for this meal time
   const recs = state.recipes.filter(r => !r.meal_time || r.meal_time === mealTime || r.meal_time === 'snack');
+
+  if (!_isSupporter) {
+    // Free users: recipe-only picker — no manual entry
+    if (!recs.length) {
+      toast('No recipes available for this meal slot.');
+      return;
+    }
+    openModal(`Add ${MEAL_LABELS[mealTime]} — Day ${day}`, `
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">Choose from the starter recipes:</p>
+      <div class="form-row">
+        <select class="select input-full" id="mi-recipe" onchange="fillFromRecipe()">
+          <option value="">— select a recipe —</option>
+          ${recs.map(r => `<option value="${r.id}" data-cal="${r.cal_per_serving}" data-w="${r.weight_g_per_serving}">${esc(r.name)} (${r.cal_per_serving} cal · ${r.weight_g_per_serving}g)</option>`).join('')}
+        </select>
+      </div>
+      <input type="hidden" id="mi-name" value="">
+      <input type="hidden" id="mi-cal"  value="">
+      <input type="hidden" id="mi-wg"   value="">
+      <input type="hidden" id="mi-notes" value="">
+      <p style="font-size:11.5px;color:var(--text-3);margin-top:.75rem">
+        Supporters can add any custom food item. <button class="btn btn-xs btn-primary" onclick="closeModal();openUpgradeModal('Custom meal items are a Supporter feature.')">Upgrade</button>
+      </p>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="saveMealItem('${planId}',${day},'${mealTime}')">Add</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      </div>`);
+    return;
+  }
+
+  // Supporter: full form with manual entry + recipe quick-fill
   const recOpts = recs.length
     ? `<div class="form-row"><label class="form-label">Quick-fill from recipe</label>
         <select class="select input-full" id="mi-recipe" onchange="fillFromRecipe()">
@@ -3369,19 +3402,30 @@ function fillFromRecipe() {
 }
 
 function saveMealItem(planId, day, mealTime) {
+  const recipeEl = document.getElementById('mi-recipe');
+
+  // Free users: must pick a recipe, and can only add to the demo plan
+  if (!_isSupporter) {
+    if (!recipeEl?.value) {
+      alert('Please select a recipe to add.');
+      return;
+    }
+    // Auto-fill from recipe before saving (in case fillFromRecipe wasn't triggered)
+    fillFromRecipe();
+  }
+
   const name = document.getElementById('mi-name').value.trim();
   if (!name) { alert('Food name required.'); return; }
   const plan = state.food_plans.find(p => p.id === planId);
   if (!plan) return;
   if (!plan.meals) plan.meals = [];
-  const recipeEl = document.getElementById('mi-recipe');
   plan.meals.push({
     id:        uid('meal'),
     day,
     meal_time: mealTime,
     name,
-    cal:       parseInt(document.getElementById('mi-cal').value) || 0,
-    weight_g:  parseInt(document.getElementById('mi-wg').value)  || 0,
+    cal:       parseInt(document.getElementById('mi-cal').value)  || 0,
+    weight_g:  parseInt(document.getElementById('mi-wg').value)   || 0,
     notes:     document.getElementById('mi-notes').value.trim(),
     recipe_id: recipeEl?.value || null,
   });

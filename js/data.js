@@ -382,3 +382,33 @@ const DEMO_DATA = {
     gear_ids: ['d001','d002','d004','d005','d007','d008','d009','d010','d011','d012','d013','d014','d016','d017','d018','d019','d020','d021','d022'],
   },
 };
+
+// Demo meal plan pre-populated with starter recipes so free users
+// can see the full functionality without needing to build it themselves.
+const DEMO_FOOD_PLAN = {
+  id:                    'fp_demo',
+  name:                  'Sample 3-Day Backpacking Plan',
+  trip_id:               null,
+  days:                  3,
+  cal_target_per_day:    3000,
+  weight_target_g_per_day: 800,
+  meal_splits:           { breakfast: 22, snack: 17, lunch: 25, dinner: 36 },
+  day_config:            {},
+  meals: [
+    // Day 1
+    { id: 'dm001', day: 1, meal_time: 'breakfast', name: 'Instant Oats with Add-ins', cal: 590, weight_g: 125, notes: '', recipe_id: 'rec002' },
+    { id: 'dm002', day: 1, meal_time: 'snack',     name: 'Trail Mix (custom)',        cal: 520, weight_g: 115, notes: '', recipe_id: 'rec004' },
+    { id: 'dm003', day: 1, meal_time: 'lunch',     name: 'Tortilla Wrap Lunch',       cal: 650, weight_g: 150, notes: '', recipe_id: 'rec005' },
+    { id: 'dm004', day: 1, meal_time: 'dinner',    name: 'Skurka Beans & Rice',       cal: 680, weight_g: 145, notes: '', recipe_id: 'rec001' },
+    // Day 2
+    { id: 'dm005', day: 2, meal_time: 'breakfast', name: 'Instant Oats with Add-ins', cal: 590, weight_g: 125, notes: '', recipe_id: 'rec002' },
+    { id: 'dm006', day: 2, meal_time: 'snack',     name: 'Trail Mix (custom)',        cal: 520, weight_g: 115, notes: '', recipe_id: 'rec004' },
+    { id: 'dm007', day: 2, meal_time: 'lunch',     name: 'Tortilla Wrap Lunch',       cal: 650, weight_g: 150, notes: '', recipe_id: 'rec005' },
+    { id: 'dm008', day: 2, meal_time: 'dinner',    name: 'Ramen Bomb',                cal: 780, weight_g: 165, notes: '', recipe_id: 'rec003' },
+    // Day 3 (last day — no dinner by default)
+    { id: 'dm009', day: 3, meal_time: 'breakfast', name: 'Instant Oats with Add-ins', cal: 590, weight_g: 125, notes: '', recipe_id: 'rec002' },
+    { id: 'dm010', day: 3, meal_time: 'snack',     name: 'Trail Mix (custom)',        cal: 520, weight_g: 115, notes: '', recipe_id: 'rec004' },
+    { id: 'dm011', day: 3, meal_time: 'lunch',     name: 'Tortilla Wrap Lunch',       cal: 650, weight_g: 150, notes: '', recipe_id: 'rec005' },
+    { id: 'dm012', day: 3, meal_time: 'dinner',    name: 'Skurka Beans & Rice',       cal: 680, weight_g: 145, notes: '', recipe_id: 'rec001' },
+  ],
+};
