@@ -365,59 +365,103 @@ function renderDashboard() {
   document.getElementById('dash-date').textContent =
     d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
-  const totalW   = state.items.reduce((s, i) => s + (i.weight_g || 0), 0);
-  const totalCost= state.items.reduce((s, i) => s + (i.cost_usd || 0), 0);
-  const upcoming = state.trips.filter(t => t.status === 'planning' || t.status === 'confirmed');
+  const totalW    = state.items.reduce((s, i) => s + (i.weight_g || 0), 0);
+  const totalCost = state.items.reduce((s, i) => s + (i.cost_usd || 0), 0);
+  const upcoming  = state.trips.filter(t => t.status === 'planning' || t.status === 'confirmed');
+  const nextTrip  = upcoming.sort((a,b) => (a.start_date||'z').localeCompare(b.start_date||'z'))[0];
+  const daysToNext = nextTrip?.start_date
+    ? Math.ceil((new Date(nextTrip.start_date) - new Date()) / 86400000)
+    : null;
 
+  // Metrics — current snapshot
   document.getElementById('dash-metrics').innerHTML = `
-    <div class="metric-card"><div class="metric-label">Total items</div><div class="metric-val">${state.items.length}</div><div class="metric-sub">${state.templates.length} saved templates</div></div>
-    <div class="metric-card"><div class="metric-label">Total gear weight</div><div class="metric-val">${wg(totalW)}</div><div class="metric-sub">across all ${state.items.length} items</div></div>
-    <div class="metric-card"><div class="metric-label">Tracked value</div><div class="metric-val">${usd(totalCost)}</div><div class="metric-sub">avg ${usd(totalCost / (state.items.filter(i => i.cost_usd > 0).length || 1))}/item</div></div>
-    <div class="metric-card"><div class="metric-label">Upcoming trips</div><div class="metric-val">${upcoming.length}</div><div class="metric-sub">${state.trips.length} total logged</div></div>`;
-
-  // Weight by category
-  const cw = {};
-  state.items.forEach(i => { cw[i.category] = (cw[i.category] || 0) + (i.weight_g || 0); });
-  const sortedCW = Object.entries(cw).sort((a, b) => b[1] - a[1]);
-  const maxCW = sortedCW[0]?.[1] || 1;
-  document.getElementById('dash-cats').innerHTML = sortedCW.map(([cat, w]) => {
-    const tgt = categoryTarget(cat);
-    const pOver = tgt && w > tgt;
-    const p = Math.round(w / maxCW * 100);
-    return `<div class="cat-bar-row">
-      <span class="cat-bar-name" title="${esc(cat)}">${esc(cat)}</span>
-      <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${p}%;background:${categoryColor(cat)}"></div></div>
-      <span class="cat-bar-val">${wg(w)}${pOver ? ` <span style="color:var(--danger)">▲</span>` : ''}</span>
+    <div class="metric-card">
+      <div class="metric-label">Items in closet</div>
+      <div class="metric-val">${state.items.length}</div>
+      <div class="metric-sub">${wg(totalW)} total weight</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Tracked value</div>
+      <div class="metric-val">${usd(totalCost)}</div>
+      <div class="metric-sub">${state.items.filter(i=>i.cost_usd>0).length} items with cost data</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Upcoming trips</div>
+      <div class="metric-val">${upcoming.length}</div>
+      <div class="metric-sub">${state.trips.filter(t=>t.status==='completed').length} completed</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Next trip in</div>
+      <div class="metric-val">${daysToNext != null ? (daysToNext <= 0 ? 'Today!' : daysToNext + 'd') : '—'}</div>
+      <div class="metric-sub">${nextTrip ? esc(nextTrip.name) : 'No upcoming trips'}</div>
     </div>`;
-  }).join('');
 
-  // Trips
-  document.getElementById('dash-trips').innerHTML = !state.trips.length
-    ? `<div class="empty-state"><p>No trips yet.</p></div>`
-    : state.trips.map(t => {
+  // Upcoming trips list
+  document.getElementById('dash-trips').innerHTML = !upcoming.length
+    ? `<div class="empty-state"><p>No upcoming trips.</p><button class="btn btn-sm btn-primary" onclick="showTab('trips')">Plan a trip</button></div>`
+    : upcoming.map(t => {
         const tw = tripWeight(t);
-        const p  = t.weight_target_g ? pct(tw, t.weight_target_g) : 0;
+        const nights = t.start_date && t.end_date
+          ? Math.round((new Date(t.end_date) - new Date(t.start_date)) / 86400000) : null;
         return `<div class="dash-trip-row" onclick="showTab('trips');openTripDetail('${t.id}')">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div class="dash-trip-name">${esc(t.name)}</div>
             ${badge(STATUS_BADGE[t.status] || 'badge-gray', STATUS_LABEL[t.status] || t.status)}
           </div>
-          <div class="dash-trip-meta">${esc(t.location || '')} · ${(t.gear_ids || []).length} items</div>
+          <div class="dash-trip-meta">
+            ${esc(t.location || 'Location TBD')}${nights != null ? ` · ${nights} nights` : ''}${t.miles ? ` · ${t.miles} mi` : ''}
+          </div>
           ${t.weight_target_g ? `${prog(tw, t.weight_target_g)}
-          <div style="font-size:11px;color:var(--text-3);margin-top:3px">${wg(tw)} / ${wg(t.weight_target_g)} target</div>` : ''}
+            <div style="font-size:11px;color:var(--text-3);margin-top:3px">${wg(tw)} / ${wg(t.weight_target_g)} target</div>` : `
+            <div style="font-size:12px;color:var(--text-3);margin-top:4px">${(t.gear_ids||[]).length} items · ${wg(tw)}</div>`}
         </div>`;
       }).join('');
 
+  // Next trip gear weight breakdown by category
+  const nextEl     = document.getElementById('dash-next-trip');
+  const nextNameEl = document.getElementById('dash-next-trip-name');
+  if (!nextTrip || !nextTrip.gear_ids?.length) {
+    if (nextNameEl) nextNameEl.textContent = '—';
+    nextEl.innerHTML = `<div class="empty-state"><p>No gear added to next trip yet.</p></div>`;
+  } else {
+    if (nextNameEl) nextNameEl.textContent = nextTrip.name;
+    const cw = {};
+    nextTrip.gear_ids.forEach(id => {
+      const item = state.items.find(i => i.id === id);
+      if (item) cw[item.category] = (cw[item.category] || 0) + (item.weight_g || 0);
+    });
+    const tw     = tripWeight(nextTrip);
+    const wornW  = (nextTrip.gear_ids).reduce((s, id) => {
+      const item = state.items.find(i => i.id === id);
+      return s + (item && getCarryType(nextTrip, id) === 'worn' ? (item.weight_g||0) : 0);
+    }, 0);
+    const sortedCW = Object.entries(cw).sort((a,b) => b[1]-a[1]);
+    const maxCW = sortedCW[0]?.[1] || 1;
+    nextEl.innerHTML = `
+      <div style="font-size:12px;color:var(--text-3);margin-bottom:.75rem">
+        Total: <strong class="mono">${wg(tw)}</strong>
+        · Base: <strong class="mono">${wg(tw-wornW)}</strong>
+        · Worn: <strong class="mono">${wg(wornW)}</strong>
+      </div>
+      ${sortedCW.map(([cat, w]) => `
+        <div class="cat-bar-row">
+          <span class="cat-bar-name">${esc(cat)}</span>
+          <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${Math.round(w/maxCW*100)}%;background:${categoryColor(cat)}"></div></div>
+          <span class="cat-bar-val">${wg(w)}</span>
+        </div>`).join('')}`;
+  }
+
   // Heaviest items
-  const heavy = [...state.items].filter(i => i.weight_g > 0).sort((a, b) => b.weight_g - a.weight_g).slice(0, 6);
-  document.getElementById('dash-heavy').innerHTML = heavy.map(i => `
-    <tr>
-      <td><div class="item-name">${esc(i.name)}</div><div class="item-sub">${esc(i.brand || '')}</div></td>
-      <td>${badge('badge-gray', i.category)}</td>
-      <td class="mono">${wg(i.weight_g)}<br><span style="font-size:10px;color:var(--text-3)">${woz(i.weight_g)}</span></td>
-      <td>${usd(i.cost_usd)}</td>
-      <td class="mono">${dpg(i.cost_usd, i.weight_g)}</td>
-    </tr>`).join('');
+  const heavy = [...state.items].filter(i => i.weight_g > 0).sort((a,b) => b.weight_g - a.weight_g).slice(0, 8);
+  document.getElementById('dash-heavy').innerHTML = !heavy.length
+    ? `<tr><td colspan="5"><div class="empty-state">No gear yet.</div></td></tr>`
+    : heavy.map(i => `<tr onclick="showTab('gear')" style="cursor:pointer">
+        <td><div class="item-name">${esc(i.name)}</div><div class="item-sub">${esc(i.brand||'')}</div></td>
+        <td>${badge('badge-gray', i.category)}</td>
+        <td class="mono">${wg(i.weight_g)}<br><span style="font-size:10px;color:var(--text-3)">${woz(i.weight_g)}</span></td>
+        <td>${usd(i.cost_usd)}</td>
+        <td class="mono" style="color:var(--text-2)">${dpg(i.cost_usd, i.weight_g)}</td>
+      </tr>`).join('');
 }
 
 // ============================================================
@@ -1262,31 +1306,54 @@ function convertWishToGear(id) {
 // ============================================================
 // ANALYTICS
 // ============================================================
-let chartWeight = null, chartCost = null;
+let chartWeight = null, chartCost = null, chartTrips = null;
 
 function renderAnalytics() {
+  // ── Aggregate data ─────────────────────────────────────────
   const allW   = state.items.reduce((s, i) => s + (i.weight_g || 0), 0);
   const totalC = state.items.reduce((s, i) => s + (i.cost_usd || 0), 0);
-  const itemCount = state.items.length;
-  document.getElementById('analytics-metrics').innerHTML = `
-    <div class="metric-card"><div class="metric-label">Total weight</div><div class="metric-val">${wg(allW)}</div><div class="metric-sub">${woz(allW)}</div></div>
-    <div class="metric-card"><div class="metric-label">Tracked value</div><div class="metric-val">${usd(totalC)}</div><div class="metric-sub">avg ${usd(totalC / (state.items.filter(i=>i.cost_usd>0).length||1))}/item</div></div>
-    <div class="metric-card"><div class="metric-label">Items in closet</div><div class="metric-val">${itemCount}</div><div class="metric-sub">${state.trips.length} trips logged</div></div>
-    <div class="metric-card"><div class="metric-label">Missing cost data</div><div class="metric-val">${state.items.filter(i=>!i.cost_usd).length}</div><div class="metric-sub">items without a price</div></div>`;
+  const priced = state.items.filter(i => i.cost_usd > 0 && i.weight_g > 0);
 
-  // Aggregate by category
   const cw = {}, cc = {};
   state.items.forEach(i => {
     cw[i.category] = (cw[i.category] || 0) + (i.weight_g || 0);
     if (i.cost_usd) cc[i.category] = (cc[i.category] || 0) + i.cost_usd;
   });
-  const sortedW = Object.entries(cw).sort((a, b) => b[1] - a[1]);
-  const sortedC = Object.entries(cc).filter(([,v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  const sortedW = Object.entries(cw).sort((a,b) => b[1]-a[1]);
+  const sortedC = Object.entries(cc).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
 
-  // Chart: weight
+  // ── Metrics ────────────────────────────────────────────────
+  const avgDpg = priced.length
+    ? priced.reduce((s,i) => s + i.cost_usd/i.weight_g, 0) / priced.length : 0;
+  const neverUsed = state.items.filter(i => !i.usage_days || i.usage_days === 0).length;
+  const completedTrips = state.trips.filter(t => t.status === 'completed');
+
+  document.getElementById('analytics-metrics').innerHTML = `
+    <div class="metric-card">
+      <div class="metric-label">Total gear weight</div>
+      <div class="metric-val">${wg(allW)}</div>
+      <div class="metric-sub">${woz(allW)}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Total tracked value</div>
+      <div class="metric-val">${usd(totalC)}</div>
+      <div class="metric-sub">avg ${usd(totalC/(state.items.filter(i=>i.cost_usd>0).length||1))}/item</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Avg cost efficiency</div>
+      <div class="metric-val">${avgDpg > 0 ? '$' + avgDpg.toFixed(2) : '—'}</div>
+      <div class="metric-sub">per gram across ${priced.length} priced items</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Gear never used</div>
+      <div class="metric-val">${neverUsed}</div>
+      <div class="metric-sub">${Math.round(neverUsed/Math.max(state.items.length,1)*100)}% of closet untested</div>
+    </div>`;
+
+  // ── Chart: weight by category ──────────────────────────────
   if (chartWeight) chartWeight.destroy();
-  const ctxW = document.getElementById('chart-weight').getContext('2d');
-  chartWeight = new Chart(ctxW, {
+  const ctxW = document.getElementById('chart-weight')?.getContext('2d');
+  if (ctxW) chartWeight = new Chart(ctxW, {
     type: 'bar',
     data: {
       labels: sortedW.map(([c]) => c),
@@ -1299,10 +1366,10 @@ function renderAnalytics() {
     }
   });
 
-  // Chart: cost
+  // ── Chart: cost doughnut ───────────────────────────────────
   if (chartCost) chartCost.destroy();
-  const ctxC = document.getElementById('chart-cost').getContext('2d');
-  chartCost = new Chart(ctxC, {
+  const ctxC = document.getElementById('chart-cost')?.getContext('2d');
+  if (ctxC) chartCost = new Chart(ctxC, {
     type: 'doughnut',
     data: {
       labels: sortedC.map(([c]) => c),
@@ -1317,30 +1384,97 @@ function renderAnalytics() {
     }
   });
 
-  // Targets
-  document.getElementById('analytics-targets').innerHTML = state.categories
-    .filter(cat => cat.target_g)
-    .map(cat => {
-      const w = cw[cat.name] || 0;
-      const p = pct(w, cat.target_g);
-      const cls = p >= 100 ? 'prog-red' : p >= 80 ? 'prog-amber' : 'prog-green';
-      return `<div class="target-row">
-        <span class="target-label" title="${esc(cat.name)}">${esc(cat.name)}</span>
-        <div class="target-bar"><div class="target-fill ${cls}" style="width:${Math.min(100,p)}%;background:${cat.color}"></div></div>
-        <span class="target-vals">${wg(w)} / ${wg(cat.target_g)} <span style="color:var(--${p >= 100 ? 'danger' : p >= 80 ? 'warning' : 'success'})">${p}%</span></span>
-      </div>`;
-    }).join('');
+  // ── Weight targets ─────────────────────────────────────────
+  const targetsHtml = state.categories.filter(cat => cat.target_g).map(cat => {
+    const w = cw[cat.name] || 0;
+    const p = pct(w, cat.target_g);
+    const cls = p >= 100 ? 'prog-red' : p >= 80 ? 'prog-amber' : 'prog-green';
+    return `<div class="target-row">
+      <span class="target-label" title="${esc(cat.name)}">${esc(cat.name)}</span>
+      <div class="target-bar"><div class="target-fill ${cls}" style="width:${Math.min(100,p)}%;background:${cat.color}"></div></div>
+      <span class="target-vals">${wg(w)} / ${wg(cat.target_g)} <span style="color:var(--${p>=100?'danger':p>=80?'warning':'success'})">${p}%</span></span>
+    </div>`;
+  }).join('');
+  document.getElementById('analytics-targets').innerHTML = targetsHtml
+    || `<div class="empty-state"><p>No category targets set. Open <button class="btn btn-xs" onclick="closeModal?.();openManageCategories()">Manage categories</button> to add weight goals.</p></div>`;
 
-  // Usage table
-  const byUsage = [...state.items].filter(i => i.usage_days > 0).sort((a, b) => b.usage_days - a.usage_days).slice(0, 10);
+  // ── Trip weight history chart ──────────────────────────────
+  const tripsWrap = document.getElementById('analytics-trips-chart-wrap');
+  const tripsEmpty = document.getElementById('analytics-trips-empty');
+  if (chartTrips) chartTrips.destroy();
+  if (!completedTrips.length) {
+    if (tripsWrap)  tripsWrap.style.display  = 'none';
+    if (tripsEmpty) tripsEmpty.style.display = 'block';
+  } else {
+    if (tripsWrap)  tripsWrap.style.display  = '';
+    if (tripsEmpty) tripsEmpty.style.display = 'none';
+    const sorted = [...completedTrips].sort((a,b)=>(a.start_date||'').localeCompare(b.start_date||''));
+    const ctxT = document.getElementById('chart-trips')?.getContext('2d');
+    if (ctxT) chartTrips = new Chart(ctxT, {
+      type: 'bar',
+      data: {
+        labels: sorted.map(t => t.name),
+        datasets: [{
+          label: 'Total weight',
+          data: sorted.map(t => Math.round(tripWeight(t))),
+          backgroundColor: '#2A7048cc', borderRadius: 4, borderSkipped: false
+        }, {
+          label: 'Target',
+          data: sorted.map(t => t.weight_target_g || null),
+          type: 'line', borderColor: '#B87B0A', borderDash: [4,3],
+          pointBackgroundColor: '#B87B0A', fill: false, tension: 0.3
+        }]
+      },
+      options: {
+        plugins: { legend: { labels: { font: { size: 11 } } } },
+        scales: { y: { ticks: { callback: v => wg(v) }, grid: { color: '#f0ece4' } }, x: { grid: { display: false } } },
+        animation: { duration: 400 }
+      }
+    });
+  }
+
+  // ── Best & worst value $/gram ──────────────────────────────
+  const valueSorted = [...priced].sort((a,b) => (a.cost_usd/a.weight_g)-(b.cost_usd/b.weight_g));
+  const best  = valueSorted.slice(0, 4);
+  const worst = valueSorted.slice(-4).reverse();
+  document.getElementById('analytics-value').innerHTML = !priced.length
+    ? `<div class="empty-state"><p>Add cost and weight data to see value rankings.</p></div>`
+    : `<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--success);margin-bottom:.375rem">Best value</div>
+      ${best.map(i => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:.5px solid var(--border-2)">
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(i.name)}</span>
+        <span class="mono" style="color:var(--success);flex-shrink:0;margin-left:8px">${dpg(i.cost_usd,i.weight_g)}</span>
+      </div>`).join('')}
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--danger);margin:.875rem 0 .375rem">Priciest per gram</div>
+      ${worst.map(i => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:.5px solid var(--border-2)">
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(i.name)}</span>
+        <span class="mono" style="color:var(--danger);flex-shrink:0;margin-left:8px">${dpg(i.cost_usd,i.weight_g)}</span>
+      </div>`).join('')}`;
+
+  // ── Never used gear ────────────────────────────────────────
+  const unused = state.items.filter(i => !i.usage_days || i.usage_days === 0);
+  document.getElementById('analytics-unused').innerHTML = !unused.length
+    ? `<div class="empty-state"><p>Everything has been used at least once. 🎉</p></div>`
+    : `<div style="font-size:12px;color:var(--text-3);margin-bottom:.5rem">${unused.length} item${unused.length!==1?'s':''} with no logged usage</div>
+      ${unused.slice(0,8).map(i => `
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:5px 0;border-bottom:.5px solid var(--border-2)">
+          <div>
+            <span style="font-weight:500">${esc(i.name)}</span>
+            <span style="font-size:11px;color:var(--text-3);margin-left:6px">${esc(i.category)}</span>
+          </div>
+          <span class="mono" style="color:var(--text-3);flex-shrink:0;margin-left:8px">${wg(i.weight_g)}</span>
+        </div>`).join('')}
+      ${unused.length > 8 ? `<div style="font-size:11px;color:var(--text-3);padding-top:5px">+ ${unused.length-8} more</div>` : ''}`;
+
+  // ── Most used gear ─────────────────────────────────────────
+  const byUsage = [...state.items].filter(i => i.usage_days > 0).sort((a,b) => b.usage_days - a.usage_days).slice(0, 10);
   document.getElementById('analytics-usage').innerHTML = !byUsage.length
-    ? `<tr><td colspan="5"><div class="empty-state">No usage logged yet. Click a gear item to log days/nights.</div></td></tr>`
+    ? `<tr><td colspan="5"><div class="empty-state">No usage logged yet. Click any gear item to log days and nights.</div></td></tr>`
     : byUsage.map(i => `<tr>
-        <td><div class="item-name">${esc(i.name)}</div><div class="item-sub">${esc(i.brand || '')}</div></td>
+        <td><div class="item-name">${esc(i.name)}</div><div class="item-sub">${esc(i.brand||'')}</div></td>
         <td>${badge('badge-gray', i.category)}</td>
         <td class="mono">${i.usage_days}</td>
         <td class="mono">${i.usage_nights || '—'}</td>
-        <td>${badge(COND_BADGE[i.condition] || 'badge-gray', COND_LABEL[i.condition] || i.condition)}</td>
+        <td>${badge(COND_BADGE[i.condition]||'badge-gray', COND_LABEL[i.condition]||'—')}</td>
       </tr>`).join('');
 }
 
