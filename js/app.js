@@ -2521,11 +2521,11 @@ function renderFoodPlanDetail(plan) {
   const dayConfig = plan.day_config || {};
 
   // Helper: is a meal slot enabled for a given day?
-  // Default: all meals enabled except dinner on the last day
+  // Default: all meals enabled on all days
   function slotEnabled(day, mt) {
     const dc = dayConfig[day];
     if (dc && mt in dc) return dc[mt];
-    return !(day === plan.days && mt === 'dinner'); // smart default
+    return true; // all slots on by default
   }
 
   const dayHtml = days.map(day => {
