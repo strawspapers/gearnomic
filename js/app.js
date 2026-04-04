@@ -2925,7 +2925,7 @@ function setFoodView(view) {
       banner.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--accent-l);border:1px solid var(--accent);border-radius:var(--r-lg);padding:.625rem 1rem;margin-bottom:1rem;font-size:13px';
       banner.innerHTML = `
         <span style="color:var(--text-1)">
-          🍽 <strong>Exploring meal planning</strong> — you can browse the full feature, but saving plans requires a Supporter account.
+          🍽 <strong>Exploring meal planning</strong> — feel free to try it out. You'll need a Supporter account to save your plans.
         </span>
         <button class="btn btn-primary btn-sm" onclick="openUpgradeModal('Saving meal plans is a Supporter feature.')">Upgrade</button>`;
       const view = document.getElementById('food-plans-view');
@@ -3137,7 +3137,6 @@ function renderFoodPlanDetail(plan) {
 
 // ── Food plan CRUD ──────────────────────────────────────────
 function openNewFoodPlan() {
-  if (!requireSupporter('Saving meal plans')) return;
   setFoodView('plans');
   openModal('New meal plan', foodPlanFormHtml());
 }
