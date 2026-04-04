@@ -2915,30 +2915,32 @@ function setFoodView(view) {
   if (btnRecipes) btnRecipes.textContent = view === 'recipes' ? 'Meal plans' : 'Recipe library';
   if (btnPlan)    btnPlan.onclick    = view === 'plans' ? () => { setFoodView('plans'); openNewFoodPlan(); } : () => setFoodView('plans');
   if (btnRecipes) btnRecipes.onclick = view === 'recipes' ? () => setFoodView('plans') : () => setFoodView('recipes');
+
+  // Show/hide free-user banner
+  let banner = document.getElementById('food-free-banner');
+  if (!_isSupporter) {
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'food-free-banner';
+      banner.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--accent-l);border:1px solid var(--accent);border-radius:var(--r-lg);padding:.625rem 1rem;margin-bottom:1rem;font-size:13px';
+      banner.innerHTML = `
+        <span style="color:var(--text-1)">
+          🍽 <strong>Exploring meal planning</strong> — you can browse the full feature, but saving plans requires a Supporter account.
+        </span>
+        <button class="btn btn-primary btn-sm" onclick="openUpgradeModal('Saving meal plans is a Supporter feature.')">Upgrade</button>`;
+      const view = document.getElementById('food-plans-view');
+      if (view) view.insertBefore(banner, view.firstChild);
+    }
+    banner.style.display = 'flex';
+  } else {
+    if (banner) banner.style.display = 'none';
+  }
+
   if (view === 'recipes') renderRecipeLibrary();
   else renderFoodPlanGrid();
 }
 
 function renderFood() {
-  if (!_isSupporter) {
-    // Show upgrade prompt instead of food planning
-    const wrap = document.getElementById('food-plans-grid');
-    const detail = document.getElementById('food-plan-detail-wrap');
-    if (detail) detail.style.display = 'none';
-    if (wrap) wrap.innerHTML = `
-      <div class="empty-state" style="grid-column:1/-1;padding:2rem">
-        <div style="font-size:32px;margin-bottom:.75rem">🍽</div>
-        <p style="font-weight:500;margin-bottom:.375rem">Food Planning is a Supporter feature</p>
-        <p style="font-size:13px;color:var(--text-3);margin-bottom:1.25rem;max-width:360px;margin-left:auto;margin-right:auto;line-height:1.6">
-          Plan your meals day by day, track calories, and build a recipe library.
-          Free accounts can browse the starter recipes below.
-        </p>
-        <button class="btn btn-primary" onclick="openUpgradeModal('Food planning is a Supporter feature.')">Upgrade to unlock food planning</button>
-      </div>`;
-    // Still render recipe library — free users can view but not add
-    renderRecipeLibrary();
-    return;
-  }
   setFoodView(foodView);
 }
 
@@ -3135,6 +3137,7 @@ function renderFoodPlanDetail(plan) {
 
 // ── Food plan CRUD ──────────────────────────────────────────
 function openNewFoodPlan() {
+  if (!requireSupporter('Saving meal plans')) return;
   setFoodView('plans');
   openModal('New meal plan', foodPlanFormHtml());
 }
@@ -3270,6 +3273,7 @@ function updateSplitPreview() {
 }
 
 function saveFoodPlan(id) {
+  if (!requireSupporter('Saving meal plans')) return;
   const name = document.getElementById('fp-name').value.trim();
   if (!name) { alert('Plan name is required.'); return; }
 
@@ -4134,7 +4138,7 @@ function openUpgradeModal(reason) {
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">What supporters get</div>
       ${[
         '♾ Unlimited gear items, trips & templates',
-        '🍽 Full food & meal planning',
+        '🍽 Save meal plans & attach them to trips',
         '📊 Full analytics — value, usage & trip history',
         '🔧 Custom gear fields',
         '☁ Cloud sync across all devices',
