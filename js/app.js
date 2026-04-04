@@ -2608,19 +2608,34 @@ function foodPlanFormHtml(plan) {
         <input class="input input-full" id="fp-days" type="number" min="1" max="30" value="${plan.days||3}">
         <div class="form-hint">Dinners = days − 1 (no dinner on last day)</div></div>
       <div class="form-row"><label class="form-label">Calorie target / day</label>
-        <select class="select input-full" id="fp-cal" onchange="updateSplitPreview()">
+        <select class="select input-full" id="fp-cal" onchange="onFpCalChange()">
           <option value="2500" ${plan.cal_target_per_day===2500?'selected':''}>2,500 — Easy/moderate day hikes</option>
           <option value="3000" ${(!plan.cal_target_per_day||plan.cal_target_per_day===3000)?'selected':''}>3,000 — Standard backpacking (default)</option>
           <option value="3500" ${plan.cal_target_per_day===3500?'selected':''}>3,500 — Big miles / elevation gain</option>
           <option value="4000" ${plan.cal_target_per_day===4000?'selected':''}>4,000 — Ultra-long days / cold weather</option>
-        </select></div>
+          <option value="custom" ${![2500,3000,3500,4000].includes(plan.cal_target_per_day)&&plan.cal_target_per_day?'selected':''}>Custom…</option>
+        </select>
+        <div id="fp-cal-custom-row" style="display:${![2500,3000,3500,4000].includes(plan.cal_target_per_day)&&plan.cal_target_per_day?'flex':'none'};gap:8px;align-items:center;margin-top:6px">
+          <input class="input" id="fp-cal-custom" type="number" min="1000" max="8000" step="50"
+            value="${![2500,3000,3500,4000].includes(plan.cal_target_per_day)&&plan.cal_target_per_day?plan.cal_target_per_day:''}"
+            placeholder="e.g. 2800" style="width:120px" oninput="updateSplitPreview()">
+          <span style="font-size:12px;color:var(--text-3)">calories / day</span>
+        </div></div>
       <div class="form-row"><label class="form-label">Food weight target / day</label>
-        <select class="select input-full" id="fp-wt">
-          <option value="680" ${plan.weight_target_g_per_day===680?'selected':''}>680g (1.5 lb) — Ultralight</option>
-          <option value="800" ${(!plan.weight_target_g_per_day||plan.weight_target_g_per_day===800)?'selected':''}>800g (1.75 lb) — Standard UL (default)</option>
-          <option value="907" ${plan.weight_target_g_per_day===907?'selected':''}>907g (2.0 lb) — Traditional planning</option>
+        <select class="select input-full" id="fp-wt" onchange="onFpWtChange()">
+          <option value="680"  ${plan.weight_target_g_per_day===680?'selected':''}>680g (1.5 lb) — Ultralight</option>
+          <option value="800"  ${(!plan.weight_target_g_per_day||plan.weight_target_g_per_day===800)?'selected':''}>800g (1.75 lb) — Standard UL (default)</option>
+          <option value="907"  ${plan.weight_target_g_per_day===907?'selected':''}>907g (2.0 lb) — Traditional planning</option>
           <option value="1100" ${plan.weight_target_g_per_day===1100?'selected':''}>1,100g (2.4 lb) — Cold/hard trips</option>
-        </select></div>
+          <option value="custom" ${![680,800,907,1100].includes(plan.weight_target_g_per_day)&&plan.weight_target_g_per_day?'selected':''}>Custom…</option>
+        </select>
+        <div id="fp-wt-custom-row" style="display:${![680,800,907,1100].includes(plan.weight_target_g_per_day)&&plan.weight_target_g_per_day?'flex':'none'};gap:8px;align-items:center;margin-top:6px">
+          <input class="input" id="fp-wt-custom" type="number" min="200" max="3000" step="10"
+            value="${![680,800,907,1100].includes(plan.weight_target_g_per_day)&&plan.weight_target_g_per_day?plan.weight_target_g_per_day:''}"
+            placeholder="e.g. 850" style="width:100px">
+          <span style="font-size:12px;color:var(--text-3)">grams / day</span>
+          <span id="fp-wt-lb" style="font-size:11px;color:var(--text-3)"></span>
+        </div></div>
     </div>
 
     <div style="border-top:.5px solid var(--border-2);padding-top:.875rem;margin-bottom:.875rem">
@@ -2649,8 +2664,36 @@ function foodPlanFormHtml(plan) {
     </div>`;
 }
 
+function onFpCalChange() {
+  const sel = document.getElementById('fp-cal');
+  const row = document.getElementById('fp-cal-custom-row');
+  if (row) row.style.display = sel?.value === 'custom' ? 'flex' : 'none';
+  if (sel?.value === 'custom') setTimeout(() => document.getElementById('fp-cal-custom')?.focus(), 50);
+  updateSplitPreview();
+}
+
+function onFpWtChange() {
+  const sel = document.getElementById('fp-wt');
+  const row = document.getElementById('fp-wt-custom-row');
+  if (row) row.style.display = sel?.value === 'custom' ? 'flex' : 'none';
+  if (sel?.value === 'custom') setTimeout(() => document.getElementById('fp-wt-custom')?.focus(), 50);
+}
+
+// Returns the currently effective calorie value from the select or custom input
+function getFpCalValue() {
+  const sel = document.getElementById('fp-cal');
+  if (sel?.value === 'custom') return parseInt(document.getElementById('fp-cal-custom')?.value) || 3000;
+  return parseInt(sel?.value) || 3000;
+}
+
+function getFpWtValue() {
+  const sel = document.getElementById('fp-wt');
+  if (sel?.value === 'custom') return parseInt(document.getElementById('fp-wt-custom')?.value) || 800;
+  return parseInt(sel?.value) || 800;
+}
+
 function updateSplitPreview() {
-  const calPerDay = parseInt(document.getElementById('fp-cal')?.value) || 3000;
+  const calPerDay = getFpCalValue();
   let total = 0;
   MEAL_TIMES.forEach(mt => {
     const pct = parseInt(document.getElementById(`fp-split-${mt}`)?.value) || 0;
@@ -2697,8 +2740,8 @@ function saveFoodPlan(id) {
     name,
     trip_id: document.getElementById('fp-trip').value || null,
     days,
-    cal_target_per_day:      parseInt(document.getElementById('fp-cal').value) || 3000,
-    weight_target_g_per_day: parseInt(document.getElementById('fp-wt').value)  || 800,
+    cal_target_per_day:      getFpCalValue(),
+    weight_target_g_per_day: getFpWtValue(),
     meal_splits,
     meals: existing ? existing.meals : [],
   };
