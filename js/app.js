@@ -8,6 +8,32 @@ let _user = null;         // current auth.User
 let _syncTimer = null;    // debounce handle
 let _isSupporter = false; // paid supporter status
 
+// ── Free tier limits ─────────────────────────────────────────
+const FREE_LIMITS = {
+  items:     30,
+  trips:     3,
+  templates: 2,
+};
+
+// Returns true if the user can proceed; false + shows upgrade modal if not.
+// pass `count` = current count, `kind` = 'items'|'trips'|'templates'
+function checkLimit(kind, count) {
+  if (_isSupporter) return true;
+  const limit = FREE_LIMITS[kind];
+  if (limit == null || count < limit) return true;
+  const labels = { items: 'gear items', trips: 'trips', templates: 'templates' };
+  openUpgradeModal(`Free accounts include up to ${limit} ${labels[kind] || kind}. Upgrade to add unlimited ${labels[kind] || kind}.`);
+  return false;
+}
+
+// Shows upgrade modal for features that are entirely Supporter-only.
+// Returns true if supporter, false + modal if not.
+function requireSupporter(featureName) {
+  if (_isSupporter) return true;
+  openUpgradeModal(`${featureName} is a Supporter feature. Upgrade to unlock it.`);
+  return false;
+}
+
 function _supabaseReady() {
   if (_sb) return true;
   if (typeof supabase === 'undefined' || typeof SUPABASE_URL === 'undefined') return false;
@@ -800,6 +826,7 @@ function openEditItem(id) {
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-add-item').addEventListener('click', () => {
+    if (!checkLimit('items', state.items.length)) return;
     openModal('Add gear item', itemFormHtml());
   });
 });
@@ -1112,6 +1139,7 @@ function openEditTrip(id) {
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-add-trip').addEventListener('click', () => {
+    if (!checkLimit('trips', state.trips.length)) return;
     openModal('New trip', tripFormHtml());
   });
 });
@@ -1314,18 +1342,16 @@ function convertWishToGear(id) {
     </p>`);
 }
 
-// Hook into saveItem to handle the post-conversion wishlist removal
 // ============================================================
 // ANALYTICS
 // ============================================================
 let chartWeight = null, chartCost = null, chartTrips = null;
 
 function renderAnalytics() {
-  // ── Aggregate data ─────────────────────────────────────────
+  // ── Aggregate data (always needed) ────────────────────────
   const allW   = state.items.reduce((s, i) => s + (i.weight_g || 0), 0);
   const totalC = state.items.reduce((s, i) => s + (i.cost_usd || 0), 0);
   const priced = state.items.filter(i => i.cost_usd > 0 && i.weight_g > 0);
-
   const cw = {}, cc = {};
   state.items.forEach(i => {
     cw[i.category] = (cw[i.category] || 0) + (i.weight_g || 0);
@@ -1333,12 +1359,124 @@ function renderAnalytics() {
   });
   const sortedW = Object.entries(cw).sort((a,b) => b[1]-a[1]);
   const sortedC = Object.entries(cc).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const completedTrips = state.trips.filter(t => t.status === 'completed');
 
-  // ── Metrics ────────────────────────────────────────────────
+  // ── Free tier: weight chart + 2 metrics + blurred preview ─
+  if (!_isSupporter) {
+    document.getElementById('analytics-metrics').innerHTML = `
+      <div class="metric-card">
+        <div class="metric-label">Total gear weight</div>
+        <div class="metric-val">${wg(allW)}</div>
+        <div class="metric-sub">${woz(allW)}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Total tracked value</div>
+        <div class="metric-val">${usd(totalC)}</div>
+        <div class="metric-sub">${state.items.filter(i=>i.cost_usd>0).length} items with cost data</div>
+      </div>
+      <div class="metric-card" style="position:relative;overflow:hidden">
+        <div style="filter:blur(4px);pointer-events:none;user-select:none">
+          <div class="metric-label">Avg cost efficiency</div>
+          <div class="metric-val">$1.84</div>
+          <div class="metric-sub">per gram · 24 items</div>
+        </div>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+          <button class="btn btn-xs btn-primary" onclick="openUpgradeModal()">Supporter only</button>
+        </div>
+      </div>
+      <div class="metric-card" style="position:relative;overflow:hidden">
+        <div style="filter:blur(4px);pointer-events:none;user-select:none">
+          <div class="metric-label">Gear never used</div>
+          <div class="metric-val">8</div>
+          <div class="metric-sub">32% of closet untested</div>
+        </div>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+          <button class="btn btn-xs btn-primary" onclick="openUpgradeModal()">Supporter only</button>
+        </div>
+      </div>`;
+
+    // Free users get: weight chart + targets
+    if (chartWeight) chartWeight.destroy();
+    const ctxW = document.getElementById('chart-weight')?.getContext('2d');
+    if (ctxW) chartWeight = new Chart(ctxW, {
+      type: 'bar',
+      data: {
+        labels: sortedW.map(([c]) => c),
+        datasets: [{ data: sortedW.map(([,v]) => Math.round(v)), backgroundColor: sortedW.map(([c]) => categoryColor(c)), borderRadius: 4, borderSkipped: false }]
+      },
+      options: {
+        indexAxis: 'y', plugins: { legend: { display: false } },
+        scales: { x: { ticks: { callback: v => wg(v) }, grid: { color: '#f0ece4' } }, y: { grid: { display: false } } },
+        animation: { duration: 400 }
+      }
+    });
+
+    // Weight targets
+    const targetsHtml = state.categories.filter(cat => cat.target_g).map(cat => {
+      const w = cw[cat.name] || 0;
+      const p = pct(w, cat.target_g);
+      return `<div class="target-row">
+        <span class="target-label">${esc(cat.name)}</span>
+        <div class="target-bar"><div class="target-fill" style="width:${Math.min(100,p)}%;background:${cat.color}"></div></div>
+        <span class="target-vals">${wg(w)} / ${wg(cat.target_g)} <span style="color:var(--${p>=100?'danger':p>=80?'warning':'success'})">${p}%</span></span>
+      </div>`;
+    }).join('');
+    document.getElementById('analytics-targets').innerHTML = targetsHtml || `<div class="empty-state"><p>No category weight targets set.</p></div>`;
+
+    // Blurred previews for paid sections
+    const lockedHtml = (label) => `
+      <div style="position:relative;border-radius:var(--r-lg);overflow:hidden">
+        <div style="filter:blur(5px);pointer-events:none;user-select:none;padding:1rem">
+          <div style="height:160px;background:linear-gradient(135deg,var(--surface-2),var(--surface-3));border-radius:var(--r-md);display:flex;align-items:center;justify-content:center">
+            <div style="font-size:13px;color:var(--text-3)">${label}</div>
+          </div>
+        </div>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(237,232,223,.5);backdrop-filter:blur(2px)">
+          <div style="font-size:13px;font-weight:500;margin-bottom:.5rem;color:var(--text-1)">🔒 Supporter feature</div>
+          <button class="btn btn-primary btn-sm" onclick="openUpgradeModal()">Upgrade to unlock</button>
+        </div>
+      </div>`;
+
+    // Render locked sections in place of paid charts
+    const tripWrap = document.getElementById('analytics-trips-chart-wrap');
+    const tripEmpty = document.getElementById('analytics-trips-empty');
+    if (tripWrap)  tripWrap.innerHTML  = lockedHtml('Trip weight history chart');
+    if (tripEmpty) tripEmpty.style.display = 'none';
+    document.getElementById('analytics-value').innerHTML  = lockedHtml('Best & worst value analysis');
+    document.getElementById('analytics-unused').innerHTML = lockedHtml('Gear never used list');
+
+    // Cost chart — blurred
+    const ctxC = document.getElementById('chart-cost');
+    if (ctxC) {
+      const parent = ctxC.parentElement;
+      parent.style.position = 'relative';
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(237,232,223,.6);backdrop-filter:blur(3px);border-radius:var(--r-lg)';
+      overlay.innerHTML = `<div style="font-size:13px;font-weight:500;margin-bottom:.5rem;color:var(--text-1)">🔒 Supporter feature</div><button class="btn btn-primary btn-sm" onclick="openUpgradeModal()">Upgrade to unlock</button>`;
+      parent.appendChild(overlay);
+    }
+
+    // Usage table — blurred
+    document.getElementById('analytics-usage').innerHTML = `
+      <tr><td colspan="5" style="padding:0">
+        <div style="position:relative;overflow:hidden">
+          <div style="filter:blur(3px);pointer-events:none;padding:8px 12px">
+            ${['Trail Runners','Sleeping Bag','Backpack','Rain Jacket','Water Filter'].map(n =>
+              `<div style="padding:6px 0;border-bottom:1px solid var(--border-2);font-size:13px;color:var(--text-2)">${n}</div>`
+            ).join('')}
+          </div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(237,232,223,.5)">
+            <button class="btn btn-primary btn-sm" onclick="openUpgradeModal()">Upgrade to see usage data</button>
+          </div>
+        </div>
+      </td></tr>`;
+    return;
+  }
+
+  // ── Supporter tier: full analytics ────────────────────────
   const avgDpg = priced.length
     ? priced.reduce((s,i) => s + i.cost_usd/i.weight_g, 0) / priced.length : 0;
   const neverUsed = state.items.filter(i => !i.usage_days || i.usage_days === 0).length;
-  const completedTrips = state.trips.filter(t => t.status === 'completed');
 
   document.getElementById('analytics-metrics').innerHTML = `
     <div class="metric-card">
@@ -1362,7 +1500,6 @@ function renderAnalytics() {
       <div class="metric-sub">${Math.round(neverUsed/Math.max(state.items.length,1)*100)}% of closet untested</div>
     </div>`;
 
-  // ── Chart: weight by category ──────────────────────────────
   if (chartWeight) chartWeight.destroy();
   const ctxW = document.getElementById('chart-weight')?.getContext('2d');
   if (ctxW) chartWeight = new Chart(ctxW, {
@@ -1378,9 +1515,10 @@ function renderAnalytics() {
     }
   });
 
-  // ── Chart: cost doughnut ───────────────────────────────────
   if (chartCost) chartCost.destroy();
   const ctxC = document.getElementById('chart-cost')?.getContext('2d');
+  // Remove any overlay from free-tier render
+  ctxC?.canvas?.parentElement?.querySelectorAll('div').forEach(d => d.remove());
   if (ctxC) chartCost = new Chart(ctxC, {
     type: 'doughnut',
     data: {
@@ -1396,30 +1534,28 @@ function renderAnalytics() {
     }
   });
 
-  // ── Weight targets ─────────────────────────────────────────
   const targetsHtml = state.categories.filter(cat => cat.target_g).map(cat => {
     const w = cw[cat.name] || 0;
     const p = pct(w, cat.target_g);
-    const cls = p >= 100 ? 'prog-red' : p >= 80 ? 'prog-amber' : 'prog-green';
     return `<div class="target-row">
       <span class="target-label" title="${esc(cat.name)}">${esc(cat.name)}</span>
-      <div class="target-bar"><div class="target-fill ${cls}" style="width:${Math.min(100,p)}%;background:${cat.color}"></div></div>
+      <div class="target-bar"><div class="target-fill" style="width:${Math.min(100,p)}%;background:${cat.color}"></div></div>
       <span class="target-vals">${wg(w)} / ${wg(cat.target_g)} <span style="color:var(--${p>=100?'danger':p>=80?'warning':'success'})">${p}%</span></span>
     </div>`;
   }).join('');
   document.getElementById('analytics-targets').innerHTML = targetsHtml
-    || `<div class="empty-state"><p>No category targets set. Open <button class="btn btn-xs" onclick="closeModal?.();openManageCategories()">Manage categories</button> to add weight goals.</p></div>`;
+    || `<div class="empty-state"><p>No category targets set. Open Manage categories to add weight goals.</p></div>`;
 
-  // ── Trip weight history chart ──────────────────────────────
-  const tripsWrap = document.getElementById('analytics-trips-chart-wrap');
+  // Trip weight history
+  const tripsWrap  = document.getElementById('analytics-trips-chart-wrap');
   const tripsEmpty = document.getElementById('analytics-trips-empty');
   if (chartTrips) chartTrips.destroy();
   if (!completedTrips.length) {
-    if (tripsWrap)  tripsWrap.style.display  = 'none';
+    if (tripsWrap)  tripsWrap.innerHTML = '';
     if (tripsEmpty) tripsEmpty.style.display = 'block';
   } else {
-    if (tripsWrap)  tripsWrap.style.display  = '';
     if (tripsEmpty) tripsEmpty.style.display = 'none';
+    if (tripsWrap)  tripsWrap.innerHTML = '<canvas id="chart-trips" height="220"></canvas>';
     const sorted = [...completedTrips].sort((a,b)=>(a.start_date||'').localeCompare(b.start_date||''));
     const ctxT = document.getElementById('chart-trips')?.getContext('2d');
     if (ctxT) chartTrips = new Chart(ctxT, {
@@ -1427,12 +1563,10 @@ function renderAnalytics() {
       data: {
         labels: sorted.map(t => t.name),
         datasets: [{
-          label: 'Total weight',
-          data: sorted.map(t => Math.round(tripWeight(t))),
+          label: 'Total weight', data: sorted.map(t => Math.round(tripWeight(t))),
           backgroundColor: '#2A7048cc', borderRadius: 4, borderSkipped: false
         }, {
-          label: 'Target',
-          data: sorted.map(t => t.weight_target_g || null),
+          label: 'Target', data: sorted.map(t => t.weight_target_g || null),
           type: 'line', borderColor: '#B87B0A', borderDash: [4,3],
           pointBackgroundColor: '#B87B0A', fill: false, tension: 0.3
         }]
@@ -1445,7 +1579,7 @@ function renderAnalytics() {
     });
   }
 
-  // ── Best & worst value $/gram ──────────────────────────────
+  // Best & worst value
   const valueSorted = [...priced].sort((a,b) => (a.cost_usd/a.weight_g)-(b.cost_usd/b.weight_g));
   const best  = valueSorted.slice(0, 4);
   const worst = valueSorted.slice(-4).reverse();
@@ -1462,22 +1596,19 @@ function renderAnalytics() {
         <span class="mono" style="color:var(--danger);flex-shrink:0;margin-left:8px">${dpg(i.cost_usd,i.weight_g)}</span>
       </div>`).join('')}`;
 
-  // ── Never used gear ────────────────────────────────────────
+  // Never used
   const unused = state.items.filter(i => !i.usage_days || i.usage_days === 0);
   document.getElementById('analytics-unused').innerHTML = !unused.length
     ? `<div class="empty-state"><p>Everything has been used at least once. 🎉</p></div>`
     : `<div style="font-size:12px;color:var(--text-3);margin-bottom:.5rem">${unused.length} item${unused.length!==1?'s':''} with no logged usage</div>
       ${unused.slice(0,8).map(i => `
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:5px 0;border-bottom:.5px solid var(--border-2)">
-          <div>
-            <span style="font-weight:500">${esc(i.name)}</span>
-            <span style="font-size:11px;color:var(--text-3);margin-left:6px">${esc(i.category)}</span>
-          </div>
+          <div><span style="font-weight:500">${esc(i.name)}</span><span style="font-size:11px;color:var(--text-3);margin-left:6px">${esc(i.category)}</span></div>
           <span class="mono" style="color:var(--text-3);flex-shrink:0;margin-left:8px">${wg(i.weight_g)}</span>
         </div>`).join('')}
       ${unused.length > 8 ? `<div style="font-size:11px;color:var(--text-3);padding-top:5px">+ ${unused.length-8} more</div>` : ''}`;
 
-  // ── Most used gear ─────────────────────────────────────────
+  // Most used
   const byUsage = [...state.items].filter(i => i.usage_days > 0).sort((a,b) => b.usage_days - a.usage_days).slice(0, 10);
   document.getElementById('analytics-usage').innerHTML = !byUsage.length
     ? `<tr><td colspan="5"><div class="empty-state">No usage logged yet. Click any gear item to log days and nights.</div></td></tr>`
@@ -1489,7 +1620,6 @@ function renderAnalytics() {
         <td>${badge(COND_BADGE[i.condition]||'badge-gray', COND_LABEL[i.condition]||'—')}</td>
       </tr>`).join('');
 }
-
 // ============================================================
 // TEMPLATES
 // ============================================================
@@ -1649,6 +1779,7 @@ function renderTemplateDetail(tmpl) {
 
 // ── Template form (create / edit) ──────────────────────────
 function openTemplateForm(id) {
+  if (!id && !checkLimit('templates', state.templates.length)) return;
   const tmpl = id ? state.templates.find(t => t.id === id) : null;
   openModal(tmpl ? 'Edit template' : 'New template', templateFormHtml(tmpl));
 }
@@ -2563,6 +2694,25 @@ function setFoodView(view) {
 }
 
 function renderFood() {
+  if (!_isSupporter) {
+    // Show upgrade prompt instead of food planning
+    const wrap = document.getElementById('food-plans-grid');
+    const detail = document.getElementById('food-plan-detail-wrap');
+    if (detail) detail.style.display = 'none';
+    if (wrap) wrap.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1;padding:2rem">
+        <div style="font-size:32px;margin-bottom:.75rem">🍽</div>
+        <p style="font-weight:500;margin-bottom:.375rem">Food Planning is a Supporter feature</p>
+        <p style="font-size:13px;color:var(--text-3);margin-bottom:1.25rem;max-width:360px;margin-left:auto;margin-right:auto;line-height:1.6">
+          Plan your meals day by day, track calories, and build a recipe library.
+          Free accounts can browse the starter recipes below.
+        </p>
+        <button class="btn btn-primary" onclick="openUpgradeModal('Food planning is a Supporter feature.')">Upgrade to unlock food planning</button>
+      </div>`;
+    // Still render recipe library — free users can view but not add
+    renderRecipeLibrary();
+    return;
+  }
   setFoodView(foodView);
 }
 
@@ -3246,6 +3396,7 @@ function updateCustomValue(itemId, fieldId, value) {
 
 // Column manager modal — toggle column visibility, add/delete fields
 function openColumnManager() {
+  if (!requireSupporter('Custom gear fields')) return;
   const fields = state.custom_fields || [];
   const fieldRows = fields.length ? fields.map((f, idx) => `
     <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:.5px solid var(--border-2)">
@@ -3327,6 +3478,7 @@ function deleteCustomField(fieldId) {
 
 // Add custom field from the gear detail panel
 function openAddCustomField(itemId) {
+  if (!requireSupporter('Custom gear fields')) return;
   openModal('Add custom field', `
     <p style="font-size:12.5px;color:var(--text-2);margin-bottom:.875rem">
       Fields are shared across all gear items. You can set the value for this item now and fill in others later.
@@ -3417,7 +3569,7 @@ function setSyncIndicator(status) {
     saved:   '✓ Synced',
     error:   '⚠ Sync failed',
     offline: '○ Local only',
-    nosync:  '',
+    nosync:  '○ Local only',
   };
   el.textContent = states[status] || '';
   el.style.color = status === 'error'  ? 'var(--danger)'
@@ -3431,6 +3583,7 @@ function updateHeaderAuth() {
   const loadingEl  = document.getElementById('auth-loading-indicator');
   const emailEl    = document.getElementById('auth-user-email');
   const nudgeEl    = document.getElementById('sync-upgrade-nudge');
+  const tierEl     = document.getElementById('user-menu-tier');
   const footerSignin   = document.getElementById('footer-signin-link');
   const footerSettings = document.getElementById('footer-settings-link');
   if (loadingEl) loadingEl.style.display = 'none';
@@ -3445,9 +3598,12 @@ function updateHeaderAuth() {
     if (_isSupporter) {
       setSyncIndicator('saved');
       if (nudgeEl) nudgeEl.style.display = 'none';
+      if (tierEl)  tierEl.innerHTML = `<span style="color:var(--success);font-weight:600">⛰ Supporter</span> <span style="color:var(--text-3)">· Sync active</span>`;
     } else {
       setSyncIndicator('nosync');
       if (nudgeEl) nudgeEl.style.display = 'flex';
+      if (tierEl)  tierEl.innerHTML = `<span style="color:var(--text-2)">Free plan</span> <span style="color:var(--text-3)">· Local only</span>
+        <button onclick="openUpgradeModal();toggleUserMenu()" style="display:block;margin-top:6px;width:100%;background:var(--primary);color:#fff;border:none;border-radius:var(--r-md);padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;text-align:center">☁ Enable sync — $3.99/mo</button>`;
     }
   } else {
     if (userInfo) userInfo.style.display = 'none';
@@ -3710,14 +3866,17 @@ async function submitNewPassword() {
 const STRIPE_MONTHLY_URL = 'https://buy.stripe.com/00w5kCeTg0vBcNF0zi0oM00';
 const STRIPE_ANNUAL_URL  = 'https://buy.stripe.com/aFa9AS9yWbaf8xp6XG0oM01';
 
-function openUpgradeModal() {
+function openUpgradeModal(reason) {
+  const reasonHtml = reason
+    ? `<div style="background:var(--surface-2);border-left:3px solid var(--accent);border-radius:var(--r-md);padding:.625rem .875rem;margin-bottom:1.25rem;font-size:13px;color:var(--text-2)">${esc(reason)}</div>`
+    : '';
   openModal('Become a Supporter', `
+    ${reasonHtml}
     <div style="text-align:center;padding:.5rem 0 1rem">
       <div style="font-size:32px;margin-bottom:.5rem">⛰</div>
-      <p style="font-size:15px;font-weight:500;margin-bottom:.375rem">Sync your gear across every device</p>
+      <p style="font-size:15px;font-weight:500;margin-bottom:.375rem">Unlock the full Gearnomic experience</p>
       <p style="font-size:13px;color:var(--text-2);margin-bottom:1.5rem;line-height:1.6">
-        Gearnomic is free forever. Supporters get automatic cloud sync so your
-        gear list is always backed up and available on any device — phone, laptop, tablet.
+        Supporters get unlimited gear, trips, templates, food planning, custom fields, full analytics, and cloud sync across all devices.
       </p>
     </div>
 
@@ -3747,13 +3906,19 @@ function openUpgradeModal() {
     <!-- What you get -->
     <div style="background:var(--surface-2);border-radius:var(--r-md);padding:.875rem 1rem;margin-bottom:1rem">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">What supporters get</div>
-      ${['☁ Cloud sync — your data on every device','🔄 Automatic backup — never lose your gear list','📱 Access from phone, laptop, and tablet','⚡ Priority support','🏕 Early access to new features'].map(f =>
-        `<div style="font-size:13px;color:var(--text-1);padding:3px 0">✓ ${f}</div>`
-      ).join('')}
+      ${[
+        '♾ Unlimited gear items, trips & templates',
+        '🍽 Full food & meal planning',
+        '📊 Full analytics — value, usage & trip history',
+        '🔧 Custom gear fields',
+        '☁ Cloud sync across all devices',
+        '🔄 Automatic backup — never lose your list',
+        '⚡ Priority support & early feature access',
+      ].map(f => `<div style="font-size:13px;color:var(--text-1);padding:3px 0">✓ ${f}</div>`).join('')}
     </div>
 
     <p style="font-size:11.5px;color:var(--text-3);text-align:center;line-height:1.5">
-      Cancel any time. Sharing, gear management, and all other features stay free forever.
+      Cancel any time. Sharing is always free for everyone.
     </p>
     <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Maybe later</button></div>`);
 }
