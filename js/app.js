@@ -134,12 +134,13 @@ const pct = (a, b) => b ? Math.min(100, Math.round(a / b * 100)) : 0;
 const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
 const COND_BADGE = {
+  '':        'badge-gray',
   excellent: 'badge-green',
   good:      'badge-blue',
   fair:      'badge-amber',
   poor:      'badge-red'
 };
-const COND_LABEL = { excellent: 'Excellent', good: 'Good', fair: 'Fair', poor: 'Poor' };
+const COND_LABEL = { '': '—', excellent: 'Excellent', good: 'Good', fair: 'Fair', poor: 'Poor' };
 // Carry type lives on trips/templates, not on items
 // Cycle order: packed (default) → worn → consumable → packed
 const CARRY_CYCLE  = { packed: 'worn', worn: 'consumable', consumable: 'packed' };
@@ -637,7 +638,7 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
     ${editableCell(item, 'condition',
         badge(COND_BADGE[item.condition] || 'badge-gray', COND_LABEL[item.condition] || item.condition),
         cellSelect(item.id, 'condition', item.condition,
-          [['excellent','Excellent'],['good','Good'],['fair','Fair'],['poor','Poor']]))}
+          [['','— (no condition)'],['excellent','Excellent'],['good','Good'],['fair','Fair'],['poor','Poor']]))}
 
     <td onclick="event.stopPropagation()" class="editable-cell" style="white-space:nowrap;font-size:11px">
       <span onclick="startCellEdit(event,'${item.id}','usage_days')" title="Click to edit days">
@@ -705,10 +706,11 @@ function itemFormHtml(item) {
       <div class="form-row">
         <label class="form-label">Condition</label>
         <select class="select input-full" id="f-cond">
+          <option value=""      ${!item.condition ? 'selected' : ''}>— (no condition)</option>
           <option value="excellent" ${item.condition === 'excellent' ? 'selected' : ''}>Excellent</option>
-          <option value="good" ${(!item.condition || item.condition === 'good') ? 'selected' : ''}>Good</option>
-          <option value="fair" ${item.condition === 'fair' ? 'selected' : ''}>Fair</option>
-          <option value="poor" ${item.condition === 'poor' ? 'selected' : ''}>Poor</option>
+          <option value="good"      ${item.condition === 'good' ? 'selected' : ''}>Good</option>
+          <option value="fair"      ${item.condition === 'fair' ? 'selected' : ''}>Fair</option>
+          <option value="poor"      ${item.condition === 'poor' ? 'selected' : ''}>Poor</option>
         </select>
       </div>
       <div class="form-row"><label class="form-label">Purchase date</label><input class="input input-full" id="f-date" type="date" value="${item.purchase_date || ''}"></div>
@@ -929,6 +931,7 @@ function renderTripDetail(trip) {
       <div style="display:flex;gap:6px">
         <button class="btn btn-sm" onclick="openEditTrip('${trip.id}')">Edit trip</button>
         <button class="btn btn-sm" style="border-color:var(--accent);color:var(--accent)" onclick="saveAsTemplate('${trip.id}')">Save as template</button>
+        <button class="btn btn-sm" onclick="shareItem('${trip.id}','trip')" title="Share via link">Share ↗</button>
         <button class="btn btn-sm btn-danger" onclick="deleteTrip('${trip.id}')">Delete</button>
         <button class="btn btn-sm btn-ghost" onclick="closeTripDetail()">Close ✕</button>
       </div>
@@ -1461,6 +1464,7 @@ function renderTemplateDetail(tmpl) {
       </div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Apply to trip…</button>
+        <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template')" title="Share via link">Share ↗</button>
         <button class="btn btn-sm" onclick="openTemplateForm('${tmpl.id}')">Edit</button>
         <button class="btn btn-sm btn-ghost" onclick="closeTemplateDetail()">Close ✕</button>
       </div>
@@ -3480,13 +3484,297 @@ async function confirmDeleteAccount() {
 }
 
 // ============================================================
+// SHARING — public URLs for trips and templates
+// ============================================================
+
+// Generate a short random token (no external lib needed)
+function nanoId(len) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let id = '';
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  arr.forEach(b => { id += chars[b % chars.length]; });
+  return id;
+}
+
+// Build the payload to share — resolves item IDs to full objects so
+// the recipient can import everything even if they have different item IDs
+function buildSharePayload(obj, kind) {
+  const payload = JSON.parse(JSON.stringify(obj));
+  // Embed full item objects so the share is self-contained
+  payload._shared_items = (obj.gear_ids || []).map(id => {
+    const item = state.items.find(i => i.id === id);
+    return item ? JSON.parse(JSON.stringify(item)) : null;
+  }).filter(Boolean);
+  payload._kind    = kind;
+  payload._version = 1;
+  return payload;
+}
+
+async function shareItem(id, kind) {
+  if (!_supabaseReady()) {
+    toast('Sign in to share — sharing requires a Gearnomic account.');
+    return;
+  }
+  if (!_user) {
+    toast('Sign in to share gear lists.');
+    showAuthModal();
+    return;
+  }
+
+  const obj = kind === 'trip'
+    ? state.trips.find(t => t.id === id)
+    : state.templates.find(t => t.id === id);
+  if (!obj) return;
+
+  const token   = nanoId(10);
+  const payload = buildSharePayload(obj, kind);
+
+  const { error } = await _sb.from('shared_lists').insert({
+    id:       token,
+    owner_id: _user.id,
+    kind,
+    title:    obj.name,
+    payload,
+  });
+
+  if (error) { toast('Share failed: ' + error.message); return; }
+
+  const url = `${window.location.origin}${window.location.pathname}#share=${token}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    openModal('Link copied! 🎉', `
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
+        Anyone with this link can view your <strong>${esc(obj.name)}</strong> ${kind} and save it to their own account.
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;background:var(--surface-2);border:.5px solid var(--border);border-radius:var(--r-md);padding:8px 12px;margin-bottom:1rem">
+        <span style="font-size:12px;color:var(--text-2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${url}</span>
+        <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${url}').then(()=>toast('Copied!'))">Copy</button>
+      </div>
+      <p style="font-size:11.5px;color:var(--text-3)">The link stays active until you delete this ${kind}. Item weights and carry types are included.</p>
+      <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`);
+  } catch {
+    // Clipboard blocked — just show the URL
+    openModal('Share link', `
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">Copy this link and share it:</p>
+      <input class="input input-full" value="${url}" readonly onclick="this.select()" style="font-size:12px">
+      <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`);
+  }
+}
+
+// Called on page load when #share=TOKEN is in the URL
+async function handleShareHash(token) {
+  // Show a loading state in place of the normal app
+  const overlay = document.createElement('div');
+  overlay.id = 'share-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:400;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1rem';
+  overlay.innerHTML = `<div style="font-family:var(--font-disp);font-size:22px;color:var(--text-1)">Loading shared list…</div>`;
+  document.body.appendChild(overlay);
+
+  try {
+    if (!_supabaseReady()) {
+      overlay.innerHTML = sharedErrorHtml('Sharing requires Supabase to be configured.', token);
+      return;
+    }
+    const { data, error } = await _sb.from('shared_lists')
+      .select('id,kind,title,payload,created_at')
+      .eq('id', token)
+      .single();
+
+    if (error || !data) {
+      overlay.innerHTML = sharedErrorHtml('This link has expired or does not exist.', token);
+      return;
+    }
+    renderSharedView(overlay, data);
+  } catch(e) {
+    overlay.innerHTML = sharedErrorHtml('Could not load the shared list.', token);
+  }
+}
+
+function sharedErrorHtml(msg, token) {
+  return `<div style="text-align:center;padding:2rem;max-width:400px;margin:auto">
+    <div style="font-size:40px;margin-bottom:1rem">🏕</div>
+    <div style="font-family:var(--font-disp);font-size:20px;margin-bottom:.5rem">Gearnomic</div>
+    <p style="font-size:14px;color:var(--text-2);margin-bottom:1.5rem">${msg}</p>
+    <a href="${window.location.pathname}" class="btn btn-primary">Open Gearnomic</a>
+  </div>`;
+}
+
+function renderSharedView(overlay, data) {
+  const payload  = data.payload;
+  const kind     = data.kind;
+  const items    = payload._shared_items || [];
+  const tw       = items.reduce((s, i) => s + (i.weight_g || 0), 0);
+
+  // Group items by category for the list
+  const byCat = {};
+  items.forEach(item => {
+    if (!byCat[item.category]) byCat[item.category] = [];
+    byCat[item.category].push(item);
+  });
+
+  const gearHtml = Object.entries(byCat).map(([cat, catItems]) => `
+    <div style="margin-bottom:1rem">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);padding:4px 0;border-bottom:.5px solid var(--border);margin-bottom:5px">${esc(cat)}</div>
+      ${catItems.map(item => `
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:.5px solid var(--border-2)">
+          <div>
+            <span style="font-size:13px;font-weight:500">${esc(item.name)}</span>
+            ${item.brand ? `<span style="font-size:11px;color:var(--text-3);margin-left:6px">${esc(item.brand)}</span>` : ''}
+          </div>
+          <div style="display:flex;gap:16px;font-size:12px;color:var(--text-2);flex-shrink:0;margin-left:12px">
+            <span class="mono">${wg(item.weight_g)}</span>
+            ${item.cost_usd ? `<span>${usd(item.cost_usd)}</span>` : ''}
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+
+  // Carry breakdown
+  const wornW = items.filter((_, i) => {
+    const id = payload.gear_ids?.[i];
+    return id && getCarryType(payload, id) === 'worn';
+  }).reduce((s, i) => s + (i.weight_g || 0), 0);
+
+  overlay.innerHTML = `
+    <div style="min-height:100vh;background:var(--bg);padding:0">
+      <!-- Header -->
+      <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:.75rem 1.25rem;display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:30px;height:30px;background:#2A4032;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:11px;font-weight:700;color:#fff">GN</div>
+          <span style="font-family:var(--font-disp);font-size:17px">Gearnomic</span>
+        </div>
+        <a href="${window.location.pathname}" class="btn btn-sm">Open my account</a>
+      </div>
+
+      <!-- Content -->
+      <div style="max-width:680px;margin:0 auto;padding:2rem 1rem">
+        <!-- Title card -->
+        <div style="margin-bottom:1.5rem">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:.375rem">
+            ${badge('badge-gray', kind)}
+            <h1 style="font-family:var(--font-disp);font-size:26px;font-weight:400;margin:0">${esc(data.title)}</h1>
+          </div>
+          ${payload.description ? `<p style="font-size:14px;color:var(--text-2);margin:.5rem 0">${esc(payload.description)}</p>` : ''}
+          ${payload.location    ? `<p style="font-size:13px;color:var(--text-3)">📍 ${esc(payload.location)}</p>` : ''}
+
+          <!-- Stats row -->
+          <div style="display:flex;gap:20px;font-size:13px;margin-top:.875rem;flex-wrap:wrap">
+            <span><strong>${items.length}</strong> items</span>
+            <span>Total: <strong class="mono">${wg(tw)}</strong></span>
+            ${wornW ? `<span>Worn: <strong class="mono">${wg(wornW)}</strong></span>` : ''}
+            ${payload.miles  ? `<span>📏 <strong>${payload.miles}</strong> mi</span>` : ''}
+            ${payload.start_date ? `<span>📅 ${payload.start_date}</span>` : ''}
+          </div>
+        </div>
+
+        <!-- Save CTA -->
+        <div style="background:var(--accent-l);border:.5px solid var(--accent);border-radius:var(--r-lg);padding:1rem 1.25rem;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+          <div>
+            <div style="font-weight:500;font-size:14px;margin-bottom:2px">Save to your Gearnomic account</div>
+            <div style="font-size:12px;color:var(--text-2)">Saves as a template you can apply to any trip</div>
+          </div>
+          <button class="btn btn-primary" onclick="saveSharedToProfile(${JSON.stringify(JSON.stringify(data)).slice(1,-1)})">
+            Save to my account
+          </button>
+        </div>
+
+        <!-- Gear list -->
+        <div class="card">
+          <div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.875rem">Gear list</div>
+          ${gearHtml || '<p style="color:var(--text-3);font-size:13px">No gear items in this list.</p>'}
+        </div>
+
+        <p style="text-align:center;font-size:12px;color:var(--text-3);margin-top:1.5rem">
+          Shared via <a href="${window.location.pathname}" style="color:var(--accent)">Gearnomic</a>
+        </p>
+      </div>
+    </div>`;
+}
+
+async function saveSharedToProfile(token) {
+  // Check auth first
+  if (!_supabaseReady() || !_user) {
+    // Store token, show auth modal, resume after sign-in
+    window._pendingShareToken = token;
+    hideSharedOverlay();
+    showAuthModal();
+    toast('Sign in to save this list to your account.');
+    return;
+  }
+  await _doSaveShared(token);
+}
+
+async function _doSaveShared(token) {
+  const { data, error } = await _sb.from('shared_lists')
+    .select('kind,title,payload')
+    .eq('id', token)
+    .single();
+
+  if (error || !data) { toast('Could not load the shared list.'); return; }
+
+  const payload = data.payload;
+  const sharedItems = payload._shared_items || [];
+
+  // Merge new items into the user's closet (match on name+brand to avoid dupes)
+  const addedIds = {};
+  sharedItems.forEach(srcItem => {
+    const exists = state.items.find(i =>
+      i.name.toLowerCase() === srcItem.name.toLowerCase() &&
+      (i.brand || '').toLowerCase() === (srcItem.brand || '').toLowerCase()
+    );
+    const targetId = exists ? exists.id : (() => {
+      const newItem = { ...srcItem, id: uid('i'), custom_values: {} };
+      state.items.push(newItem);
+      return newItem.id;
+    })();
+    addedIds[srcItem.id] = targetId;
+  });
+
+  // Build template from shared trip/template — remap gear IDs
+  const tmpl = {
+    id:           uid('tmpl'),
+    name:         payload.name || data.title,
+    description:  payload.description || `Imported from a shared ${data.kind}.`,
+    trip_type:    payload.trip_type || 'backpacking',
+    gear_ids:     (payload.gear_ids || []).map(id => addedIds[id]).filter(Boolean),
+    carry_types:  {},
+    created_from: null,
+    created_at:   new Date().toISOString().slice(0, 10),
+  };
+
+  // Remap carry types
+  Object.entries(payload.carry_types || {}).forEach(([oldId, ct]) => {
+    if (addedIds[oldId]) tmpl.carry_types[addedIds[oldId]] = ct;
+  });
+
+  state.templates.push(tmpl);
+  saveState();
+  hideSharedOverlay();
+  refreshAll();
+  showTab('templates');
+  activeTemplateId = tmpl.id;
+  renderTemplates();
+  toast(`"${tmpl.name}" saved to your Templates! ${sharedItems.length} gear item(s) added to your Closet.`);
+}
+
+function hideSharedOverlay() {
+  document.getElementById('share-overlay')?.remove();
+  // Clear the hash without reloading
+  history.replaceState(null, '', window.location.pathname);
+}
+
+// ============================================================
 function refreshAll() {
   renderDashboard();
   if (currentTab !== 'dashboard') showTab(currentTab);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Load local data first so UI appears instantly
+  // Check for shared list link FIRST — before loading normal app state
+  const hash = window.location.hash;
+  const shareToken = hash.startsWith('#share=') ? hash.slice(7) : null;
+
+  // Load local data so the app is ready in the background
   loadState();
 
   // Set up filter listeners
@@ -3510,14 +3798,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ── Supabase auth ─────────────────────────────────────────
   if (!_supabaseReady()) {
-    // No Supabase config — run fully locally, show sign-in nudge
     document.getElementById('auth-loading-indicator').style.display = 'none';
     document.getElementById('auth-anon-actions').style.display = 'flex';
     setSyncIndicator('offline');
+    if (shareToken) handleShareHash(shareToken);
     return;
   }
 
-  // Check for an existing session
   const { data: { session } } = await _sb.auth.getSession();
   if (session?.user) {
     _user = session.user;
@@ -3526,24 +3813,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateHeaderAuth();
   } else {
     updateHeaderAuth();
-    showAuthModal();
+    if (!shareToken) showAuthModal(); // don't cover the share view with auth modal
   }
+
+  // Show shared list view if applicable (after auth check)
+  if (shareToken) handleShareHash(shareToken);
 
   // React to sign-in / sign-out / password recovery events
   _sb.auth.onAuthStateChange(async (event, session) => {
     if (event === 'PASSWORD_RECOVERY') {
-      // User clicked the reset link — show the new-password panel
       _user = session?.user || null;
       showAuthModal();
-      // Hide normal sign-in UI, show recovery panel
       ['auth-tab-signin','auth-tab-signup','auth-submit-btn','forgot-panel'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
       });
       document.getElementById('recovery-panel').style.display = 'block';
       document.getElementById('auth-error').style.display = 'none';
-      const titleEl = document.querySelector('#auth-modal-overlay [style*="font-size:20px"]');
-      if (titleEl) titleEl.textContent = 'Set new password';
       setTimeout(() => document.getElementById('new-password')?.focus(), 100);
       return;
     }
@@ -3556,6 +3842,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       refreshAll();
       updateHeaderAuth();
       toast('Signed in! Your data is syncing.');
+
+      // Resume a pending share save if the user signed in to save a shared list
+      if (window._pendingShareToken) {
+        const t = window._pendingShareToken;
+        window._pendingShareToken = null;
+        await _doSaveShared(t);
+      }
     } else if (event === 'SIGNED_OUT') {
       _user = null;
       updateHeaderAuth();
