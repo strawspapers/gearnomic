@@ -268,7 +268,55 @@
     </section>
   </main>
 
-  <!-- MODAL -->
+  <!-- FOOTER -->
+  <footer id="site-footer">
+    <div class="footer-inner">
+      <!-- Brand -->
+      <div class="footer-brand">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <div class="logo-mark" style="width:24px;height:24px;font-size:9px">GN</div>
+          <span style="font-family:var(--font-disp);font-size:15px;color:var(--text-1);font-weight:400">Gearnomic</span>
+        </div>
+        <p style="font-size:12px;color:var(--text-3);line-height:1.5;max-width:220px">Gear management for hikers, backpackers &amp; bikepackers.</p>
+      </div>
+
+      <!-- Links -->
+      <div class="footer-links">
+        <div class="footer-col">
+          <div class="footer-col-title">Product</div>
+          <a onclick="showTab('gear')">Gear Closet</a>
+          <a onclick="showTab('trips')">Trips</a>
+          <a onclick="showTab('templates')">Templates</a>
+          <a onclick="showTab('food')">Food Planning</a>
+          <a onclick="showTab('analytics')">Analytics</a>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title">Account</div>
+          <a id="footer-signin-link" onclick="showAuthModal()" style="display:none">Sign in</a>
+          <a id="footer-settings-link" onclick="openSettings()" style="display:none">Settings</a>
+          <a onclick="exportData()">Export data</a>
+          <a onclick="document.getElementById('import-file').click()">Import data</a>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title">Info</div>
+          <a href="mailto:hello@gearnomic.com">Contact</a>
+          <a href="#" onclick="openPrivacyPolicy()">Privacy policy</a>
+          <a href="#" onclick="openTerms()">Terms of use</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom bar -->
+    <div class="footer-bottom">
+      <span>© <span id="footer-year"></span> Gearnomic. All rights reserved.</span>
+      <span style="display:flex;align-items:center;gap:12px">
+        <span style="color:var(--text-3)">Built for the trail ⛰</span>
+        <a href="https://supabase.com" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:4px;color:var(--text-3);font-size:11px">
+          Powered by Supabase
+        </a>
+      </span>
+    </div>
+  </footer>
   <div id="modal-overlay" onclick="handleOverlayClick(event)" style="display:none">
     <div class="modal" id="modal-box">
       <div class="modal-header">
