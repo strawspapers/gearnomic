@@ -367,9 +367,8 @@ const DEMO_DATA = {
     weight_target_g: 10000,
     miles: 18,
     notes: 'This is a demo trip — edit it or delete it and create your own!',
-    gear_ids: ['d001','d002','d004','d005','d007','d008','d009','d010','d011','d012','d013','d014','d016','d017','d018','d019','d020','d021','d022'],
-    gear_overrides: {},
-    carry_types: { 'd010':'worn','d011':'worn','d012':'worn' },
+    loadout_ids: ['tmpl_demo'],
+    meal_plan_id: null,
   },
 
   template: {
