@@ -3707,8 +3707,8 @@ async function submitNewPassword() {
 
 // ── Stripe price IDs — replace with your real IDs from Stripe Dashboard ──
 // Products → your product → Prices → copy the price_live_... ID
-const STRIPE_MONTHLY_URL = 'https://buy.stripe.com/00w5kCeTg0vBcNF0zi0oM00?prefilled_email=';
-const STRIPE_ANNUAL_URL  = 'https://buy.stripe.com/aFa9AS9yWbaf8xp6XG0oM01?prefilled_email=';
+const STRIPE_MONTHLY_URL = 'https://buy.stripe.com/00w5kCeTg0vBcNF0zi0oM00';
+const STRIPE_ANNUAL_URL  = 'https://buy.stripe.com/aFa9AS9yWbaf8xp6XG0oM01';
 
 function openUpgradeModal() {
   openModal('Become a Supporter', `
@@ -3727,7 +3727,7 @@ function openUpgradeModal() {
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.375rem">Monthly</div>
         <div style="font-size:26px;font-weight:600;font-family:var(--font-disp)">$3.99</div>
         <div style="font-size:12px;color:var(--text-3);margin-bottom:.875rem">per month</div>
-        <a href="${STRIPE_MONTHLY_URL}?prefilled_email=${encodeURIComponent(_user?.email||'')}"
+        <a href="${STRIPE_MONTHLY_URL}?prefilled_email=${encodeURIComponent(_user?.email||'')}&client_reference_id=${encodeURIComponent(_user?.id||'')}"
           target="_blank" class="btn btn-sm" style="display:block;text-align:center">
           Subscribe monthly
         </a>
@@ -3737,7 +3737,7 @@ function openUpgradeModal() {
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.375rem">Annual</div>
         <div style="font-size:26px;font-weight:600;font-family:var(--font-disp)">$29</div>
         <div style="font-size:12px;color:var(--text-3);margin-bottom:.875rem">per year · $2.42/mo</div>
-        <a href="${STRIPE_ANNUAL_URL}?prefilled_email=${encodeURIComponent(_user?.email||'')}"
+        <a href="${STRIPE_ANNUAL_URL}?prefilled_email=${encodeURIComponent(_user?.email||'')}&client_reference_id=${encodeURIComponent(_user?.id||'')}"
           target="_blank" class="btn btn-primary btn-sm" style="display:block;text-align:center">
           Subscribe annually
         </a>
