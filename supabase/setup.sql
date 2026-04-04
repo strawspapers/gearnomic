@@ -45,3 +45,25 @@ $$;
 create trigger trg_user_data_updated
   before update on user_data
   for each row execute function touch_user_data_updated_at();
+
+-- ── Shared lists (trips/templates via public URL) ─────────────
+create table if not exists shared_lists (
+  id          text primary key,           -- nanoid used as share token
+  owner_id    uuid references auth.users(id) on delete cascade,
+  kind        text not null check (kind in ('trip','template')),
+  title       text not null,
+  payload     jsonb not null,             -- serialised trip or template object
+  created_at  timestamptz not null default now()
+);
+
+-- Public read (no auth needed to fetch a shared list)
+alter table shared_lists enable row level security;
+
+create policy "Anyone can read shared lists"
+  on shared_lists for select using (true);
+
+create policy "Owners can insert"
+  on shared_lists for insert with check (auth.uid() = owner_id);
+
+create policy "Owners can delete"
+  on shared_lists for delete using (auth.uid() = owner_id);
