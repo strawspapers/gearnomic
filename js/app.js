@@ -4027,28 +4027,29 @@ async function submitAuth() {
     if (error) throw error;
 
     if (isSignup && data?.user && !data.session) {
-      // Show confirmation message inside the auth modal instead of a fleeting toast
-      const modalBody = document.getElementById('auth-modal-overlay');
-      if (modalBody) {
-        modalBody.querySelector('.modal, [id="auth-modal-overlay"] > div')?.remove?.();
-        // Replace the modal contents with a confirmation panel
-        const inner = modalBody.querySelector('div');
-        if (inner) inner.innerHTML = `
-          <div style="text-align:center;padding:2rem 1.5rem;max-width:380px">
-            <div style="font-size:48px;margin-bottom:1rem">📬</div>
-            <h2 style="font-family:var(--font-disp);font-size:22px;font-weight:400;margin-bottom:.625rem">Check your inbox</h2>
-            <p style="font-size:14px;color:var(--text-2);line-height:1.6;margin-bottom:.5rem">
-              We sent a confirmation email to <strong>${esc(email)}</strong>.
-            </p>
-            <p style="font-size:13px;color:var(--text-3);line-height:1.6;margin-bottom:1.5rem">
-              Click the link in that email to activate your account. Check your spam folder if you don't see it within a minute.
-            </p>
-            <button class="btn btn-ghost" onclick="hideAuthModal()" style="width:100%">Done</button>
-            <p style="font-size:12px;color:var(--text-3);margin-top:1rem">
-              Already confirmed? <a href="#" onclick="event.preventDefault();hideAuthModal();showAuthModal()" style="color:var(--primary)">Sign in</a>
-            </p>
-          </div>`;
-      }
+      // Replace auth modal contents with a clear confirmation screen
+      hideAuthModal();
+      openModal('Check your inbox 📬', `
+        <div style="text-align:center;padding:1rem 0 .5rem">
+          <div style="font-size:52px;margin-bottom:1rem">📬</div>
+          <p style="font-size:15px;font-weight:500;margin-bottom:.5rem;color:var(--text-1)">
+            Confirmation email sent to:
+          </p>
+          <p style="font-size:14px;color:var(--primary);font-weight:600;margin-bottom:1.25rem;word-break:break-all">
+            ${esc(email)}
+          </p>
+          <p style="font-size:13px;color:var(--text-2);line-height:1.7;margin-bottom:1rem">
+            Click the link in that email to activate your account.<br>
+            <span style="color:var(--text-3)">Don't see it? Check your spam folder.</span>
+          </p>
+          <p style="font-size:12px;color:var(--text-3);line-height:1.6">
+            Once confirmed, come back here and sign in.
+          </p>
+        </div>
+        <div class="form-actions" style="justify-content:center">
+          <button class="btn btn-primary" onclick="closeModal();showAuthModal()">Sign in</button>
+          <button class="btn btn-ghost" onclick="closeModal()">Done</button>
+        </div>`);
       return;
     }
     // Auth state change listener handles the rest
