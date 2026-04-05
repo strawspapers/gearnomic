@@ -410,9 +410,8 @@ function openManageTripTypes() {
     <div style="margin-bottom:1rem">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">Built-in</div>
       ${state.trip_types.filter(t => t.system).map(t =>
-        `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-md);background:var(--surface-2);margin-bottom:4px;font-size:13px">
+        `<div style="display:flex;align-items:center;padding:7px 10px;border-radius:var(--r-md);background:var(--surface-2);margin-bottom:4px;font-size:13px">
           <span>${esc(t.label)}</span>
-          <span class="badge badge-gray">${esc(t.value)}</span>
         </div>`).join('')}
     </div>
 
@@ -424,10 +423,7 @@ function openManageTripTypes() {
           ? custom.map(t =>
               `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-md);border:1px solid var(--border);margin-bottom:4px;font-size:13px">
                 <span>${esc(t.label)}</span>
-                <div style="display:flex;align-items:center;gap:8px">
-                  <span class="badge badge-gray">${esc(t.value)}</span>
-                  <button class="btn btn-xs btn-danger" onclick="deleteTripType('${esc(t.value)}')">Delete</button>
-                </div>
+                <button class="btn btn-xs btn-danger" onclick="deleteTripType('${esc(t.value)}')">Delete</button>
               </div>`).join('')
           : `<div style="font-size:13px;color:var(--text-3);padding:6px 0 8px">No custom types yet.</div>`
         }
@@ -477,10 +473,7 @@ function addTripTypeFromManager() {
     listEl.innerHTML = custom.map(t =>
       `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-md);border:1px solid var(--border);margin-bottom:4px;font-size:13px">
         <span>${esc(t.label)}</span>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span class="badge badge-gray">${esc(t.value)}</span>
-          <button class="btn btn-xs btn-danger" onclick="deleteTripType('${esc(t.value)}')">Delete</button>
-        </div>
+        <button class="btn btn-xs btn-danger" onclick="deleteTripType('${esc(t.value)}')">Delete</button>
       </div>`).join('');
   }
   input.focus();
@@ -501,10 +494,7 @@ function deleteTripType(value) {
       ? custom.map(t =>
           `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-md);border:1px solid var(--border);margin-bottom:4px;font-size:13px">
             <span>${esc(t.label)}</span>
-            <div style="display:flex;align-items:center;gap:8px">
-              <span class="badge badge-gray">${esc(t.value)}</span>
-              <button class="btn btn-xs btn-danger" onclick="deleteTripType('${esc(t.value)}')">Delete</button>
-            </div>
+            <button class="btn btn-xs btn-danger" onclick="deleteTripType('${esc(t.value)}')">Delete</button>
           </div>`).join('')
       : `<div style="font-size:13px;color:var(--text-3);padding:6px 0 8px">No custom types yet.</div>`;
   } else {
