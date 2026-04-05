@@ -98,6 +98,13 @@ async function loadSupporterStatus() {
 function applyMigrations() {
   if (!state.templates)     state.templates     = [];
   if (!state.trip_types)    state.trip_types    = JSON.parse(JSON.stringify(SEED_DATA.trip_types));
+  // Always ensure all built-in system types exist — they may have been lost
+  // if trip_types was saved as an empty array or before the system types were added
+  SEED_DATA.trip_types.forEach(sys => {
+    if (!state.trip_types.find(t => t.value === sys.value)) {
+      state.trip_types.unshift({ ...sys });
+    }
+  });
   if (!state.categories)    state.categories    = JSON.parse(JSON.stringify(SEED_DATA.categories));
   if (!state.food_plans)    state.food_plans    = [];
   // Ensure demo food plan exists so free users can explore the feature
