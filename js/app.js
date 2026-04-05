@@ -4027,9 +4027,28 @@ async function submitAuth() {
     if (error) throw error;
 
     if (isSignup && data?.user && !data.session) {
-      setAuthError('');
-      if (btn) { btn.textContent = 'Create account'; btn.disabled = false; }
-      toast('Check your email to confirm your account!');
+      // Show confirmation message inside the auth modal instead of a fleeting toast
+      const modalBody = document.getElementById('auth-modal-overlay');
+      if (modalBody) {
+        modalBody.querySelector('.modal, [id="auth-modal-overlay"] > div')?.remove?.();
+        // Replace the modal contents with a confirmation panel
+        const inner = modalBody.querySelector('div');
+        if (inner) inner.innerHTML = `
+          <div style="text-align:center;padding:2rem 1.5rem;max-width:380px">
+            <div style="font-size:48px;margin-bottom:1rem">📬</div>
+            <h2 style="font-family:var(--font-disp);font-size:22px;font-weight:400;margin-bottom:.625rem">Check your inbox</h2>
+            <p style="font-size:14px;color:var(--text-2);line-height:1.6;margin-bottom:.5rem">
+              We sent a confirmation email to <strong>${esc(email)}</strong>.
+            </p>
+            <p style="font-size:13px;color:var(--text-3);line-height:1.6;margin-bottom:1.5rem">
+              Click the link in that email to activate your account. Check your spam folder if you don't see it within a minute.
+            </p>
+            <button class="btn btn-ghost" onclick="hideAuthModal()" style="width:100%">Done</button>
+            <p style="font-size:12px;color:var(--text-3);margin-top:1rem">
+              Already confirmed? <a href="#" onclick="event.preventDefault();hideAuthModal();showAuthModal()" style="color:var(--primary)">Sign in</a>
+            </p>
+          </div>`;
+      }
       return;
     }
     // Auth state change listener handles the rest
