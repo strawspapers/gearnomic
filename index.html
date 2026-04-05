@@ -166,7 +166,10 @@
           <h1 class="page-title">Trips</h1>
           <p class="page-sub" id="trips-summary"></p>
         </div>
-        <button class="btn btn-primary" id="btn-add-trip">+ New Trip</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="openManageTripTypes()">Manage trip types</button>
+          <button class="btn btn-primary" id="btn-add-trip">+ New Trip</button>
+        </div>
       </div>
       <div id="trips-grid"></div>
       <div id="trip-detail-wrap" style="display:none">
