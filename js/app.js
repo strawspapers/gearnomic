@@ -394,34 +394,89 @@ function newTripTypeKeydown(e, prefix) {
 
 function openManageTripTypes() {
   const custom = state.trip_types.filter(t => !t.system);
-  const html = `
+  openModal('Manage trip types', `
     <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
-      Built-in types can't be removed. Deleting a custom type won't affect trips already using it — they keep the stored value.
+      Built-in types can't be removed. Custom types can be deleted — trips using them keep their stored value.
     </p>
+
+    <!-- Built-in types -->
     <div style="margin-bottom:1rem">
-      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">Built-in</div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">Built-in</div>
       ${state.trip_types.filter(t => t.system).map(t =>
         `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-md);background:var(--surface-2);margin-bottom:4px;font-size:13px">
           <span>${esc(t.label)}</span>
-          <span style="font-size:11px;color:var(--text-3);font-family:monospace">${esc(t.value)}</span>
+          <span class="badge badge-gray">${esc(t.value)}</span>
         </div>`).join('')}
     </div>
-    <div>
-      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">Custom</div>
-      ${custom.length
-        ? custom.map(t =>
-            `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-md);border:1px solid var(--border);margin-bottom:4px;font-size:13px">
-              <span>${esc(t.label)}</span>
-              <div style="display:flex;align-items:center;gap:10px">
-                <span style="font-size:11px;color:var(--text-3);font-family:monospace">${esc(t.value)}</span>
-                <button class="btn btn-xs btn-danger" onclick="deleteTripType('${esc(t.value)}')">Delete</button>
-              </div>
-            </div>`).join('')
-        : `<div style="font-size:13px;color:var(--text-3);padding:8px 0">No custom types yet — add one from any trip or template form.</div>`
-      }
+
+    <!-- Custom types -->
+    <div style="margin-bottom:1rem">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">Custom</div>
+      <div id="mtt-custom-list">
+        ${custom.length
+          ? custom.map(t =>
+              `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-md);border:1px solid var(--border);margin-bottom:4px;font-size:13px">
+                <span>${esc(t.label)}</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="badge badge-gray">${esc(t.value)}</span>
+                  <button class="btn btn-xs btn-danger" onclick="deleteTripType('${esc(t.value)}')">Delete</button>
+                </div>
+              </div>`).join('')
+          : `<div style="font-size:13px;color:var(--text-3);padding:6px 0 8px">No custom types yet.</div>`
+        }
+      </div>
     </div>
-    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`;
-  openModal('Manage trip types', html);
+
+    <!-- Add new type inline -->
+    <div style="border-top:.5px solid var(--border-2);padding-top:.875rem">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">Add a new type</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input class="input" id="mtt-new-input" placeholder="e.g. Ski touring, Trail running…"
+          style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addTripTypeFromManager();}">
+        <button class="btn btn-primary btn-sm" onclick="addTripTypeFromManager()">Add</button>
+      </div>
+      <div id="mtt-error" style="display:none;font-size:12px;color:var(--danger);margin-top:4px"></div>
+    </div>
+
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`);
+  setTimeout(() => document.getElementById('mtt-new-input')?.focus(), 50);
+}
+
+function addTripTypeFromManager() {
+  const input = document.getElementById('mtt-new-input');
+  const errEl = document.getElementById('mtt-error');
+  if (!input) return;
+  const label = input.value.trim();
+  if (!label) { input.focus(); return; }
+  const value = label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+  if (!value) {
+    if (errEl) { errEl.textContent = 'Name must contain letters or numbers.'; errEl.style.display = 'block'; }
+    return;
+  }
+  if (state.trip_types.find(t => t.value === value || t.label.toLowerCase() === label.toLowerCase())) {
+    if (errEl) { errEl.textContent = `"${label}" already exists.`; errEl.style.display = 'block'; }
+    input.select();
+    return;
+  }
+  state.trip_types.push({ value, label, system: false });
+  saveState();
+  input.value = '';
+  if (errEl) errEl.style.display = 'none';
+  toast(`"${label}" added!`);
+  // Refresh the custom list in-place without closing the modal
+  const listEl = document.getElementById('mtt-custom-list');
+  if (listEl) {
+    const custom = state.trip_types.filter(t => !t.system);
+    listEl.innerHTML = custom.map(t =>
+      `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-md);border:1px solid var(--border);margin-bottom:4px;font-size:13px">
+        <span>${esc(t.label)}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="badge badge-gray">${esc(t.value)}</span>
+          <button class="btn btn-xs btn-danger" onclick="deleteTripType('${esc(t.value)}')">Delete</button>
+        </div>
+      </div>`).join('');
+  }
+  input.focus();
 }
 
 function deleteTripType(value) {
@@ -430,8 +485,24 @@ function deleteTripType(value) {
   if (!confirm(`Delete trip type "${t.label}"?`)) return;
   state.trip_types = state.trip_types.filter(t => t.value !== value);
   saveState();
-  openManageTripTypes();
   toast(`"${t.label}" deleted.`);
+  // Refresh the list in-place
+  const listEl = document.getElementById('mtt-custom-list');
+  if (listEl) {
+    const custom = state.trip_types.filter(t => !t.system);
+    listEl.innerHTML = custom.length
+      ? custom.map(t =>
+          `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-md);border:1px solid var(--border);margin-bottom:4px;font-size:13px">
+            <span>${esc(t.label)}</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="badge badge-gray">${esc(t.value)}</span>
+              <button class="btn btn-xs btn-danger" onclick="deleteTripType('${esc(t.value)}')">Delete</button>
+            </div>
+          </div>`).join('')
+      : `<div style="font-size:13px;color:var(--text-3);padding:6px 0 8px">No custom types yet.</div>`;
+  } else {
+    openManageTripTypes(); // fallback if called from outside the modal
+  }
 }
 
 // ── Modal ──────────────────────────────────────────────────
@@ -1328,10 +1399,7 @@ function tripFormHtml(trip) {
         </select>
       </div>
       <div class="form-row">
-        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
-          Type
-          <button type="button" class="btn btn-xs btn-ghost" style="font-size:11px" onclick="openManageTripTypes()">Manage types</button>
-        </label>
+        <label class="form-label">Type</label>
         <select class="select input-full" id="tf-type" onchange="handleTripTypeChange('tf')">
           ${tripTypeOptions(trip.trip_type || 'backpacking')}
         </select>
@@ -2036,10 +2104,7 @@ function templateFormHtml(tmpl) {
     <div class="form-grid">
       <div class="form-row"><label class="form-label">Template name *</label><input class="input input-full" id="tmf-name" value="${esc(tmpl.name || '')}" placeholder="e.g. 3-Season Ultralight Base"></div>
       <div class="form-row">
-        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
-          Trip type
-          <button type="button" class="btn btn-xs btn-ghost" style="font-size:11px" onclick="openManageTripTypes()">Manage types</button>
-        </label>
+        <label class="form-label">Trip type</label>
         <select class="select input-full" id="tmf-type" onchange="handleTripTypeChange('tmf')">
           ${tripTypeOptions(tmpl.trip_type || 'backpacking')}
         </select>
