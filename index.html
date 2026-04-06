@@ -30,6 +30,13 @@
         <button class="nav-tab" data-tab="analytics">Analytics</button>
       </nav>
       <div class="header-actions">
+        <!-- Unit toggle — always visible -->
+        <button id="unit-toggle-btn" onclick="toggleUnits()"
+          title="Toggle weight units"
+          class="btn btn-sm btn-ghost"
+          style="font-family:monospace;font-size:12px;min-width:32px">g</button>
+        <!-- Quick-add gear — always visible -->
+        <button onclick="openQuickAdd()" class="btn btn-sm btn-primary" title="Quick-add gear item">+ Add gear</button>
         <!-- Signed-in: sync indicator + avatar menu -->
         <div id="auth-user-info" style="display:none;align-items:center;gap:8px">
           <span id="sync-indicator" style="font-size:11px;color:var(--text-3)"></span>
@@ -99,8 +106,8 @@
         </div>
       </div>
 
-      <!-- Heaviest items + Quick add recent -->
-      <div class="card">
+      <!-- Heaviest items -->
+      <div class="card" style="margin-bottom:1rem">
         <div class="card-header">
           <span class="card-title">Heaviest items</span>
           <span class="card-sub">potential upgrade targets</span>
@@ -111,6 +118,15 @@
             <tbody id="dash-heavy"></tbody>
           </table>
         </div>
+      </div>
+
+      <!-- Trip weight sparkline -->
+      <div class="card" id="dash-sparkline-card">
+        <div class="card-header">
+          <span class="card-title">Base weight over time</span>
+          <span class="card-sub">completed trips</span>
+        </div>
+        <div id="dash-sparkline"></div>
       </div>
     </section>
 
@@ -146,7 +162,7 @@
           <option value="usage">Most used</option>
         </select>
         <button id="btn-toggle-misc" class="btn btn-sm" onclick="toggleMiscCol()" title="Show / hide the Misc column">Misc off</button>
-        <button class="btn btn-sm" onclick="openColumnManager()" title="Add or toggle custom field columns">Columns ▾</button>
+        <button class="btn btn-sm" onclick="openColumnChooser()" title="Show or hide columns">Columns ▾</button>
         <button class="btn btn-sm" onclick="openManageCategories()">Manage categories</button>
       </div>
       <div class="card" style="padding:0;overflow:hidden">
