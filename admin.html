@@ -11,27 +11,19 @@
     header h1{font-size:17px;font-weight:600}
     header span{font-size:13px;opacity:.65;margin-left:auto}
     .container{max-width:1000px;margin:0 auto;padding:24px}
-
-    /* Login */
     #login-screen{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 52px)}
-    .login-card{background:#fff;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,.1);padding:2rem;width:360px}
+    .login-card{background:#fff;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,.1);padding:2rem;width:400px}
     .login-card h2{font-size:18px;margin-bottom:.25rem}
-    .login-card p{font-size:13px;color:#888;margin-bottom:1.5rem}
-
-    /* Admin UI */
+    .login-card p{font-size:13px;color:#888;margin-bottom:1.25rem}
+    .hint{font-size:11px;color:#aaa;margin-top:-8px;margin-bottom:.875rem;line-height:1.5}
     #admin-screen{display:none}
     .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap}
     .toolbar input{padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;width:220px;outline:none;font-family:inherit}
-    .toolbar input:focus{border-color:#2A4032}
-
-    /* Stat cards */
     .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem}
     .stat{background:#fff;border-radius:10px;padding:1rem;box-shadow:0 1px 4px rgba(0,0,0,.06)}
     .stat-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:4px}
     .stat-val{font-size:26px;font-weight:600}
     .stat-sub{font-size:12px;color:#aaa;margin-top:2px}
-
-    /* Table */
     .card{background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);overflow:hidden}
     table{width:100%;border-collapse:collapse;font-size:13px}
     th{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888;padding:10px 14px;border-bottom:1px solid #eee;background:#fafafa;white-space:nowrap}
@@ -44,11 +36,8 @@
     .badge-supporter{background:#d5f0e0;color:#1a7a40}
     .badge-free{background:#f0f0f0;color:#888}
     .badge-unconfirmed{background:#fff3cd;color:#856404}
-    .badge-stripe{background:#e8f4fd;color:#1a5fa8}
     .actions{display:flex;gap:6px;flex-wrap:wrap}
-
-    /* Buttons */
-    button,a.btn{padding:6px 12px;border:none;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block;transition:opacity .12s}
+    button{padding:6px 12px;border:none;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;transition:opacity .12s}
     button:hover{opacity:.82}
     .btn-primary{background:#2A4032;color:#fff}
     .btn-success{background:#1a7a40;color:#fff}
@@ -56,40 +45,42 @@
     .btn-danger{background:#c0392b;color:#fff}
     .btn-ghost{background:#f0f0f0;color:#444}
     .btn-sm{padding:4px 9px;font-size:11px}
-
-    /* Toast */
     #toast{position:fixed;bottom:24px;right:24px;background:#2A4032;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;z-index:100}
     #toast.show{transform:translateY(0);opacity:1}
-
     label{display:block;font-size:12px;font-weight:500;color:#555;margin-bottom:4px}
-    input.full{width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:7px;font-size:14px;font-family:inherit;outline:none;margin-bottom:.875rem}
+    input.full{width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:7px;font-size:14px;font-family:inherit;outline:none;margin-bottom:.75rem}
     input.full:focus{border-color:#2A4032}
-    .form-actions{display:flex;gap:8px;margin-top:.5rem}
-    .err{font-size:12px;color:#c0392b;margin-top:4px;display:none}
+    input[type=password].full{font-family:monospace;letter-spacing:1px}
+    .form-actions{display:flex;gap:8px;margin-top:.25rem}
+    .err{font-size:12px;color:#c0392b;margin-top:6px;display:none}
     .loading{text-align:center;padding:3rem;color:#aaa;font-size:14px}
-    @media(max-width:700px){.stats{grid-template-columns:1fr 1fr}.toolbar input{width:160px}}
+    .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:50;align-items:center;justify-content:center}
+    .modal-box{background:#fff;border-radius:12px;padding:1.5rem;width:380px;box-shadow:0 4px 24px rgba(0,0,0,.15)}
   </style>
 </head>
 <body>
 
 <header>
-  <div style="width:28px;height:28px;background:#3D6B4F;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px">GN</div>
+  <div style="width:28px;height:28px;background:#3D6B4F;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#fff">GN</div>
   <h1>Gearnomic Admin</h1>
   <span id="header-status"></span>
-  <button class="btn-ghost btn-sm" onclick="logout()" style="margin-left:8px;display:none" id="btn-logout">Sign out</button>
+  <button class="btn-ghost btn-sm" id="btn-logout" onclick="logout()" style="display:none;margin-left:8px">Sign out</button>
 </header>
 
 <!-- Login -->
 <div id="login-screen">
   <div class="login-card">
     <h2>Admin access</h2>
-    <p>Enter your admin secret to continue.</p>
-    <label>Admin secret</label>
-    <input class="full" type="password" id="login-secret" placeholder="••••••••"
+    <p>Uses your Supabase credentials directly — no Edge Function required.</p>
+
+    <label>Supabase Project URL</label>
+    <input class="full" type="text" id="login-url" placeholder="https://xxxx.supabase.co">
+
+    <label>Service Role Key</label>
+    <input class="full" type="password" id="login-key" placeholder="eyJhbGci…"
       onkeydown="if(event.key==='Enter')doLogin()">
-    <label>Edge Function URL</label>
-    <input class="full" type="text" id="login-url"
-      placeholder="https://YOUR_PROJECT.supabase.co/functions/v1/admin-grant-supporter">
+    <p class="hint">Found in Supabase → Settings → API → service_role key.<br>This is stored only in your browser's memory — never sent anywhere except Supabase.</p>
+
     <div class="form-actions">
       <button class="btn-primary" style="flex:1;padding:10px" onclick="doLogin()">Sign in</button>
     </div>
@@ -100,35 +91,15 @@
 <!-- Admin UI -->
 <div id="admin-screen">
   <div class="container">
-
-    <!-- Stats -->
     <div class="stats">
-      <div class="stat">
-        <div class="stat-label">Total users</div>
-        <div class="stat-val" id="stat-total">—</div>
-        <div class="stat-sub">registered accounts</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Supporters</div>
-        <div class="stat-val" id="stat-supporters">—</div>
-        <div class="stat-sub" id="stat-pct">— % of users</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Confirmed</div>
-        <div class="stat-val" id="stat-confirmed">—</div>
-        <div class="stat-sub">email verified</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Unconfirmed</div>
-        <div class="stat-val" id="stat-unconfirmed">—</div>
-        <div class="stat-sub">pending verification</div>
-      </div>
+      <div class="stat"><div class="stat-label">Total users</div><div class="stat-val" id="stat-total">—</div><div class="stat-sub">registered accounts</div></div>
+      <div class="stat"><div class="stat-label">Supporters</div><div class="stat-val" id="stat-supporters">—</div><div class="stat-sub" id="stat-pct">—</div></div>
+      <div class="stat"><div class="stat-label">Confirmed</div><div class="stat-val" id="stat-confirmed">—</div><div class="stat-sub">email verified</div></div>
+      <div class="stat"><div class="stat-label">Unconfirmed</div><div class="stat-val" id="stat-unconfirmed">—</div><div class="stat-sub">pending</div></div>
     </div>
-
-    <!-- Toolbar -->
     <div class="toolbar">
       <input type="text" id="search" placeholder="Search by email…" oninput="filterTable()">
-      <select onchange="filterTable()" id="filter-tier" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;outline:none">
+      <select id="filter-tier" onchange="filterTable()" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;outline:none">
         <option value="">All tiers</option>
         <option value="supporter">Supporters</option>
         <option value="free">Free</option>
@@ -136,38 +107,28 @@
       <button class="btn-ghost" onclick="loadUsers()" style="margin-left:auto">↻ Refresh</button>
       <button class="btn-primary" onclick="openGrantModal()">+ Grant access</button>
     </div>
-
-    <!-- Table -->
     <div class="card">
       <div id="table-loading" class="loading">Loading users…</div>
       <table id="users-table" style="display:none">
-        <thead>
-          <tr>
-            <th>User</th>
-            <th>Status</th>
-            <th>Joined</th>
-            <th>Last sign in</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
+        <thead><tr><th>User</th><th>Status</th><th>Joined</th><th>Last sign in</th><th>Actions</th></tr></thead>
         <tbody id="users-tbody"></tbody>
       </table>
-      <div id="table-empty" style="display:none" class="loading">No users match your filter.</div>
+      <div id="table-empty" class="loading" style="display:none">No users match your filter.</div>
     </div>
   </div>
 </div>
 
 <!-- Grant modal -->
-<div id="grant-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:50;display:none;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:12px;padding:1.5rem;width:360px;box-shadow:0 4px 24px rgba(0,0,0,.15)">
+<div id="grant-modal" class="modal-bg">
+  <div class="modal-box">
     <h3 style="font-size:16px;margin-bottom:.25rem">Grant Supporter access</h3>
     <p style="font-size:13px;color:#888;margin-bottom:1rem">Enter the email of a registered Gearnomic user.</p>
     <label>Email address</label>
     <input class="full" type="email" id="grant-email" placeholder="user@example.com"
       onkeydown="if(event.key==='Enter')doGrant()">
     <div class="err" id="grant-err"></div>
-    <div class="form-actions">
-      <button class="btn-success" onclick="doGrant()" style="flex:1;padding:9px">Grant access</button>
+    <div class="form-actions" style="margin-top:.5rem">
+      <button class="btn-success" style="flex:1;padding:9px" onclick="doGrant()">Grant access</button>
       <button class="btn-ghost" onclick="closeGrantModal()">Cancel</button>
     </div>
   </div>
@@ -175,110 +136,104 @@
 
 <div id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-let _secret = '';
-let _fnUrl  = '';
-let _users  = [];
+let _sb   = null;
+let _url  = '';
+let _users = [];
 
-// ── Auth ──────────────────────────────────────────────────
 async function doLogin() {
-  const secret = document.getElementById('login-secret').value.trim();
-  const url    = document.getElementById('login-url').value.trim();
-  const errEl  = document.getElementById('login-err');
-  errEl.style.display = 'none';
+  const url = document.getElementById('login-url').value.trim();
+  const key = document.getElementById('login-key').value.trim();
+  const err = document.getElementById('login-err');
+  err.style.display = 'none';
 
-  if (!secret || !url) { showErr(errEl, 'Both fields are required.'); return; }
+  if (!url || !key) { showErr(err, 'Both fields are required.'); return; }
 
-  // Test the credentials
+  // Create a Supabase client with the service role key
   try {
-    const res = await callApi({ action: 'list_users' }, secret, url);
-    if (!res.ok) {
-      const d = await res.json();
-      showErr(errEl, d.error || 'Invalid secret or URL.');
-      return;
-    }
-    _secret = secret;
-    _fnUrl  = url;
-    localStorage.setItem('gn_admin_secret', secret);
-    localStorage.setItem('gn_admin_url',    url);
-    showAdminScreen();
-    const data = await res.json();
-    renderUsers(data.users || []);
+    _sb  = supabase.createClient(url, key, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+    _url = url;
+
+    // Test it — try to list users
+    const { data, error } = await _sb.auth.admin.listUsers({ perPage: 1 });
+    if (error) { showErr(err, 'Access denied: ' + error.message); _sb = null; return; }
+
+    // Save URL (not the key) for convenience
+    localStorage.setItem('gn_admin_url', url);
+
+    document.getElementById('login-screen').style.display  = 'none';
+    document.getElementById('admin-screen').style.display  = 'block';
+    document.getElementById('btn-logout').style.display    = '';
+    loadUsers();
   } catch(e) {
-    showErr(errEl, 'Could not reach the Edge Function. Check the URL.');
+    showErr(err, 'Could not connect. Check the URL and key.');
+    _sb = null;
   }
 }
 
 function logout() {
-  _secret = ''; _fnUrl = '';
-  localStorage.removeItem('gn_admin_secret');
-  localStorage.removeItem('gn_admin_url');
+  _sb = null; _url = '';
   document.getElementById('admin-screen').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('btn-logout').style.display   = 'none';
   document.getElementById('header-status').textContent  = '';
-  document.getElementById('login-secret').value = '';
+  document.getElementById('login-key').value = '';
 }
 
-function showAdminScreen() {
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('admin-screen').style.display = 'block';
-  document.getElementById('btn-logout').style.display   = '';
-}
-
-// Auto-login if saved
+// Pre-fill URL
 window.addEventListener('DOMContentLoaded', () => {
-  const s = localStorage.getItem('gn_admin_secret');
-  const u = localStorage.getItem('gn_admin_url');
-  if (s && u) {
-    document.getElementById('login-secret').value = s;
-    document.getElementById('login-url').value    = u;
-    doLogin();
-  }
+  const saved = localStorage.getItem('gn_admin_url');
+  if (saved) document.getElementById('login-url').value = saved;
 });
 
-// ── API ───────────────────────────────────────────────────
-function callApi(body, secret, url) {
-  return fetch(secret ? url : _fnUrl, {
-    method:  'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'Authorization': `Bearer ${secret || _secret}`,
-    },
-    body: JSON.stringify(body),
-  });
-}
-
+// ── Load & render users ───────────────────────────────────
 async function loadUsers() {
   document.getElementById('table-loading').style.display = 'block';
-  document.getElementById('users-table').style.display  = 'none';
-  document.getElementById('table-empty').style.display  = 'none';
-  try {
-    const res  = await callApi({ action: 'list_users' });
-    const data = await res.json();
-    renderUsers(data.users || []);
-  } catch(e) { toast('Failed to load users.'); }
-}
+  document.getElementById('users-table').style.display   = 'none';
+  document.getElementById('table-empty').style.display   = 'none';
 
-// ── Render ────────────────────────────────────────────────
-function renderUsers(users) {
-  _users = users;
-  updateStats(users);
-  filterTable();
+  const { data: authData, error } = await _sb.auth.admin.listUsers({ perPage: 1000 });
+  if (error) { toast('Failed to load users: ' + error.message); return; }
+
+  const { data: userData } = await _sb.from('user_data')
+    .select('user_id, is_supporter, supporter_since, stripe_customer_id');
+
+  const map = {};
+  (userData || []).forEach(r => { map[r.user_id] = r; });
+
+  _users = (authData?.users || []).map(u => {
+    const ud = map[u.id] || {};
+    return {
+      id:           u.id,
+      email:        u.email,
+      created_at:   u.created_at,
+      last_sign_in: u.last_sign_in_at,
+      confirmed:    !!u.confirmed_at,
+      is_supporter: !!ud.is_supporter,
+      supporter_since: ud.supporter_since || null,
+      has_stripe:   !!ud.stripe_customer_id,
+    };
+  }).sort((a, b) => {
+    if (a.is_supporter !== b.is_supporter) return a.is_supporter ? -1 : 1;
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
+
+  // Stats
+  const sup   = _users.filter(u => u.is_supporter).length;
+  const conf  = _users.filter(u => u.confirmed).length;
+  document.getElementById('stat-total').textContent       = _users.length;
+  document.getElementById('stat-supporters').textContent  = sup;
+  document.getElementById('stat-pct').textContent         = _users.length ? Math.round(sup/_users.length*100)+'% of users' : '—';
+  document.getElementById('stat-confirmed').textContent   = conf;
+  document.getElementById('stat-unconfirmed').textContent = _users.length - conf;
+  document.getElementById('header-status').textContent    = _users.length + ' users';
+
   document.getElementById('table-loading').style.display = 'none';
   document.getElementById('users-table').style.display   = '';
-  document.getElementById('header-status').textContent   = `${users.length} users`;
-}
-
-function updateStats(users) {
-  const supporters  = users.filter(u => u.is_supporter).length;
-  const confirmed   = users.filter(u => u.confirmed).length;
-  const unconfirmed = users.length - confirmed;
-  document.getElementById('stat-total').textContent       = users.length;
-  document.getElementById('stat-supporters').textContent  = supporters;
-  document.getElementById('stat-pct').textContent         = users.length ? Math.round(supporters/users.length*100) + '% of users' : '—';
-  document.getElementById('stat-confirmed').textContent   = confirmed;
-  document.getElementById('stat-unconfirmed').textContent = unconfirmed;
+  filterTable();
 }
 
 function filterTable() {
@@ -291,42 +246,32 @@ function filterTable() {
 
   const tbody = document.getElementById('users-tbody');
   const empty = document.getElementById('table-empty');
-  if (!filtered.length) {
-    tbody.innerHTML = '';
-    empty.style.display = 'block';
-    return;
-  }
+  if (!filtered.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
   empty.style.display = 'none';
+
   tbody.innerHTML = filtered.map(u => `
     <tr>
-      <td>
-        <div class="email">${esc(u.email)}</div>
-        <div class="sub">${u.id.slice(0,8)}…</div>
-      </td>
+      <td><div class="email">${esc(u.email)}</div><div class="sub">${u.id.slice(0,8)}…</div></td>
       <td>
         ${u.is_supporter
           ? `<span class="badge badge-supporter">⛰ Supporter</span>`
           : `<span class="badge badge-free">Free</span>`}
         ${!u.confirmed ? `<span class="badge badge-unconfirmed" style="margin-left:4px">Unconfirmed</span>` : ''}
-        ${u.has_stripe  ? `<span class="badge badge-stripe" style="margin-left:4px">Stripe</span>` : ''}
       </td>
       <td><div class="sub">${fmtDate(u.created_at)}</div></td>
       <td><div class="sub">${u.last_sign_in ? fmtDate(u.last_sign_in) : '—'}</div></td>
-      <td>
-        <div class="actions">
-          ${u.is_supporter
-            ? `<button class="btn-warn btn-sm" onclick="doRevoke('${esc(u.email)}')">Revoke</button>`
-            : `<button class="btn-success btn-sm" onclick="doGrantEmail('${esc(u.email)}')">Grant</button>`}
-          <button class="btn-danger btn-sm" onclick="doDelete('${esc(u.email)}')">Delete</button>
-        </div>
-      </td>
+      <td><div class="actions">
+        ${u.is_supporter
+          ? `<button class="btn-warn btn-sm" onclick="doRevoke('${esc(u.email)}')">Revoke</button>`
+          : `<button class="btn-success btn-sm" onclick="doGrantEmail('${esc(u.email)}')">Grant</button>`}
+        <button class="btn-danger btn-sm" onclick="doDelete('${esc(u.email)}')">Delete</button>
+      </div></td>
     </tr>`).join('');
 }
 
 // ── Actions ───────────────────────────────────────────────
 function openGrantModal() {
-  const m = document.getElementById('grant-modal');
-  m.style.display = 'flex';
+  document.getElementById('grant-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('grant-email')?.focus(), 80);
 }
 function closeGrantModal() {
@@ -335,58 +280,79 @@ function closeGrantModal() {
   document.getElementById('grant-err').style.display = 'none';
 }
 
+async function findUser(email) {
+  const { data } = await _sb.auth.admin.listUsers({ perPage: 1000 });
+  return (data?.users || []).find(u => u.email?.toLowerCase() === email.toLowerCase());
+}
+
 async function doGrant() {
   const email = document.getElementById('grant-email').value.trim();
-  const errEl = document.getElementById('grant-err');
-  errEl.style.display = 'none';
-  if (!email) { showErr(errEl, 'Email is required.'); return; }
-  try {
-    const res  = await callApi({ action: 'grant', email });
-    const data = await res.json();
-    if (!res.ok) { showErr(errEl, data.error); return; }
-    closeGrantModal();
-    toast(data.message);
-    loadUsers();
-  } catch(e) { showErr(errEl, 'Request failed.'); }
+  const err   = document.getElementById('grant-err');
+  err.style.display = 'none';
+  if (!email) { showErr(err, 'Email is required.'); return; }
+  const user = await findUser(email);
+  if (!user) { showErr(err, `No account found for ${email}`); return; }
+  const { error } = await _sb.from('user_data').upsert(
+    { user_id: user.id, is_supporter: true, supporter_since: new Date().toISOString() },
+    { onConflict: 'user_id' }
+  );
+  if (error) { showErr(err, error.message); return; }
+  closeGrantModal();
+  toast(`Supporter access granted to ${email}`);
+  loadUsers();
 }
 
 async function doGrantEmail(email) {
   if (!confirm(`Grant Supporter access to ${email}?`)) return;
-  const res  = await callApi({ action: 'grant', email });
-  const data = await res.json();
-  toast(data.message || data.error);
-  if (res.ok) loadUsers();
+  const user = await findUser(email);
+  if (!user) { toast('User not found.'); return; }
+  const { error } = await _sb.from('user_data').upsert(
+    { user_id: user.id, is_supporter: true, supporter_since: new Date().toISOString() },
+    { onConflict: 'user_id' }
+  );
+  if (error) { toast('Error: ' + error.message); return; }
+  toast(`Supporter access granted to ${email}`);
+  loadUsers();
 }
 
 async function doRevoke(email) {
   if (!confirm(`Revoke Supporter access for ${email}?`)) return;
-  const res  = await callApi({ action: 'revoke', email });
-  const data = await res.json();
-  toast(data.message || data.error);
-  if (res.ok) loadUsers();
+  const user = await findUser(email);
+  if (!user) { toast('User not found.'); return; }
+  const { error } = await _sb.from('user_data').upsert(
+    { user_id: user.id, is_supporter: false, supporter_since: null },
+    { onConflict: 'user_id' }
+  );
+  if (error) { toast('Error: ' + error.message); return; }
+  toast(`Supporter access revoked for ${email}`);
+  loadUsers();
 }
 
 async function doDelete(email) {
   if (!confirm(`Permanently delete the account for ${email}?\n\nThis cannot be undone.`)) return;
-  const res  = await callApi({ action: 'delete_user', email });
-  const data = await res.json();
-  toast(data.message || data.error);
-  if (res.ok) loadUsers();
+  const user = await findUser(email);
+  if (!user) { toast('User not found.'); return; }
+  const { error } = await _sb.auth.admin.deleteUser(user.id);
+  if (error) { toast('Error: ' + error.message); return; }
+  toast(`Account deleted: ${email}`);
+  loadUsers();
 }
 
 // ── Helpers ───────────────────────────────────────────────
-function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 function fmtDate(iso) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 }
 function showErr(el, msg) { el.textContent = msg; el.style.display = 'block'; }
-let _toastTimer;
+let _tt;
 function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.classList.add('show');
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  clearTimeout(_tt);
+  _tt = setTimeout(() => el.classList.remove('show'), 3000);
 }
 </script>
 </body>
