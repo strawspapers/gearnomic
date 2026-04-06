@@ -4294,7 +4294,7 @@ function openSettings() {
           ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
               <span style="background:var(--primary);color:#fff;font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px">⛰ SUPPORTER</span>
               <span style="font-size:13px;color:var(--text-2)">Cloud sync is active. Thank you for supporting Gearnomic!</span>
-              <a href="https://billing.stripe.com/p/login/REPLACE_WITH_STRIPE_PORTAL" target="_blank" class="btn btn-sm btn-ghost">Manage subscription</a>
+              <a href="https://billing.stripe.com/p/login/00w5kCeTg0vBcNF0zi0oM00" target="_blank" class="btn btn-sm btn-ghost">Manage subscription</a>
             </div>`
           : `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
               <span style="font-size:13px;color:var(--text-2)">Free plan — data saved locally on this device only.</span>
