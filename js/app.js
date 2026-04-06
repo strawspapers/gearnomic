@@ -237,6 +237,15 @@ function toggleUnits() {
   saveState();
   refreshAll();
 }
+
+// Unit helpers for forms
+function weightLabel() { return _units === 'imperial' ? 'Weight (oz)' : 'Weight (grams)'; }
+function weightPlaceholder() { return _units === 'imperial' ? '0.0 oz' : '0 g'; }
+function weightStep() { return _units === 'imperial' ? '0.01' : '0.1'; }
+// Convert grams → display unit for pre-filling form fields
+function gToDisplay(g) { return !g ? '' : _units === 'imperial' ? (g / 28.3495).toFixed(2) : g; }
+// Convert display value → grams for storage
+function displayToG(v) { return _units === 'imperial' ? (parseFloat(v) || 0) * 28.3495 : (parseFloat(v) || 0); }
 const dpg = (c, w) => c && w ? `$${(c / w).toFixed(3)}` : '—';
 const usd = v => v ? `$${Number(v).toFixed(2).replace(/\.00$/, '')}` : '—';
 const pct = (a, b) => b ? Math.min(100, Math.round(a / b * 100)) : 0;
@@ -935,8 +944,8 @@ function openQuickAdd() {
         <select class="select input-full" id="qa-cat">${catOptions('')}</select>
       </div>
       <div class="form-row">
-        <label class="form-label">Weight (grams)</label>
-        <input class="input input-full" id="qa-weight" type="number" min="0" step="0.1" placeholder="0">
+        <label class="form-label">${weightLabel()}</label>
+        <input class="input input-full" id="qa-weight" type="number" min="0" step="${weightStep()}" placeholder="${weightPlaceholder()}">
       </div>
       <div class="form-row">
         <label class="form-label">Cost ($)</label>
@@ -963,7 +972,7 @@ function saveQuickAdd(addAnother) {
     name,
     brand:      document.getElementById('qa-brand')?.value.trim() || '',
     category:   document.getElementById('qa-cat')?.value || categoryNames()[0] || 'Other',
-    weight_g:   parseFloat(document.getElementById('qa-weight')?.value) || 0,
+    weight_g:   displayToG(document.getElementById('qa-weight')?.value),
     cost_usd:   parseFloat(document.getElementById('qa-cost')?.value)   || 0,
     condition:  'good',
     usage_days: 0, usage_nights: 0,
@@ -1275,7 +1284,7 @@ function itemFormHtml(item) {
         </label>
         <select class="select input-full" id="f-cat">${catOptions(item.category || 'Pack')}</select>
       </div>
-      <div class="form-row"><label class="form-label">Weight (grams)</label><input class="input input-full" id="f-weight" type="number" min="0" step="0.1" value="${item.weight_g || ''}"></div>
+      <div class="form-row"><label class="form-label">${weightLabel()}</label><input class="input input-full" id="f-weight" type="number" min="0" step="${weightStep()}" value="${gToDisplay(item.weight_g)}" placeholder="${weightPlaceholder()}"></div>
       <div class="form-row"><label class="form-label">Cost (USD)</label><input class="input input-full" id="f-cost" type="number" min="0" step="0.01" value="${item.cost_usd || ''}"></div>
       <div class="form-row">
         <label class="form-label">Condition</label>
@@ -1329,7 +1338,7 @@ function saveItem(id) {
     brand:            document.getElementById('f-brand').value.trim(),
     model:            document.getElementById('f-model').value.trim(),
     category:         document.getElementById('f-cat').value,
-    weight_g:         parseFloat(document.getElementById('f-weight').value) || 0,
+    weight_g:         displayToG(document.getElementById('f-weight').value),
     cost_usd:         parseFloat(document.getElementById('f-cost').value) || 0,
     carry_type:       undefined,   // carry type now lives on trip/template, not the item
     condition:        document.getElementById('f-cond').value,
@@ -1903,7 +1912,7 @@ function wishFormHtml(w) {
       <div class="form-row"><label class="form-label">Type (item category) *</label><input class="input input-full" id="wf-name" value="${esc(w.name || '')}" placeholder="e.g. Pack, Pillow, Tent"></div>
       <div class="form-row"><label class="form-label">Brand</label><input class="input input-full" id="wf-brand" value="${esc(w.brand || '')}"></div>
       <div class="form-row"><label class="form-label">Model</label><input class="input input-full" id="wf-model" value="${esc(w.model || '')}"></div>
-      <div class="form-row"><label class="form-label">Weight (grams)</label><input class="input input-full" id="wf-weight" type="number" min="0" step="0.1" value="${w.weight_g || ''}"></div>
+      <div class="form-row"><label class="form-label">${weightLabel()}</label><input class="input input-full" id="wf-weight" type="number" min="0" step="${weightStep()}" value="${gToDisplay(w.weight_g)}" placeholder="${weightPlaceholder()}"></div>
       <div class="form-row"><label class="form-label">Cost (USD)</label><input class="input input-full" id="wf-cost" type="number" min="0" step="0.01" value="${w.cost_usd || ''}"></div>
       <div class="form-row"><label class="form-label">Volume (liters)</label><input class="input input-full" id="wf-liters" type="number" min="0" step="0.1" value="${w.volume_liters || ''}"></div>
       <div class="form-row"><label class="form-label">Frame type</label><input class="input input-full" id="wf-frame" value="${esc(w.frame_type || '')}"></div>
@@ -1935,7 +1944,7 @@ function saveWish(id) {
     id: id || uid('w'), name,
     brand:        document.getElementById('wf-brand').value.trim(),
     model:        document.getElementById('wf-model').value.trim(),
-    weight_g:     parseFloat(document.getElementById('wf-weight').value) || null,
+    weight_g:     displayToG(document.getElementById('wf-weight').value) || null,
     cost_usd:     parseFloat(document.getElementById('wf-cost').value) || null,
     volume_liters:parseFloat(document.getElementById('wf-liters').value) || null,
     frame_type:   document.getElementById('wf-frame').value.trim() || null,
@@ -3806,8 +3815,8 @@ function openAddMeal(planId, day, mealTime) {
     <div class="form-grid">
       <div class="form-row"><label class="form-label">Calories</label>
         <input class="input input-full" id="mi-cal" type="number" min="0" placeholder="~${guideCal}"></div>
-      <div class="form-row"><label class="form-label">Weight (grams)</label>
-        <input class="input input-full" id="mi-wg" type="number" min="0" placeholder="grams"></div>
+      <div class="form-row"><label class="form-label">${weightLabel()}</label>
+        <input class="input input-full" id="mi-wg" type="number" min="0" step="${weightStep()}" placeholder="${weightPlaceholder()}"></div>
     </div>
     <div class="form-row"><label class="form-label">Notes</label>
       <input class="input input-full" id="mi-notes" placeholder="brand, prep notes…"></div>
@@ -3827,7 +3836,7 @@ function fillFromRecipe() {
   const wgEl   = document.getElementById('mi-wg');
   if (nameEl) nameEl.value = rec.name;
   if (calEl)  calEl.value  = rec.cal_per_serving;
-  if (wgEl)   wgEl.value   = rec.weight_g_per_serving;
+  if (wgEl)   wgEl.value   = gToDisplay(rec.weight_g_per_serving);
 }
 
 function saveMealItem(planId, day, mealTime) {
@@ -3854,7 +3863,7 @@ function saveMealItem(planId, day, mealTime) {
     meal_time: mealTime,
     name,
     cal:       parseInt(document.getElementById('mi-cal').value)  || 0,
-    weight_g:  parseInt(document.getElementById('mi-wg').value)   || 0,
+    weight_g:  displayToG(document.getElementById('mi-wg').value),
     notes:     document.getElementById('mi-notes').value.trim(),
     recipe_id: recipeEl?.value || null,
   });
