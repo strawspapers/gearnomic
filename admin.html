@@ -5,123 +5,389 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gearnomic Admin</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #f4f1ec;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-    }
-    .card {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,.08);
-      padding: 2rem;
-      width: 100%;
-      max-width: 440px;
-    }
-    h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; color: #1a1a1a; }
-    .sub { font-size: 13px; color: #888; margin-bottom: 1.5rem; }
-    label { display: block; font-size: 13px; font-weight: 500; color: #444; margin-bottom: 5px; }
-    input, select {
-      width: 100%; padding: 9px 12px; border: 1px solid #ddd;
-      border-radius: 7px; font-size: 14px; font-family: inherit;
-      outline: none; margin-bottom: 1rem; color: #1a1a1a;
-    }
-    input:focus, select:focus { border-color: #2A4032; }
-    input[type="password"] { font-family: monospace; letter-spacing: 1px; }
-    .btn {
-      width: 100%; padding: 10px; border: none; border-radius: 7px;
-      font-size: 14px; font-weight: 500; cursor: pointer;
-      font-family: inherit; transition: opacity .15s;
-    }
-    .btn:hover { opacity: .88; }
-    .btn-primary   { background: #2A4032; color: #fff; }
-    .btn-danger    { background: #c0392b; color: #fff; margin-top: 8px; }
-    .result {
-      margin-top: 1rem; padding: 10px 14px; border-radius: 7px;
-      font-size: 13px; display: none; line-height: 1.5;
-    }
-    .result.ok    { background: #eafaf1; color: #1e8449; border: 1px solid #a9dfbf; }
-    .result.err   { background: #fdedec; color: #c0392b; border: 1px solid #f5b7b1; }
-    .divider { border: none; border-top: 1px solid #eee; margin: 1.5rem 0; }
-    .warn { font-size: 12px; color: #aaa; margin-top: 1rem; text-align: center; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0ece4;min-height:100vh;color:#1a1a1a}
+    header{background:#2A4032;color:#fff;padding:14px 24px;display:flex;align-items:center;gap:12px}
+    header h1{font-size:17px;font-weight:600}
+    header span{font-size:13px;opacity:.65;margin-left:auto}
+    .container{max-width:1000px;margin:0 auto;padding:24px}
+
+    /* Login */
+    #login-screen{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 52px)}
+    .login-card{background:#fff;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,.1);padding:2rem;width:360px}
+    .login-card h2{font-size:18px;margin-bottom:.25rem}
+    .login-card p{font-size:13px;color:#888;margin-bottom:1.5rem}
+
+    /* Admin UI */
+    #admin-screen{display:none}
+    .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap}
+    .toolbar input{padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;width:220px;outline:none;font-family:inherit}
+    .toolbar input:focus{border-color:#2A4032}
+
+    /* Stat cards */
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem}
+    .stat{background:#fff;border-radius:10px;padding:1rem;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+    .stat-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:4px}
+    .stat-val{font-size:26px;font-weight:600}
+    .stat-sub{font-size:12px;color:#aaa;margin-top:2px}
+
+    /* Table */
+    .card{background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);overflow:hidden}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888;padding:10px 14px;border-bottom:1px solid #eee;background:#fafafa;white-space:nowrap}
+    td{padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:#fafafa}
+    .email{font-weight:500}
+    .sub{font-size:11px;color:#aaa;margin-top:1px}
+    .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:500}
+    .badge-supporter{background:#d5f0e0;color:#1a7a40}
+    .badge-free{background:#f0f0f0;color:#888}
+    .badge-unconfirmed{background:#fff3cd;color:#856404}
+    .badge-stripe{background:#e8f4fd;color:#1a5fa8}
+    .actions{display:flex;gap:6px;flex-wrap:wrap}
+
+    /* Buttons */
+    button,a.btn{padding:6px 12px;border:none;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block;transition:opacity .12s}
+    button:hover{opacity:.82}
+    .btn-primary{background:#2A4032;color:#fff}
+    .btn-success{background:#1a7a40;color:#fff}
+    .btn-warn{background:#e67e22;color:#fff}
+    .btn-danger{background:#c0392b;color:#fff}
+    .btn-ghost{background:#f0f0f0;color:#444}
+    .btn-sm{padding:4px 9px;font-size:11px}
+
+    /* Toast */
+    #toast{position:fixed;bottom:24px;right:24px;background:#2A4032;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;z-index:100}
+    #toast.show{transform:translateY(0);opacity:1}
+
+    label{display:block;font-size:12px;font-weight:500;color:#555;margin-bottom:4px}
+    input.full{width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:7px;font-size:14px;font-family:inherit;outline:none;margin-bottom:.875rem}
+    input.full:focus{border-color:#2A4032}
+    .form-actions{display:flex;gap:8px;margin-top:.5rem}
+    .err{font-size:12px;color:#c0392b;margin-top:4px;display:none}
+    .loading{text-align:center;padding:3rem;color:#aaa;font-size:14px}
+    @media(max-width:700px){.stats{grid-template-columns:1fr 1fr}.toolbar input{width:160px}}
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>⛰ Gearnomic Admin</h1>
-    <p class="sub">Grant or revoke Supporter access by email</p>
 
+<header>
+  <div style="width:28px;height:28px;background:#3D6B4F;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px">GN</div>
+  <h1>Gearnomic Admin</h1>
+  <span id="header-status"></span>
+  <button class="btn-ghost btn-sm" onclick="logout()" style="margin-left:8px;display:none" id="btn-logout">Sign out</button>
+</header>
+
+<!-- Login -->
+<div id="login-screen">
+  <div class="login-card">
+    <h2>Admin access</h2>
+    <p>Enter your admin secret to continue.</p>
     <label>Admin secret</label>
-    <input type="password" id="secret" placeholder="Your ADMIN_SECRET value">
-
+    <input class="full" type="password" id="login-secret" placeholder="••••••••"
+      onkeydown="if(event.key==='Enter')doLogin()">
     <label>Edge Function URL</label>
-    <input type="text" id="fn-url"
-      placeholder="https://YOUR_PROJECT.supabase.co/functions/v1/admin-grant-supporter"
-      value="">
-
-    <hr class="divider">
-
-    <label>User email</label>
-    <input type="email" id="email" placeholder="friend@example.com">
-
-    <button class="btn btn-primary" onclick="grant()">✓ Grant Supporter access</button>
-    <button class="btn btn-danger"  onclick="revoke()">✕ Revoke Supporter access</button>
-
-    <div id="result" class="result"></div>
-
-    <p class="warn">This page should not be committed to a public repo.<br>Keep it local or behind a private URL.</p>
+    <input class="full" type="text" id="login-url"
+      placeholder="https://YOUR_PROJECT.supabase.co/functions/v1/admin-grant-supporter">
+    <div class="form-actions">
+      <button class="btn-primary" style="flex:1;padding:10px" onclick="doLogin()">Sign in</button>
+    </div>
+    <div class="err" id="login-err"></div>
   </div>
+</div>
 
-  <script>
-    // Pre-fill URL from localStorage so you don't retype it every time
-    const savedUrl = localStorage.getItem('gn_admin_fn_url');
-    if (savedUrl) document.getElementById('fn-url').value = savedUrl;
+<!-- Admin UI -->
+<div id="admin-screen">
+  <div class="container">
 
-    async function callFn(grant) {
-      const secret = document.getElementById('secret').value.trim();
-      const fnUrl  = document.getElementById('fn-url').value.trim();
-      const email  = document.getElementById('email').value.trim();
-      const result = document.getElementById('result');
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">Total users</div>
+        <div class="stat-val" id="stat-total">—</div>
+        <div class="stat-sub">registered accounts</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Supporters</div>
+        <div class="stat-val" id="stat-supporters">—</div>
+        <div class="stat-sub" id="stat-pct">— % of users</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Confirmed</div>
+        <div class="stat-val" id="stat-confirmed">—</div>
+        <div class="stat-sub">email verified</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Unconfirmed</div>
+        <div class="stat-val" id="stat-unconfirmed">—</div>
+        <div class="stat-sub">pending verification</div>
+      </div>
+    </div>
 
-      result.style.display = 'none';
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <input type="text" id="search" placeholder="Search by email…" oninput="filterTable()">
+      <select onchange="filterTable()" id="filter-tier" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;outline:none">
+        <option value="">All tiers</option>
+        <option value="supporter">Supporters</option>
+        <option value="free">Free</option>
+      </select>
+      <button class="btn-ghost" onclick="loadUsers()" style="margin-left:auto">↻ Refresh</button>
+      <button class="btn-primary" onclick="openGrantModal()">+ Grant access</button>
+    </div>
 
-      if (!secret) return show('Enter your ADMIN_SECRET.', false);
-      if (!fnUrl)  return show('Enter the Edge Function URL.', false);
-      if (!email)  return show('Enter a user email.', false);
+    <!-- Table -->
+    <div class="card">
+      <div id="table-loading" class="loading">Loading users…</div>
+      <table id="users-table" style="display:none">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Status</th>
+            <th>Joined</th>
+            <th>Last sign in</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+      <div id="table-empty" style="display:none" class="loading">No users match your filter.</div>
+    </div>
+  </div>
+</div>
 
-      localStorage.setItem('gn_admin_fn_url', fnUrl);
+<!-- Grant modal -->
+<div id="grant-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:50;display:none;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:1.5rem;width:360px;box-shadow:0 4px 24px rgba(0,0,0,.15)">
+    <h3 style="font-size:16px;margin-bottom:.25rem">Grant Supporter access</h3>
+    <p style="font-size:13px;color:#888;margin-bottom:1rem">Enter the email of a registered Gearnomic user.</p>
+    <label>Email address</label>
+    <input class="full" type="email" id="grant-email" placeholder="user@example.com"
+      onkeydown="if(event.key==='Enter')doGrant()">
+    <div class="err" id="grant-err"></div>
+    <div class="form-actions">
+      <button class="btn-success" onclick="doGrant()" style="flex:1;padding:9px">Grant access</button>
+      <button class="btn-ghost" onclick="closeGrantModal()">Cancel</button>
+    </div>
+  </div>
+</div>
 
-      try {
-        const res = await fetch(fnUrl, {
-          method:  'POST',
-          headers: {
-            'Content-Type':  'application/json',
-            'Authorization': `Bearer ${secret}`,
-          },
-          body: JSON.stringify({ email, grant }),
-        });
-        const data = await res.json();
-        if (res.ok) show(data.message, true);
-        else show(data.error || 'Request failed.', false);
-      } catch (e) {
-        show('Network error — check the Function URL and that the function is deployed.', false);
-      }
+<div id="toast"></div>
+
+<script>
+let _secret = '';
+let _fnUrl  = '';
+let _users  = [];
+
+// ── Auth ──────────────────────────────────────────────────
+async function doLogin() {
+  const secret = document.getElementById('login-secret').value.trim();
+  const url    = document.getElementById('login-url').value.trim();
+  const errEl  = document.getElementById('login-err');
+  errEl.style.display = 'none';
+
+  if (!secret || !url) { showErr(errEl, 'Both fields are required.'); return; }
+
+  // Test the credentials
+  try {
+    const res = await callApi({ action: 'list_users' }, secret, url);
+    if (!res.ok) {
+      const d = await res.json();
+      showErr(errEl, d.error || 'Invalid secret or URL.');
+      return;
     }
+    _secret = secret;
+    _fnUrl  = url;
+    localStorage.setItem('gn_admin_secret', secret);
+    localStorage.setItem('gn_admin_url',    url);
+    showAdminScreen();
+    const data = await res.json();
+    renderUsers(data.users || []);
+  } catch(e) {
+    showErr(errEl, 'Could not reach the Edge Function. Check the URL.');
+  }
+}
 
-    function grant()  { callFn(true);  }
-    function revoke() { callFn(false); }
+function logout() {
+  _secret = ''; _fnUrl = '';
+  localStorage.removeItem('gn_admin_secret');
+  localStorage.removeItem('gn_admin_url');
+  document.getElementById('admin-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('btn-logout').style.display   = 'none';
+  document.getElementById('header-status').textContent  = '';
+  document.getElementById('login-secret').value = '';
+}
 
-    function show(msg, ok) {
-      const el = document.getElementById('result');
-      el.textContent = msg;
-      el.className = 'result ' + (ok ? 'ok' : 'err');
-      el.style.display = 'block';
-    }
-  </script>
+function showAdminScreen() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('admin-screen').style.display = 'block';
+  document.getElementById('btn-logout').style.display   = '';
+}
+
+// Auto-login if saved
+window.addEventListener('DOMContentLoaded', () => {
+  const s = localStorage.getItem('gn_admin_secret');
+  const u = localStorage.getItem('gn_admin_url');
+  if (s && u) {
+    document.getElementById('login-secret').value = s;
+    document.getElementById('login-url').value    = u;
+    doLogin();
+  }
+});
+
+// ── API ───────────────────────────────────────────────────
+function callApi(body, secret, url) {
+  return fetch(secret ? url : _fnUrl, {
+    method:  'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${secret || _secret}`,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+async function loadUsers() {
+  document.getElementById('table-loading').style.display = 'block';
+  document.getElementById('users-table').style.display  = 'none';
+  document.getElementById('table-empty').style.display  = 'none';
+  try {
+    const res  = await callApi({ action: 'list_users' });
+    const data = await res.json();
+    renderUsers(data.users || []);
+  } catch(e) { toast('Failed to load users.'); }
+}
+
+// ── Render ────────────────────────────────────────────────
+function renderUsers(users) {
+  _users = users;
+  updateStats(users);
+  filterTable();
+  document.getElementById('table-loading').style.display = 'none';
+  document.getElementById('users-table').style.display   = '';
+  document.getElementById('header-status').textContent   = `${users.length} users`;
+}
+
+function updateStats(users) {
+  const supporters  = users.filter(u => u.is_supporter).length;
+  const confirmed   = users.filter(u => u.confirmed).length;
+  const unconfirmed = users.length - confirmed;
+  document.getElementById('stat-total').textContent       = users.length;
+  document.getElementById('stat-supporters').textContent  = supporters;
+  document.getElementById('stat-pct').textContent         = users.length ? Math.round(supporters/users.length*100) + '% of users' : '—';
+  document.getElementById('stat-confirmed').textContent   = confirmed;
+  document.getElementById('stat-unconfirmed').textContent = unconfirmed;
+}
+
+function filterTable() {
+  const q    = document.getElementById('search').value.toLowerCase();
+  const tier = document.getElementById('filter-tier').value;
+  let filtered = _users;
+  if (q)    filtered = filtered.filter(u => u.email?.toLowerCase().includes(q));
+  if (tier === 'supporter') filtered = filtered.filter(u => u.is_supporter);
+  if (tier === 'free')      filtered = filtered.filter(u => !u.is_supporter);
+
+  const tbody = document.getElementById('users-tbody');
+  const empty = document.getElementById('table-empty');
+  if (!filtered.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = filtered.map(u => `
+    <tr>
+      <td>
+        <div class="email">${esc(u.email)}</div>
+        <div class="sub">${u.id.slice(0,8)}…</div>
+      </td>
+      <td>
+        ${u.is_supporter
+          ? `<span class="badge badge-supporter">⛰ Supporter</span>`
+          : `<span class="badge badge-free">Free</span>`}
+        ${!u.confirmed ? `<span class="badge badge-unconfirmed" style="margin-left:4px">Unconfirmed</span>` : ''}
+        ${u.has_stripe  ? `<span class="badge badge-stripe" style="margin-left:4px">Stripe</span>` : ''}
+      </td>
+      <td><div class="sub">${fmtDate(u.created_at)}</div></td>
+      <td><div class="sub">${u.last_sign_in ? fmtDate(u.last_sign_in) : '—'}</div></td>
+      <td>
+        <div class="actions">
+          ${u.is_supporter
+            ? `<button class="btn-warn btn-sm" onclick="doRevoke('${esc(u.email)}')">Revoke</button>`
+            : `<button class="btn-success btn-sm" onclick="doGrantEmail('${esc(u.email)}')">Grant</button>`}
+          <button class="btn-danger btn-sm" onclick="doDelete('${esc(u.email)}')">Delete</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+// ── Actions ───────────────────────────────────────────────
+function openGrantModal() {
+  const m = document.getElementById('grant-modal');
+  m.style.display = 'flex';
+  setTimeout(() => document.getElementById('grant-email')?.focus(), 80);
+}
+function closeGrantModal() {
+  document.getElementById('grant-modal').style.display = 'none';
+  document.getElementById('grant-email').value = '';
+  document.getElementById('grant-err').style.display = 'none';
+}
+
+async function doGrant() {
+  const email = document.getElementById('grant-email').value.trim();
+  const errEl = document.getElementById('grant-err');
+  errEl.style.display = 'none';
+  if (!email) { showErr(errEl, 'Email is required.'); return; }
+  try {
+    const res  = await callApi({ action: 'grant', email });
+    const data = await res.json();
+    if (!res.ok) { showErr(errEl, data.error); return; }
+    closeGrantModal();
+    toast(data.message);
+    loadUsers();
+  } catch(e) { showErr(errEl, 'Request failed.'); }
+}
+
+async function doGrantEmail(email) {
+  if (!confirm(`Grant Supporter access to ${email}?`)) return;
+  const res  = await callApi({ action: 'grant', email });
+  const data = await res.json();
+  toast(data.message || data.error);
+  if (res.ok) loadUsers();
+}
+
+async function doRevoke(email) {
+  if (!confirm(`Revoke Supporter access for ${email}?`)) return;
+  const res  = await callApi({ action: 'revoke', email });
+  const data = await res.json();
+  toast(data.message || data.error);
+  if (res.ok) loadUsers();
+}
+
+async function doDelete(email) {
+  if (!confirm(`Permanently delete the account for ${email}?\n\nThis cannot be undone.`)) return;
+  const res  = await callApi({ action: 'delete_user', email });
+  const data = await res.json();
+  toast(data.message || data.error);
+  if (res.ok) loadUsers();
+}
+
+// ── Helpers ───────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+function showErr(el, msg) { el.textContent = msg; el.style.display = 'block'; }
+let _toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
 </body>
 </html>
