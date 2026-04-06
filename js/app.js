@@ -4363,6 +4363,15 @@ function openSettings() {
         <button class="btn btn-sm" onclick="changePassword()">Update password</button>
       </div>
 
+      <!-- Feedback -->
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Feedback</div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button class="btn btn-sm" onclick="openFeedbackModal('bug')">🐛 Report a bug</button>
+          <button class="btn btn-sm" onclick="openFeedbackModal('feature')">✨ Request a feature</button>
+        </div>
+      </div>
+
       <!-- Danger zone -->
       <div style="border-top:.5px solid var(--border);padding-top:1rem">
         <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--danger);margin-bottom:.625rem">Account</div>
@@ -4417,6 +4426,69 @@ async function confirmDeleteAccount() {
   closeModal();
   updateHeaderAuth();
   toast('Account data deleted. You have been signed out.');
+}
+
+function openFeedbackModal(type) {
+  const isBug = type !== 'feature';
+  const title = isBug ? '🐛 Report a bug' : '✨ Request a feature';
+  const placeholder = isBug
+    ? 'Describe what happened, what you expected to happen, and the steps to reproduce it…'
+    : 'Describe the feature you\'d like to see and how it would help your workflow…';
+  const subject = isBug ? 'Bug report — Gearnomic' : 'Feature request — Gearnomic';
+  const currentTab = document.querySelector('.nav-tab.active')?.dataset?.tab || '';
+  const context = isBug
+    ? `\n\n---\nPage: ${currentTab || 'unknown'}\nUser: ${_user?.email || 'not signed in'}`
+    : '';
+
+  openModal(title, `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem;line-height:1.6">
+      ${isBug
+        ? 'Found something broken? Let us know and we\'ll fix it.'
+        : 'Have an idea that would make Gearnomic better? We\'d love to hear it.'}
+    </p>
+    <div class="form-row">
+      <label class="form-label">${isBug ? 'What went wrong?' : 'Describe the feature'} *</label>
+      <textarea class="input input-full" id="fb-message" rows="5"
+        placeholder="${placeholder}"
+        style="height:120px;resize:vertical"></textarea>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Your email <span style="color:var(--text-3);font-weight:400">(optional — for follow-up)</span></label>
+      <input class="input input-full" id="fb-email" type="email"
+        value="${_user?.email || ''}" placeholder="you@example.com">
+    </div>
+    <div id="fb-error" style="display:none;font-size:12px;color:var(--danger);margin-bottom:.5rem"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="submitFeedback('${type}','${encodeURIComponent(subject)}')">Send</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+  setTimeout(() => document.getElementById('fb-message')?.focus(), 100);
+}
+
+function submitFeedback(type, encodedSubject) {
+  const message = document.getElementById('fb-message')?.value.trim();
+  const email   = document.getElementById('fb-email')?.value.trim();
+  const errEl   = document.getElementById('fb-error');
+
+  if (!message) {
+    errEl.textContent = 'Please describe the ' + (type === 'bug' ? 'bug' : 'feature') + ' before sending.';
+    errEl.style.display = 'block';
+    document.getElementById('fb-message')?.focus();
+    return;
+  }
+  errEl.style.display = 'none';
+
+  const subject = decodeURIComponent(encodedSubject);
+  const from    = email ? `From: ${email}\n` : '';
+  const tab     = document.querySelector('.nav-tab.active')?.dataset?.tab || 'unknown';
+  const user    = _user?.email || 'not signed in';
+  const body    = `${message}\n\n---\n${from}Page: ${tab}\nAccount: ${user}`;
+
+  const mailto = `mailto:hello@gearnomic.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailto;
+
+  closeModal();
+  toast('Opening your email client…');
 }
 
 function openPrivacyPolicy() {
