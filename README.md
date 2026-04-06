@@ -15,7 +15,6 @@ A web app for hikers, backpackers, and bikepackers to organize gear, plan trips,
 - Filter by category and condition
 - Custom fields — define your own gear attributes (R-value, fill power, loft, etc.), toggle as editable columns
 - Manage categories — rename, reorder, recolour, set per-category weight targets
-- Blank condition option for items that don't need condition tracking
 
 ### Trips
 - Grouped list (Planning / Confirmed / Past) with compact rows
@@ -51,6 +50,11 @@ A web app for hikers, backpackers, and bikepackers to organize gear, plan trips,
 ### Sharing
 - Any trip or loadout shareable via a public URL — free for all users
 - Recipients see a read-only gear list and can save it to their own account
+
+### Feedback
+- Bug report and feature request forms accessible from the footer and Settings
+- Pre-fills user email and current page context automatically
+- Submits via email to hello@gearnomic.com
 
 ### Accounts & Sync
 - Email/password auth via Supabase with confirmation email
@@ -105,7 +109,6 @@ start index.html  # Windows
    - `supabase/03_supporter.sql`
 3. Fill in `js/config.js` with your Project URL and anon key
 4. **Authentication → URL Configuration** → set Site URL to your production domain
-5. Push and deploy
 
 ---
 
@@ -115,7 +118,13 @@ start index.html  # Windows
 2. Create Payment Links for each, enable "Allow promotion codes"
 3. Set `STRIPE_MONTHLY_URL` and `STRIPE_ANNUAL_URL` in `js/app.js`
 4. Deploy `supabase/functions/stripe-webhook/index.ts` as a Supabase Edge Function
-5. Register webhook in Stripe → add secrets to Edge Function (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`)
+5. Register webhook in Stripe, add secrets: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+
+---
+
+## Admin panel
+
+Open `admin.html` locally (it's in `.gitignore` — never pushed to GitHub). Log in with your Supabase Project URL and service role key. Grants, revokes, and deletes take effect immediately.
 
 ---
 
@@ -124,17 +133,19 @@ start index.html  # Windows
 ```
 gearnomic/
 ├── index.html                          # App shell, nav, all panels, auth modal, footer
+├── admin.html                          # Local-only admin panel (gitignored)
 ├── css/style.css                       # Full design system (Fraunces + DM Sans)
 ├── js/
 │   ├── config.js                       # Supabase credentials (edit this)
 │   ├── data.js                         # Seed + demo data
-│   └── app.js                          # All application logic (~4,800 lines)
+│   └── app.js                          # All application logic (~4,900 lines)
 ├── supabase/
 │   ├── setup.sql                       # Run first
 │   ├── 02_shared_lists.sql             # Run second
 │   ├── 03_supporter.sql                # Run third
-│   └── functions/stripe-webhook/
-│       └── index.ts                    # Stripe webhook (Deno Edge Function)
+│   └── functions/
+│       ├── stripe-webhook/index.ts     # Stripe webhook (Deno)
+│       └── admin-grant-supporter/      # Admin API (optional — admin.html works without it)
 ├── schema/schema.sql                   # Reference PostgreSQL schema
 └── README.md
 ```
@@ -157,7 +168,7 @@ gearnomic/
 ### Live ✓
 - [x] Gear Closet with drag-to-reorder and category management
 - [x] Trips with multiple attached loadouts
-- [x] Loadouts (reusable gear lists, replaces Templates)
+- [x] Loadouts (reusable gear lists)
 - [x] Trip and loadout sharing via public URL
 - [x] Food planning with day-by-day grid and recipe library
 - [x] Cloud sync for Supporter accounts
@@ -165,12 +176,26 @@ gearnomic/
 - [x] Custom gear fields (Supporter)
 - [x] Full analytics (Supporter)
 - [x] Custom email confirmation flow
+- [x] Bug report and feature request forms (footer + Settings)
+- [x] Local admin panel (grant/revoke Supporter, delete accounts)
 
-### Near-term
+### Quality of life
+- [ ] **Keyboard shortcuts** — `N` for new item, `F` to focus search, `Escape` to close modals — for power users who live in the app
+- [ ] **Undo / undo history** — accidental deletes are painful; a simple undo toast ("Item deleted · Undo") for the last destructive action
+- [ ] **Bulk actions in Gear Closet** — select multiple items to delete, recategorize, or add to a loadout at once
+- [ ] **Gear Closet column chooser** — let users show/hide columns (cost, condition, usage) to reduce visual noise
+- [ ] **Quick-add from header** — a `+` button always visible in the nav that opens a fast gear entry form without switching tabs
+- [ ] **Weight unit toggle** — a single click to switch between grams, ounces, and pounds anywhere weights are displayed, without going into Settings
+- [ ] **Trip weight history on dashboard** — small sparkline showing how base weight has changed across completed trips
+- [ ] **Empty state improvements** — cleaner first-run experience with guided prompts for each empty tab
+- [ ] **Mobile layout polish** — the app works on mobile but the gear table needs a more compact card layout for small screens
+
+### Near-term features
 - [ ] **PWA / installable app** — service worker + manifest so Gearnomic installs on phone home screens and works offline
 - [ ] **Gear maintenance reminders** — flag items due for inspection based on logged usage
 - [ ] **Bikepacking-specific fields** — frame bag volume, bike fit notes, drivetrain notes
 - [ ] **REI rebate tracker** — log purchases and track 10% dividend
+- [ ] **In-app feedback submission** — replace mailto with a Formspree or Supabase-backed form so feedback is captured in-app without opening an email client
 - [ ] **Staging environment** — second Supabase project + GitHub repo for QA before production deploys
 
 ### Analytics & observability
@@ -179,20 +204,19 @@ gearnomic/
 - [ ] **Error tracking** — Sentry free tier
 
 ### Growth & community
-- [ ] **Community gear database** — wishlist data seeds a searchable database with real-world weights and prices; users look up items instead of entering manually
-- [ ] **r/ultralight share formatting** — one-click share optimized for Reddit (base weight table, category breakdown, URL)
+- [ ] **Community gear database** — wishlist data seeds a searchable database with real-world weights and prices
+- [ ] **r/ultralight share formatting** — one-click share optimized for Reddit posts
 - [ ] **Referral / gifting** — give a friend a free month of Supporter access
 
 ### Admin panel
 - [ ] **User dashboard** — sign-up trends, active users, churn rate
-- [ ] **Aggregated gear analytics** — most popular items across all users, average base weight by trip type; requires Edge Function with service role key
+- [ ] **Aggregated gear analytics** — most popular items across all users, average base weight by trip type
 - [ ] **Content moderation** — review/remove public shared lists
-- [ ] **Admin auth** — protected route keyed to specific emails or Supabase custom claim
 
 ### Longer-term
-- [ ] **Category comparison tables** — side-by-side comparison of e.g. all sleeping bags in your closet
+- [ ] **Category comparison tables** — side-by-side comparison of e.g. all sleeping bags
 - [ ] **Food planner v2** — nutrition breakdown (protein/carb/fat), import from Cronometer
 - [ ] **Gear lending tracker** — log gear lent to friends, track returns
 - [ ] **Trip journal** — attach photos and notes to completed trips
 - [ ] **Resupply planner** — for thru-hikers: map resupply points, calculate food drops per section
-- [ ] **Mobile app** — native iOS/Android via Capacitor or React Native once web product is stable
+- [ ] **Mobile app** — native iOS/Android via Capacitor once web product is stable
