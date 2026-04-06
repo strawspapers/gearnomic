@@ -117,6 +117,8 @@ function applyMigrations() {
     if (!cat.color) cat.color = SEED_DATA.categories[i]?.color || '#888';
   });
   state.templates.forEach(t => { if (!t.carry_types) t.carry_types = {}; });
+  // Apply saved unit preference
+  if (state.profile?.units) _units = state.profile.units;
 
   // ── Migration: trip.gear_ids → loadout_ids ──────────────────
   // Any trip that still has gear_ids (old model) gets an auto-created
@@ -206,9 +208,35 @@ function uid(prefix) {
   return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-// ── Utilities ──────────────────────────────────────────────
-const wg  = g => !g ? '—' : g >= 1000 ? `${(g / 1000).toFixed(2)} kg` : `${Math.round(g)} g`;
-const woz = g => !g ? '' : `${(g / 28.35).toFixed(1)} oz`;
+// ── Weight unit state ──────────────────────────────────────
+let _units = 'metric'; // 'metric' | 'imperial'
+
+function wg(g) {
+  if (!g) return '—';
+  if (_units === 'imperial') {
+    const oz = g / 28.3495;
+    return oz >= 16 ? `${(oz / 16).toFixed(2)} lb` : `${oz.toFixed(1)} oz`;
+  }
+  return g >= 1000 ? `${(g / 1000).toFixed(2)} kg` : `${Math.round(g)} g`;
+}
+function woz(g) {
+  if (!g) return '';
+  if (_units === 'imperial') {
+    const oz = g / 28.3495;
+    return oz >= 16 ? `${(oz / 16).toFixed(2)} lb` : `${oz.toFixed(1)} oz`;
+  }
+  return `${(g / 28.3495).toFixed(1)} oz`;
+}
+function toggleUnits() {
+  _units = _units === 'metric' ? 'imperial' : 'metric';
+  const btn = document.getElementById('unit-toggle-btn');
+  if (btn) btn.textContent = _units === 'metric' ? 'g' : 'oz';
+  // Persist to profile
+  if (!state.profile) state.profile = {};
+  state.profile.units = _units;
+  saveState();
+  refreshAll();
+}
 const dpg = (c, w) => c && w ? `$${(c / w).toFixed(3)}` : '—';
 const usd = v => v ? `$${Number(v).toFixed(2).replace(/\.00$/, '')}` : '—';
 const pct = (a, b) => b ? Math.min(100, Math.round(a / b * 100)) : 0;
@@ -334,6 +362,10 @@ function toast(msg) {
 let currentTab = 'dashboard';
 
 function showTab(name) {
+  if (currentTab === 'gear' && name !== 'gear') {
+    _bulkSelected.clear();
+    updateBulkBar();
+  }
   currentTab = name;
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
@@ -622,6 +654,89 @@ function renderDashboard() {
         <td>${usd(i.cost_usd)}</td>
         <td class="mono" style="color:var(--text-2)">${dpg(i.cost_usd, i.weight_g)}</td>
       </tr>`).join('');
+
+  // Trip weight sparkline
+  renderSparkline();
+}
+
+function renderSparkline() {
+  const el   = document.getElementById('dash-sparkline');
+  const card = document.getElementById('dash-sparkline-card');
+  if (!el) return;
+
+  const completed = [...state.trips]
+    .filter(t => t.status === 'completed' && t.start_date)
+    .sort((a, b) => a.start_date.localeCompare(b.start_date));
+
+  if (completed.length < 2) {
+    if (card) card.style.display = 'none';
+    return;
+  }
+  if (card) card.style.display = '';
+
+  const weights = completed.map(t => {
+    const items = tripUniqueItems(t);
+    const worn  = items.reduce((s, i) => s + (tripCarryType(t, i.id) === 'worn' ? (i.weight_g||0) : 0), 0);
+    return tripWeight(t) - worn; // base weight
+  });
+
+  const W = 480, H = 100, pad = { t: 12, r: 16, b: 28, l: 44 };
+  const iW = W - pad.l - pad.r;
+  const iH = H - pad.t - pad.b;
+  const minW = Math.min(...weights);
+  const maxW = Math.max(...weights);
+  const range = maxW - minW || 1;
+
+  const pts = weights.map((w, i) => {
+    const x = pad.l + (i / (weights.length - 1)) * iW;
+    const y = pad.t + iH - ((w - minW) / range) * iH;
+    return [x, y];
+  });
+
+  const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+  const areaD = `${pathD} L${pts[pts.length-1][0].toFixed(1)},${(pad.t+iH).toFixed(1)} L${pad.l},${(pad.t+iH).toFixed(1)} Z`;
+
+  // Y axis labels
+  const yLabels = [minW, (minW+maxW)/2, maxW].map((w, i) => {
+    const y = pad.t + iH - (i * iH / 2);
+    return `<text x="${pad.l - 6}" y="${y + 4}" text-anchor="end" font-size="10" fill="var(--text-3)">${wg(w)}</text>`;
+  }).join('');
+
+  // X axis labels (trip names, truncated)
+  const xLabels = completed.map((t, i) => {
+    if (completed.length > 6 && i % 2 !== 0) return '';
+    const x = pad.l + (i / (weights.length - 1)) * iW;
+    const name = t.name.length > 12 ? t.name.slice(0, 11) + '…' : t.name;
+    return `<text x="${x.toFixed(1)}" y="${H - 4}" text-anchor="middle" font-size="9" fill="var(--text-3)">${esc(name)}</text>`;
+  }).join('');
+
+  // Dots with tooltips
+  const dots = pts.map((p, i) => {
+    const t = completed[i];
+    const bw = weights[i];
+    return `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4"
+      fill="var(--primary)" stroke="#fff" stroke-width="2"
+      style="cursor:pointer"
+      onclick="showTab('trips');openTripDetail('${t.id}')"
+      title="${esc(t.name)}: ${wg(bw)} base">
+      <title>${esc(t.name)}: ${wg(bw)} base weight</title>
+    </circle>`;
+  }).join('');
+
+  el.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;display:block;overflow:visible">
+      <defs>
+        <linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--primary)" stop-opacity="0.18"/>
+          <stop offset="100%" stop-color="var(--primary)" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="${areaD}" fill="url(#spark-grad)"/>
+      <path d="${pathD}" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linejoin="round"/>
+      ${yLabels}
+      ${xLabels}
+      ${dots}
+    </svg>`;
 }
 
 // ============================================================
@@ -629,6 +744,238 @@ function renderDashboard() {
 // ============================================================
 let gearExpandedId = null;
 let showMiscCol    = false;
+
+// ── Column visibility ─────────────────────────────────────
+const DEFAULT_COLS = new Set(['name','category','weight','cost','dpg','condition','usage']);
+let _visibleCols = new Set(DEFAULT_COLS);
+
+function openColumnChooser() {
+  const allCols = [
+    { id: 'category',  label: 'Category' },
+    { id: 'cost',      label: 'Cost' },
+    { id: 'dpg',       label: '$/gram' },
+    { id: 'condition', label: 'Condition' },
+    { id: 'usage',     label: 'Usage' },
+  ];
+  const rows = allCols.map(c => `
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid var(--border-2);cursor:pointer;font-size:13px">
+      <input type="checkbox" ${_visibleCols.has(c.id) ? 'checked' : ''}
+        onchange="toggleCol('${c.id}',this.checked)"
+        style="width:16px;height:16px;accent-color:var(--primary)">
+      ${c.label}
+    </label>`).join('');
+
+  openModal('Columns', `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">Choose which columns appear in the Gear Closet. Name and Weight are always shown.</p>
+    ${rows}
+    <div class="form-actions">
+      <button class="btn btn-ghost btn-sm" onclick="resetCols()">Reset to default</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Done</button>
+    </div>`);
+}
+
+function toggleCol(colId, visible) {
+  if (visible) _visibleCols.add(colId);
+  else _visibleCols.delete(colId);
+  renderGear();
+}
+
+function resetCols() {
+  _visibleCols = new Set(DEFAULT_COLS);
+  closeModal();
+  renderGear();
+}
+
+// ── Bulk actions ──────────────────────────────────────────
+let _bulkSelected = new Set();
+
+function toggleBulkSelect(itemId, checked, e) {
+  e?.stopPropagation();
+  if (checked) _bulkSelected.add(itemId);
+  else _bulkSelected.delete(itemId);
+  updateBulkBar();
+}
+
+function toggleSelectAll(checked) {
+  const checkboxes = document.querySelectorAll('.bulk-checkbox');
+  checkboxes.forEach(cb => {
+    cb.checked = checked;
+    if (checked) _bulkSelected.add(cb.dataset.id);
+    else _bulkSelected.delete(cb.dataset.id);
+  });
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  let bar = document.getElementById('bulk-action-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'bulk-action-bar';
+    bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:var(--primary);color:#fff;padding:12px 24px;display:flex;align-items:center;gap:12px;z-index:300;box-shadow:0 -2px 12px rgba(0,0,0,.15);transform:translateY(100%);transition:transform .2s';
+    bar.innerHTML = `
+      <span id="bulk-count" style="font-size:13px;font-weight:500"></span>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)"
+          onclick="bulkRecategorize()">Move to category</button>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)"
+          onclick="bulkAddToLoadout()">Add to loadout</button>
+        <button class="btn btn-sm" style="background:rgba(220,53,69,.8);color:#fff;border:none"
+          onclick="bulkDelete()">Delete selected</button>
+        <button class="btn btn-sm" style="background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2)"
+          onclick="clearBulkSelection()">✕ Cancel</button>
+      </div>`;
+    document.body.appendChild(bar);
+  }
+  if (_bulkSelected.size > 0) {
+    bar.style.transform = 'translateY(0)';
+    document.getElementById('bulk-count').textContent =
+      `${_bulkSelected.size} item${_bulkSelected.size !== 1 ? 's' : ''} selected`;
+  } else {
+    bar.style.transform = 'translateY(100%)';
+  }
+}
+
+function clearBulkSelection() {
+  _bulkSelected.clear();
+  updateBulkBar();
+  document.querySelectorAll('.bulk-checkbox').forEach(cb => cb.checked = false);
+  const allCb = document.getElementById('bulk-select-all');
+  if (allCb) allCb.checked = false;
+}
+
+function bulkDelete() {
+  const count = _bulkSelected.size;
+  if (!confirm(`Delete ${count} item${count !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+  state.items = state.items.filter(i => !_bulkSelected.has(i.id));
+  state.templates.forEach(t => {
+    t.gear_ids = (t.gear_ids || []).filter(id => !_bulkSelected.has(id));
+    if (t.carry_types) _bulkSelected.forEach(id => delete t.carry_types[id]);
+  });
+  _bulkSelected.clear();
+  saveState();
+  updateBulkBar();
+  renderGear();
+  if (currentTab === 'dashboard') renderDashboard();
+  toast(`${count} item${count !== 1 ? 's' : ''} deleted.`);
+}
+
+function bulkRecategorize() {
+  const cats = categoryNames();
+  openModal('Move to category', `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">
+      Move <strong>${_bulkSelected.size} item${_bulkSelected.size !== 1 ? 's' : ''}</strong> to:
+    </p>
+    <div style="display:flex;flex-direction:column;gap:5px;max-height:50vh;overflow-y:auto">
+      ${cats.map(c => `
+        <button class="btn" style="justify-content:flex-start;text-align:left" onclick="bulkSetCategory('${esc(c)}')">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${categoryColor(c)};margin-right:8px"></span>
+          ${esc(c)}
+        </button>`).join('')}
+    </div>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`);
+}
+
+function bulkSetCategory(cat) {
+  state.items.forEach(i => { if (_bulkSelected.has(i.id)) i.category = cat; });
+  saveState();
+  clearBulkSelection();
+  closeModal();
+  renderGear();
+  toast(`Moved to ${cat}.`);
+}
+
+function bulkAddToLoadout() {
+  if (!state.templates.length) {
+    toast('No loadouts yet. Create one first.');
+    return;
+  }
+  openModal('Add to loadout', `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">
+      Add <strong>${_bulkSelected.size} item${_bulkSelected.size !== 1 ? 's' : ''}</strong> to:
+    </p>
+    <div style="display:flex;flex-direction:column;gap:5px;max-height:50vh;overflow-y:auto">
+      ${state.templates.map(l => {
+        const lw = (l.gear_ids||[]).reduce((s,id) => {
+          const item = state.items.find(i=>i.id===id);
+          return s + (item?.weight_g||0);
+        }, 0);
+        return `<button class="btn" style="justify-content:space-between;text-align:left"
+          onclick="bulkAddItemsToLoadout('${l.id}')">
+          <span>${esc(l.name)} <span style="font-size:11px;color:var(--text-3)">(${(l.gear_ids||[]).length} items)</span></span>
+          <span class="mono" style="font-size:12px;color:var(--text-3)">${wg(lw)}</span>
+        </button>`;
+      }).join('')}
+    </div>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`);
+}
+
+function bulkAddItemsToLoadout(loadoutId) {
+  const loadout = state.templates.find(t => t.id === loadoutId);
+  if (!loadout) return;
+  const existing = new Set(loadout.gear_ids || []);
+  _bulkSelected.forEach(id => existing.add(id));
+  loadout.gear_ids = [...existing];
+  saveState();
+  clearBulkSelection();
+  closeModal();
+  toast(`Added to ${loadout.name}.`);
+}
+
+// ── Quick-add gear ─────────────────────────────────────────
+function openQuickAdd() {
+  openModal('Quick-add gear', `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:.875rem">Add an item to your Gear Closet in seconds. Fill in more details later by clicking the item.</p>
+    <div class="form-grid">
+      <div class="form-row" style="grid-column:1/-1">
+        <label class="form-label">Item name *</label>
+        <input class="input input-full" id="qa-name" placeholder="e.g. Sleeping bag" autofocus>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Category</label>
+        <select class="select input-full" id="qa-cat">${catOptions('')}</select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Weight (grams)</label>
+        <input class="input input-full" id="qa-weight" type="number" min="0" step="0.1" placeholder="0">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Cost ($)</label>
+        <input class="input input-full" id="qa-cost" type="number" min="0" step="0.01" placeholder="0.00">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Brand</label>
+        <input class="input input-full" id="qa-brand" placeholder="e.g. Big Agnes">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveQuickAdd(false)">Add item</button>
+      <button class="btn btn-ghost btn-sm" onclick="saveQuickAdd(true)">Add &amp; add another</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+
+function saveQuickAdd(addAnother) {
+  if (!checkLimit('items', state.items.length)) return;
+  const name = document.getElementById('qa-name')?.value.trim();
+  if (!name) { document.getElementById('qa-name')?.focus(); return; }
+  const item = {
+    id:         uid('i'),
+    name,
+    brand:      document.getElementById('qa-brand')?.value.trim() || '',
+    category:   document.getElementById('qa-cat')?.value || categoryNames()[0] || 'Other',
+    weight_g:   parseFloat(document.getElementById('qa-weight')?.value) || 0,
+    cost_usd:   parseFloat(document.getElementById('qa-cost')?.value)   || 0,
+    condition:  'good',
+    usage_days: 0, usage_nights: 0,
+  };
+  state.items.push(item);
+  saveState();
+  if (currentTab === 'gear') renderGear();
+  if (currentTab === 'dashboard') renderDashboard();
+  toast(`"${name}" added!`);
+  if (addAnother) openQuickAdd();
+  else closeModal();
+}
 
 function toggleMiscCol() {
   showMiscCol = !showMiscCol;
@@ -680,12 +1027,24 @@ function renderGear() {
     `<strong>${filtered.length}</strong> items &nbsp;·&nbsp; total: <strong>${wg(totalW)}</strong> &nbsp;·&nbsp; tracked value: <strong>${usd(totalC)}</strong>`;
 
   const visibleCustomFields = (state.custom_fields || []).filter(f => f.show_column);
-  const cols = 9 + (showMiscCol ? 1 : 0) + visibleCustomFields.length;
+  const cols = 2 + (_visibleCols.has('category')?1:0) + (_visibleCols.has('cost')?1:0) +
+    (_visibleCols.has('dpg')?1:0) + (_visibleCols.has('condition')?1:0) +
+    (_visibleCols.has('usage')?1:0) + (showMiscCol?1:0) + visibleCustomFields.length + 1;
 
   document.getElementById('gear-thead').innerHTML = `<tr>
-    <th style="width:28px;padding:6px 4px"></th>
-    <th>Item</th><th>Category</th><th>Weight</th><th>Cost</th>
-    <th>$/gram</th><th>Condition</th><th>Usage</th>
+    <th style="width:28px;padding:6px 4px">
+      <input type="checkbox" id="bulk-select-all" class="bulk-checkbox-all"
+        style="width:14px;height:14px;accent-color:var(--primary);cursor:pointer"
+        onchange="toggleSelectAll(this.checked)" onclick="event.stopPropagation()"
+        title="Select all">
+    </th>
+    <th>Item</th>
+    ${_visibleCols.has('category') ? '<th>Category</th>' : ''}
+    <th>Weight</th>
+    ${_visibleCols.has('cost')      ? '<th>Cost</th>'      : ''}
+    ${_visibleCols.has('dpg')       ? '<th>$/gram</th>'    : ''}
+    ${_visibleCols.has('condition') ? '<th>Condition</th>' : ''}
+    ${_visibleCols.has('usage')     ? '<th>Usage</th>'     : ''}
     ${showMiscCol ? '<th>Misc</th>' : ''}
     ${visibleCustomFields.map(f => `<th style="min-width:80px">${esc(f.name)}${f.unit ? '<span style="font-size:10px;color:var(--text-3);font-weight:400"> '+esc(f.unit)+'</span>' : ''}</th>`).join('')}
     <th></th>
@@ -804,7 +1163,9 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
   const dragMode    = inCustomSort ? 'reorder' : 'recategorize';
   const handleFn    = inCustomSort ? `openReorderPickerMobile('${item.id}')` : `openCategoryPickerMobile('${item.id}')`;
   const handleTitle = inCustomSort ? 'Drag to reorder · Tap for options' : 'Drag to move category · Tap on mobile';
-  const handleCell  = showHandle
+
+  // First cell: drag handle OR bulk checkbox
+  const firstCell = showHandle
     ? `<td class="gear-handle-cell" title="${handleTitle}" onclick="event.stopPropagation();${handleFn}">
         <span class="gear-handle"
           draggable="true"
@@ -812,7 +1173,13 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
           ondragend="onItemDragEnd()"
           onclick="event.stopPropagation();${handleFn}">⠿</span>
        </td>`
-    : `<td style="width:28px"></td>`;
+    : `<td style="width:28px;padding:4px;text-align:center" onclick="event.stopPropagation()">
+        <input type="checkbox" class="bulk-checkbox" data-id="${item.id}"
+          ${_bulkSelected.has(item.id) ? 'checked' : ''}
+          style="width:14px;height:14px;accent-color:var(--primary);cursor:pointer"
+          onchange="toggleBulkSelect('${item.id}',this.checked,event)"
+          onclick="event.stopPropagation()">
+       </td>`;
 
   return `<tr class="expandable"
     data-item-id="${item.id}"
@@ -821,33 +1188,33 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
     ondragleave="onRowDragLeave(event)"
     ondrop="onRowDrop(event,'${dragMode}')"
     onclick="toggleExpand('${item.id}')">
-    ${handleCell}
+    ${firstCell}
 
     ${editableCell(item, 'name',
         `<div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand || '')}</div>`,
         cellInput(item.id, 'name', item.name, 'text', 'placeholder="Item name"'))}
 
-    ${editableCell(item, 'category',
+    ${_visibleCols.has('category') ? editableCell(item, 'category',
         badge('badge-gray', item.category),
         cellSelect(item.id, 'category', item.category,
-          categoryNames().map(c => [c, c])))}
+          categoryNames().map(c => [c, c]))) : ''}
 
     ${editableCell(item, 'weight_g',
         `<span class="mono">${wg(item.weight_g)}</span><br><span style="font-size:10px;color:var(--text-3)">${woz(item.weight_g)}</span>`,
         cellInput(item.id, 'weight_g', item.weight_g || '', 'number', 'min="0" step="0.1" placeholder="grams"'))}
 
-    ${editableCell(item, 'cost_usd',
+    ${_visibleCols.has('cost') ? editableCell(item, 'cost_usd',
         usd(item.cost_usd),
-        cellInput(item.id, 'cost_usd', item.cost_usd || '', 'number', 'min="0" step="0.01" placeholder="0.00"'))}
+        cellInput(item.id, 'cost_usd', item.cost_usd || '', 'number', 'min="0" step="0.01" placeholder="0.00"')) : ''}
 
-    <td class="mono" style="color:var(--text-3);font-size:12px">${dpg(item.cost_usd, item.weight_g)}</td>
+    ${_visibleCols.has('dpg') ? `<td class="mono" style="color:var(--text-3);font-size:12px">${dpg(item.cost_usd, item.weight_g)}</td>` : ''}
 
-    ${editableCell(item, 'condition',
+    ${_visibleCols.has('condition') ? editableCell(item, 'condition',
         badge(COND_BADGE[item.condition] || 'badge-gray', COND_LABEL[item.condition] || item.condition),
         cellSelect(item.id, 'condition', item.condition,
-          [['','— (no condition)'],['excellent','Excellent'],['good','Good'],['fair','Fair'],['poor','Poor']]))}
+          [['','— (no condition)'],['excellent','Excellent'],['good','Good'],['fair','Fair'],['poor','Poor']])) : ''}
 
-    <td onclick="event.stopPropagation()" class="editable-cell" style="white-space:nowrap;font-size:11px">
+    ${_visibleCols.has('usage') ? `<td onclick="event.stopPropagation()" class="editable-cell" style="white-space:nowrap;font-size:11px">
       <span onclick="startCellEdit(event,'${item.id}','usage_days')" title="Click to edit days">
         ${isEditing(item.id, 'usage_days')
           ? cellInput(item.id, 'usage_days', item.usage_days || 0, 'number', 'min="0" style="width:44px"')
@@ -858,7 +1225,7 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
           ? cellInput(item.id, 'usage_nights', item.usage_nights || 0, 'number', 'min="0" style="width:44px"')
           : `<span style="color:var(--text-3)">${item.usage_nights}n</span>`}
       </span>` : ''}
-    </td>
+    </td>` : ''}
 
     ${showMiscCol ? editableCell(item, 'misc_stat',
         `<span style="font-size:12px;color:var(--text-2);max-width:120px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(item.misc_stat || '')}">${esc(item.misc_stat || '—')}</span>`,
