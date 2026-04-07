@@ -805,7 +805,7 @@ function toggleBulkMode() {
   const btn = document.getElementById('btn-bulk-select');
   const bar = document.getElementById('bulk-bar');
   if (btn) {
-    btn.textContent = _bulkMode ? '✕ Cancel' : 'Select';
+    btn.textContent = _bulkMode ? 'Done' : 'Bulk update';
     btn.classList.toggle('btn-primary', _bulkMode);
   }
   if (bar) bar.style.display = _bulkMode ? 'flex' : 'none';
@@ -816,9 +816,20 @@ function toggleItemSelect(itemId) {
   if (_bulkSelected.has(itemId)) _bulkSelected.delete(itemId);
   else _bulkSelected.add(itemId);
   updateBulkCount();
-  // Toggle highlight on the row/card
-  const row = document.querySelector(`[data-item-id="${itemId}"]`);
-  if (row) row.classList.toggle('bulk-selected', _bulkSelected.has(itemId));
+  // Sync checkbox and row highlight
+  const row = document.querySelector(`tr[data-item-id="${itemId}"]`);
+  if (row) {
+    row.classList.toggle('bulk-selected', _bulkSelected.has(itemId));
+    const cb = row.querySelector('.bulk-checkbox');
+    if (cb) cb.checked = _bulkSelected.has(itemId);
+  }
+  // Also sync mobile card
+  const card = document.querySelector(`.gear-card[data-item-id="${itemId}"]`);
+  if (card) {
+    card.classList.toggle('bulk-selected', _bulkSelected.has(itemId));
+    const cb = card.querySelector('.bulk-checkbox');
+    if (cb) cb.checked = _bulkSelected.has(itemId);
+  }
 }
 
 function bulkSelectAll() {
@@ -842,7 +853,7 @@ function clearBulkSelection() {
   _bulkMode = false;
   const btn = document.getElementById('btn-bulk-select');
   const bar = document.getElementById('bulk-bar');
-  if (btn) { btn.textContent = 'Select'; btn.classList.remove('btn-primary'); }
+  if (btn) { btn.textContent = 'Bulk update'; btn.classList.remove('btn-primary'); }
   if (bar) bar.style.display = 'none';
   renderGear();
 }
@@ -946,9 +957,13 @@ function renderGearCards(filtered) {
           <div style="font-size:11px;color:var(--text-3)">${item.cost_usd ? usd(item.cost_usd) : ''}</div>
         </div>
         ${_bulkMode
-          ? `<div style="margin-left:10px;display:flex;align-items:center">
-              <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${isSel ? 'var(--primary)' : 'var(--border)'};background:${isSel ? 'var(--primary)' : 'transparent'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;flex-shrink:0">${isSel ? '✓' : ''}</div>
-            </div>`
+          ? `<label style="margin-left:10px;display:flex;align-items:center;cursor:pointer" onclick="event.stopPropagation()">
+              <input type="checkbox" class="bulk-checkbox"
+                ${isSel ? 'checked' : ''}
+                style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer"
+                onchange="toggleItemSelect('${item.id}')"
+                onclick="event.stopPropagation()">
+            </label>`
           : `<button class="btn btn-xs" style="margin-left:10px;flex-shrink:0" onclick="event.stopPropagation();openEditItem('${item.id}')">✎</button>`}
       </div>
       ${item.condition && item.condition !== '' ? `<div style="margin-top:6px">${badge(COND_BADGE[item.condition]||'badge-gray', COND_LABEL[item.condition])}</div>` : ''}
@@ -1198,7 +1213,7 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
   const handleTitle = inCustomSort ? 'Drag to reorder · Tap for options' : 'Drag to move category · Tap on mobile';
   const isBulkSel   = _bulkSelected.has(item.id);
 
-  // First cell: drag handle, bulk selector circle, or empty
+  // First cell: drag handle, real checkbox (bulk mode), or empty
   const firstCell = showHandle
     ? `<td class="gear-handle-cell" title="${handleTitle}" onclick="event.stopPropagation();${handleFn}">
         <span class="gear-handle"
@@ -1208,22 +1223,23 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
           onclick="event.stopPropagation();${handleFn}">⠿</span>
        </td>`
     : _bulkMode
-    ? `<td style="width:32px;padding:4px;text-align:center" onclick="event.stopPropagation();toggleItemSelect('${item.id}')">
-        <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${isBulkSel?'var(--primary)':'var(--border)'};background:${isBulkSel?'var(--primary)':'transparent'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;margin:auto;cursor:pointer">${isBulkSel?'✓':''}</div>
+    ? `<td style="width:36px;padding:4px;text-align:center" onclick="event.stopPropagation()">
+        <input type="checkbox" class="bulk-checkbox"
+          ${isBulkSel ? 'checked' : ''}
+          style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;display:block;margin:auto"
+          onchange="toggleItemSelect('${item.id}')"
+          onclick="event.stopPropagation()">
        </td>`
     : `<td style="width:28px"></td>`;
 
-  const rowClick = _bulkMode
-    ? `toggleItemSelect('${item.id}')`
-    : `toggleExpand('${item.id}')`;
-
+  // In bulk mode, row click still expands (checkboxes handle selection)
   return `<tr class="expandable ${isBulkSel ? 'bulk-selected' : ''}"
     data-item-id="${item.id}"
     data-item-cat="${esc(item.category)}"
     ondragover="onRowDragOver(event,'${esc(item.category)}','${dragMode}')"
     ondragleave="onRowDragLeave(event)"
     ondrop="onRowDrop(event,'${dragMode}')"
-    onclick="${rowClick}">
+    onclick="toggleExpand('${item.id}')">
     ${firstCell}
 
     ${editableCell(item, 'name',
