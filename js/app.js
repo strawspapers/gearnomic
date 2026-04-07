@@ -4560,6 +4560,8 @@ function switchAuthTab(tab) {
   const signinTab = document.getElementById('auth-tab-signin');
   const signupTab = document.getElementById('auth-tab-signup');
   const btn = document.getElementById('auth-submit-btn');
+  const pwInput = document.getElementById('auth-password');
+  const form = document.getElementById('auth-form');
   if (signinTab) {
     signinTab.style.borderBottomColor = isSignin ? '#2A4032' : 'transparent';
     signinTab.style.color = isSignin ? '#2A4032' : '#888';
@@ -4571,6 +4573,9 @@ function switchAuthTab(tab) {
     signupTab.style.fontWeight = !isSignin ? '500' : '400';
   }
   if (btn) btn.textContent = isSignin ? 'Sign in' : 'Create account';
+  // Switch autocomplete so password managers save on signup, fill on signin
+  if (pwInput) pwInput.autocomplete = isSignin ? 'current-password' : 'new-password';
+  if (form) form.autocomplete = 'on';
   const errEl = document.getElementById('auth-error');
   if (errEl) errEl.style.display = 'none';
   document.getElementById('auth-email')?.focus();
