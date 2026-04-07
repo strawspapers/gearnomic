@@ -117,6 +117,11 @@ function applyMigrations() {
     if (!cat.color) cat.color = SEED_DATA.categories[i]?.color || '#888';
   });
   state.templates.forEach(t => { if (!t.carry_types) t.carry_types = {}; });
+  // Apply saved unit preference
+  if (state.profile?.units) {
+    _units = state.profile.units;
+    syncUnitBtns();
+  }
 
   // ── Migration: trip.gear_ids → loadout_ids ──────────────────
   // Any trip that still has gear_ids (old model) gets an auto-created
@@ -206,9 +211,42 @@ function uid(prefix) {
   return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-// ── Utilities ──────────────────────────────────────────────
-const wg  = g => !g ? '—' : g >= 1000 ? `${(g / 1000).toFixed(2)} kg` : `${Math.round(g)} g`;
-const woz = g => !g ? '' : `${(g / 28.35).toFixed(1)} oz`;
+// ── Weight unit state ──────────────────────────────────────
+let _units = 'metric'; // 'metric' | 'imperial'
+
+function wg(g) {
+  if (!g) return '—';
+  if (_units === 'imperial') {
+    const oz = g / 28.3495;
+    return oz >= 16 ? `${(oz / 16).toFixed(2)} lb` : `${oz.toFixed(1)} oz`;
+  }
+  return g >= 1000 ? `${(g / 1000).toFixed(2)} kg` : `${Math.round(g)} g`;
+}
+function woz(g) {
+  if (!g) return '';
+  if (_units === 'imperial') {
+    const oz = g / 28.3495;
+    return oz >= 16 ? `${(oz / 16).toFixed(2)} lb` : `${oz.toFixed(1)} oz`;
+  }
+  return `${(g / 28.3495).toFixed(1)} oz`;
+}
+function toggleUnits() {
+  _units = _units === 'metric' ? 'imperial' : 'metric';
+  syncUnitBtns();
+  if (!state.profile) state.profile = {};
+  state.profile.units = _units;
+  saveState();
+  refreshAll();
+}
+
+// Unit helpers for forms
+function weightLabel() { return _units === 'imperial' ? 'Weight (oz)' : 'Weight (grams)'; }
+function weightPlaceholder() { return _units === 'imperial' ? '0.0 oz' : '0 g'; }
+function weightStep() { return _units === 'imperial' ? '0.01' : '0.1'; }
+// Convert grams → display unit for pre-filling form fields
+function gToDisplay(g) { return !g ? '' : _units === 'imperial' ? (g / 28.3495).toFixed(2) : g; }
+// Convert display value → grams for storage
+function displayToG(v) { return _units === 'imperial' ? (parseFloat(v) || 0) * 28.3495 : (parseFloat(v) || 0); }
 const dpg = (c, w) => c && w ? `$${(c / w).toFixed(3)}` : '—';
 const usd = v => v ? `$${Number(v).toFixed(2).replace(/\.00$/, '')}` : '—';
 const pct = (a, b) => b ? Math.min(100, Math.round(a / b * 100)) : 0;
@@ -334,11 +372,55 @@ function toast(msg) {
 let currentTab = 'dashboard';
 
 function showTab(name) {
+  if (currentTab === 'gear' && name !== 'gear' && _bulkMode) {
+    _bulkMode = false;
+    _bulkSelected.clear();
+  }
   currentTab = name;
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+  // Sync mobile bottom nav
+  document.querySelectorAll('.mob-tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   const renders = { dashboard: renderDashboard, gear: renderGear, trips: renderTrips, templates: renderTemplates, wishlist: renderWishlist, food: renderFood, analytics: renderAnalytics };
   if (renders[name]) renders[name]();
+}
+
+function openMobileMore() {
+  document.getElementById('mobile-more-overlay').style.display = 'block';
+  document.getElementById('mobile-more-drawer').style.display  = 'block';
+}
+function closeMobileMore() {
+  document.getElementById('mobile-more-overlay').style.display = 'none';
+  document.getElementById('mobile-more-drawer').style.display  = 'none';
+}
+
+function openMobileAccountMenu() {
+  // On mobile, open a simple bottom sheet with account actions
+  const isUser = !!_user;
+  const html = isUser
+    ? `<div style="padding:.5rem 0">
+        <div style="font-size:12px;color:var(--text-3);padding:8px 0 12px;border-bottom:.5px solid var(--border-2);margin-bottom:8px">${esc(_user.email)}</div>
+        <button class="mob-drawer-btn" style="width:100%;margin-bottom:6px" onclick="openSettings();closeModal()">⚙ Settings</button>
+        <button class="mob-drawer-btn" style="width:100%;margin-bottom:6px" onclick="toggleUnits();closeModal()">Switch units (${_units === 'metric' ? 'metric → imperial' : 'imperial → metric'})</button>
+        <button class="mob-drawer-btn" style="width:100%;margin-bottom:6px" onclick="exportData();closeModal()">↓ Export data</button>
+        <button class="mob-drawer-btn" style="width:100%;color:var(--danger);margin-bottom:6px" onclick="signOut();closeModal()">→ Sign out</button>
+      </div>
+      <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`
+    : `<div style="padding:.5rem 0">
+        <button class="mob-drawer-btn" style="width:100%;margin-bottom:8px" onclick="showAuthModal();closeModal()">Sign in / Create account</button>
+        <button class="mob-drawer-btn" style="width:100%;margin-bottom:8px" onclick="toggleUnits();closeModal()">Switch units (${_units === 'metric' ? 'metric → imperial' : 'imperial → metric'})</button>
+      </div>
+      <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`;
+  openModal('Account', html);
+}
+
+// Keep mobile unit btn in sync
+function syncUnitBtns() {
+  const label = _units === 'metric' ? 'g' : 'oz';
+  const d = document.getElementById('unit-toggle-btn');
+  const m = document.getElementById('unit-toggle-btn-mobile');
+  if (d) d.textContent = label;
+  if (m) m.textContent = label;
 }
 
 // ============================================================
@@ -622,6 +704,89 @@ function renderDashboard() {
         <td>${usd(i.cost_usd)}</td>
         <td class="mono" style="color:var(--text-2)">${dpg(i.cost_usd, i.weight_g)}</td>
       </tr>`).join('');
+
+  // Trip weight sparkline
+  renderSparkline();
+}
+
+function renderSparkline() {
+  const el   = document.getElementById('dash-sparkline');
+  const card = document.getElementById('dash-sparkline-card');
+  if (!el) return;
+
+  const completed = [...state.trips]
+    .filter(t => t.status === 'completed' && t.start_date)
+    .sort((a, b) => a.start_date.localeCompare(b.start_date));
+
+  if (completed.length < 2) {
+    if (card) card.style.display = 'none';
+    return;
+  }
+  if (card) card.style.display = '';
+
+  const weights = completed.map(t => {
+    const items = tripUniqueItems(t);
+    const worn  = items.reduce((s, i) => s + (tripCarryType(t, i.id) === 'worn' ? (i.weight_g||0) : 0), 0);
+    return tripWeight(t) - worn; // base weight
+  });
+
+  const W = 480, H = 100, pad = { t: 12, r: 16, b: 28, l: 44 };
+  const iW = W - pad.l - pad.r;
+  const iH = H - pad.t - pad.b;
+  const minW = Math.min(...weights);
+  const maxW = Math.max(...weights);
+  const range = maxW - minW || 1;
+
+  const pts = weights.map((w, i) => {
+    const x = pad.l + (i / (weights.length - 1)) * iW;
+    const y = pad.t + iH - ((w - minW) / range) * iH;
+    return [x, y];
+  });
+
+  const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+  const areaD = `${pathD} L${pts[pts.length-1][0].toFixed(1)},${(pad.t+iH).toFixed(1)} L${pad.l},${(pad.t+iH).toFixed(1)} Z`;
+
+  // Y axis labels
+  const yLabels = [minW, (minW+maxW)/2, maxW].map((w, i) => {
+    const y = pad.t + iH - (i * iH / 2);
+    return `<text x="${pad.l - 6}" y="${y + 4}" text-anchor="end" font-size="10" fill="var(--text-3)">${wg(w)}</text>`;
+  }).join('');
+
+  // X axis labels (trip names, truncated)
+  const xLabels = completed.map((t, i) => {
+    if (completed.length > 6 && i % 2 !== 0) return '';
+    const x = pad.l + (i / (weights.length - 1)) * iW;
+    const name = t.name.length > 12 ? t.name.slice(0, 11) + '…' : t.name;
+    return `<text x="${x.toFixed(1)}" y="${H - 4}" text-anchor="middle" font-size="9" fill="var(--text-3)">${esc(name)}</text>`;
+  }).join('');
+
+  // Dots with tooltips
+  const dots = pts.map((p, i) => {
+    const t = completed[i];
+    const bw = weights[i];
+    return `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4"
+      fill="var(--primary)" stroke="#fff" stroke-width="2"
+      style="cursor:pointer"
+      onclick="showTab('trips');openTripDetail('${t.id}')"
+      title="${esc(t.name)}: ${wg(bw)} base">
+      <title>${esc(t.name)}: ${wg(bw)} base weight</title>
+    </circle>`;
+  }).join('');
+
+  el.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;display:block;overflow:visible">
+      <defs>
+        <linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--primary)" stop-opacity="0.18"/>
+          <stop offset="100%" stop-color="var(--primary)" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="${areaD}" fill="url(#spark-grad)"/>
+      <path d="${pathD}" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linejoin="round"/>
+      ${yLabels}
+      ${xLabels}
+      ${dots}
+    </svg>`;
 }
 
 // ============================================================
@@ -629,6 +794,279 @@ function renderDashboard() {
 // ============================================================
 let gearExpandedId = null;
 let showMiscCol    = false;
+
+// ── Column visibility ─────────────────────────────────────
+const DEFAULT_COLS = new Set(['name','category','weight','cost','dpg','condition','usage']);
+let _visibleCols = new Set(DEFAULT_COLS);
+
+function openColumnChooser() {
+  const allCols = [
+    { id: 'category',  label: 'Category' },
+    { id: 'cost',      label: 'Cost' },
+    { id: 'dpg',       label: '$/gram' },
+    { id: 'condition', label: 'Condition' },
+    { id: 'usage',     label: 'Usage' },
+  ];
+  const rows = allCols.map(c => `
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid var(--border-2);cursor:pointer;font-size:13px">
+      <input type="checkbox" ${_visibleCols.has(c.id) ? 'checked' : ''}
+        onchange="toggleCol('${c.id}',this.checked)"
+        style="width:16px;height:16px;accent-color:var(--primary)">
+      ${c.label}
+    </label>`).join('');
+
+  openModal('Columns', `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">Choose which columns appear in the Gear Closet. Name and Weight are always shown.</p>
+    ${rows}
+    <div class="form-actions">
+      <button class="btn btn-ghost btn-sm" onclick="resetCols()">Reset to default</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Done</button>
+    </div>`);
+}
+
+function toggleCol(colId, visible) {
+  if (visible) _visibleCols.add(colId);
+  else _visibleCols.delete(colId);
+  renderGear();
+}
+
+function resetCols() {
+  _visibleCols = new Set(DEFAULT_COLS);
+  closeModal();
+  renderGear();
+}
+
+// ── Bulk actions ──────────────────────────────────────────
+let _bulkSelected = new Set();
+let _bulkMode = false;
+
+function toggleBulkMode() {
+  _bulkMode = !_bulkMode;
+  if (!_bulkMode) _bulkSelected.clear();
+  const btn = document.getElementById('btn-bulk-select');
+  const bar = document.getElementById('bulk-bar');
+  if (btn) {
+    btn.textContent = _bulkMode ? 'Done' : 'Bulk update';
+    btn.classList.toggle('btn-primary', _bulkMode);
+  }
+  if (bar) bar.style.display = _bulkMode ? 'flex' : 'none';
+  renderGear();
+}
+
+function toggleItemSelect(itemId) {
+  if (_bulkSelected.has(itemId)) _bulkSelected.delete(itemId);
+  else _bulkSelected.add(itemId);
+  updateBulkCount();
+  // Sync checkbox and row highlight
+  const row = document.querySelector(`tr[data-item-id="${itemId}"]`);
+  if (row) {
+    row.classList.toggle('bulk-selected', _bulkSelected.has(itemId));
+    const cb = row.querySelector('.bulk-checkbox');
+    if (cb) cb.checked = _bulkSelected.has(itemId);
+  }
+  // Also sync mobile card
+  const card = document.querySelector(`.gear-card[data-item-id="${itemId}"]`);
+  if (card) {
+    card.classList.toggle('bulk-selected', _bulkSelected.has(itemId));
+    const cb = card.querySelector('.bulk-checkbox');
+    if (cb) cb.checked = _bulkSelected.has(itemId);
+  }
+}
+
+function bulkSelectAll() {
+  document.querySelectorAll('[data-item-id]').forEach(el => {
+    const id = el.dataset.itemId;
+    if (id) {
+      _bulkSelected.add(id);
+      el.classList.add('bulk-selected');
+    }
+  });
+  updateBulkCount();
+}
+
+function updateBulkCount() {
+  const el = document.getElementById('bulk-count');
+  if (el) el.textContent = `${_bulkSelected.size} item${_bulkSelected.size !== 1 ? 's' : ''} selected`;
+}
+
+function clearBulkSelection() {
+  _bulkSelected.clear();
+  _bulkMode = false;
+  const btn = document.getElementById('btn-bulk-select');
+  const bar = document.getElementById('bulk-bar');
+  if (btn) { btn.textContent = 'Bulk update'; btn.classList.remove('btn-primary'); }
+  if (bar) bar.style.display = 'none';
+  renderGear();
+}
+
+function bulkDelete() {
+  const count = _bulkSelected.size;
+  if (!count) { toast('No items selected.'); return; }
+  if (!confirm(`Delete ${count} item${count !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+  state.items = state.items.filter(i => !_bulkSelected.has(i.id));
+  state.templates.forEach(t => {
+    t.gear_ids = (t.gear_ids || []).filter(id => !_bulkSelected.has(id));
+    if (t.carry_types) _bulkSelected.forEach(id => delete t.carry_types[id]);
+  });
+  saveState();
+  clearBulkSelection();
+  if (currentTab === 'dashboard') renderDashboard();
+  toast(`${count} item${count !== 1 ? 's' : ''} deleted.`);
+}
+
+function bulkRecategorize() {
+  const count = _bulkSelected.size;
+  if (!count) { toast('No items selected.'); return; }
+  const cats = categoryNames();
+  openModal('Move to category', `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">
+      Move <strong>${count} item${count !== 1 ? 's' : ''}</strong> to:
+    </p>
+    <div style="display:flex;flex-direction:column;gap:5px;max-height:50vh;overflow-y:auto">
+      ${cats.map(c => `
+        <button class="btn" style="justify-content:flex-start;text-align:left;gap:10px"
+          onclick="bulkSetCategory('${esc(c)}')">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${categoryColor(c)};flex-shrink:0"></span>
+          ${esc(c)}
+        </button>`).join('')}
+    </div>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`);
+}
+
+function bulkSetCategory(cat) {
+  state.items.forEach(i => { if (_bulkSelected.has(i.id)) i.category = cat; });
+  saveState();
+  closeModal();
+  clearBulkSelection();
+  toast(`Moved ${_bulkSelected.size || 'selected items'} to ${cat}.`);
+}
+
+function bulkAddToLoadout() {
+  const count = _bulkSelected.size;
+  if (!count) { toast('No items selected.'); return; }
+  if (!state.templates.length) { toast('No loadouts yet. Create one first.'); return; }
+  openModal('Add to loadout', `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">
+      Add <strong>${count} item${count !== 1 ? 's' : ''}</strong> to:
+    </p>
+    <div style="display:flex;flex-direction:column;gap:5px;max-height:50vh;overflow-y:auto">
+      ${state.templates.map(l => {
+        const lw = (l.gear_ids||[]).reduce((s,id) => {
+          const item = state.items.find(i=>i.id===id); return s+(item?.weight_g||0);
+        }, 0);
+        return `<button class="btn" style="justify-content:space-between;text-align:left"
+          onclick="bulkAddItemsToLoadout('${l.id}')">
+          <span>${esc(l.name)} <span style="font-size:11px;color:var(--text-3)">${(l.gear_ids||[]).length} items</span></span>
+          <span class="mono" style="font-size:12px;color:var(--text-3)">${wg(lw)}</span>
+        </button>`;
+      }).join('')}
+    </div>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`);
+}
+
+function bulkAddItemsToLoadout(loadoutId) {
+  const loadout = state.templates.find(t => t.id === loadoutId);
+  if (!loadout) return;
+  const existing = new Set(loadout.gear_ids || []);
+  _bulkSelected.forEach(id => existing.add(id));
+  loadout.gear_ids = [...existing];
+  saveState();
+  closeModal();
+  clearBulkSelection();
+  toast(`Added to ${loadout.name}.`);
+}
+
+// ── Mobile card rendering ─────────────────────────────────
+function renderGearCards(filtered) {
+  const cardsEl = document.getElementById('gear-cards');
+  if (!cardsEl) return;
+  if (!filtered.length) {
+    cardsEl.innerHTML = `<div class="empty-state" style="padding:2rem"><p>No items match your filters.</p><button class="btn btn-sm" onclick="clearGearFilters()">Clear filters</button></div>`;
+    return;
+  }
+  cardsEl.innerHTML = filtered.map(item => {
+    const isSel = _bulkSelected.has(item.id);
+    return `<div class="gear-card ${isSel ? 'bulk-selected' : ''}" data-item-id="${item.id}"
+      onclick="${_bulkMode ? `toggleItemSelect('${item.id}')` : `toggleExpand('${item.id}')`}">
+      <div class="gear-card-main">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}</div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(item.brand||'')}${item.brand && item.category ? ' · ' : ''}${badge('badge-gray', item.category)}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:12px">
+          <div class="mono" style="font-size:14px;font-weight:500">${wg(item.weight_g)}</div>
+          <div style="font-size:11px;color:var(--text-3)">${item.cost_usd ? usd(item.cost_usd) : ''}</div>
+        </div>
+        ${_bulkMode
+          ? `<label style="margin-left:10px;display:flex;align-items:center;cursor:pointer" onclick="event.stopPropagation()">
+              <input type="checkbox" class="bulk-checkbox"
+                ${isSel ? 'checked' : ''}
+                style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer"
+                onchange="toggleItemSelect('${item.id}')"
+                onclick="event.stopPropagation()">
+            </label>`
+          : `<button class="btn btn-xs" style="margin-left:10px;flex-shrink:0" onclick="event.stopPropagation();openEditItem('${item.id}')">✎</button>`}
+      </div>
+      ${item.condition && item.condition !== '' ? `<div style="margin-top:6px">${badge(COND_BADGE[item.condition]||'badge-gray', COND_LABEL[item.condition])}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Quick-add gear ─────────────────────────────────────────
+function openQuickAdd() {
+  openModal('Quick-add gear', `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:.875rem">Add an item to your Gear Closet in seconds. Fill in more details later by clicking the item.</p>
+    <div class="form-grid">
+      <div class="form-row" style="grid-column:1/-1">
+        <label class="form-label">Item name *</label>
+        <input class="input input-full" id="qa-name" placeholder="e.g. Sleeping bag" autofocus>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Category</label>
+        <select class="select input-full" id="qa-cat">${catOptions('')}</select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">${weightLabel()}</label>
+        <input class="input input-full" id="qa-weight" type="number" min="0" step="${weightStep()}" placeholder="${weightPlaceholder()}">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Cost ($)</label>
+        <input class="input input-full" id="qa-cost" type="number" min="0" step="0.01" placeholder="0.00">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Brand</label>
+        <input class="input input-full" id="qa-brand" placeholder="e.g. Big Agnes">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveQuickAdd(false)">Add item</button>
+      <button class="btn btn-ghost btn-sm" onclick="saveQuickAdd(true)">Add &amp; add another</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+
+function saveQuickAdd(addAnother) {
+  if (!checkLimit('items', state.items.length)) return;
+  const name = document.getElementById('qa-name')?.value.trim();
+  if (!name) { document.getElementById('qa-name')?.focus(); return; }
+  const item = {
+    id:         uid('i'),
+    name,
+    brand:      document.getElementById('qa-brand')?.value.trim() || '',
+    category:   document.getElementById('qa-cat')?.value || categoryNames()[0] || 'Other',
+    weight_g:   displayToG(document.getElementById('qa-weight')?.value),
+    cost_usd:   parseFloat(document.getElementById('qa-cost')?.value)   || 0,
+    condition:  'good',
+    usage_days: 0, usage_nights: 0,
+  };
+  state.items.push(item);
+  saveState();
+  if (currentTab === 'gear') renderGear();
+  if (currentTab === 'dashboard') renderDashboard();
+  toast(`"${name}" added!`);
+  if (addAnother) openQuickAdd();
+  else closeModal();
+}
 
 function toggleMiscCol() {
   showMiscCol = !showMiscCol;
@@ -680,16 +1118,26 @@ function renderGear() {
     `<strong>${filtered.length}</strong> items &nbsp;·&nbsp; total: <strong>${wg(totalW)}</strong> &nbsp;·&nbsp; tracked value: <strong>${usd(totalC)}</strong>`;
 
   const visibleCustomFields = (state.custom_fields || []).filter(f => f.show_column);
-  const cols = 9 + (showMiscCol ? 1 : 0) + visibleCustomFields.length;
+  const cols = 2 + (_visibleCols.has('category')?1:0) + (_visibleCols.has('cost')?1:0) +
+    (_visibleCols.has('dpg')?1:0) + (_visibleCols.has('condition')?1:0) +
+    (_visibleCols.has('usage')?1:0) + (showMiscCol?1:0) + visibleCustomFields.length + 1;
 
   document.getElementById('gear-thead').innerHTML = `<tr>
     <th style="width:28px;padding:6px 4px"></th>
-    <th>Item</th><th>Category</th><th>Weight</th><th>Cost</th>
-    <th>$/gram</th><th>Condition</th><th>Usage</th>
+    <th>Item</th>
+    ${_visibleCols.has('category') ? '<th>Category</th>' : ''}
+    <th>Weight</th>
+    ${_visibleCols.has('cost')      ? '<th>Cost</th>'      : ''}
+    ${_visibleCols.has('dpg')       ? '<th>$/gram</th>'    : ''}
+    ${_visibleCols.has('condition') ? '<th>Condition</th>' : ''}
+    ${_visibleCols.has('usage')     ? '<th>Usage</th>'     : ''}
     ${showMiscCol ? '<th>Misc</th>' : ''}
     ${visibleCustomFields.map(f => `<th style="min-width:80px">${esc(f.name)}${f.unit ? '<span style="font-size:10px;color:var(--text-3);font-weight:400"> '+esc(f.unit)+'</span>' : ''}</th>`).join('')}
     <th></th>
   </tr>`;
+
+  // Render mobile cards
+  renderGearCards(filtered);
 
   let html = '';
   let lastCat = null;
@@ -727,7 +1175,8 @@ function renderGear() {
 
 function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
   visibleCustomFields = visibleCustomFields || [];
-  const showHandle = inCatSort || inCustomSort;
+  // In bulk mode, never show drag handles — show checkboxes instead
+  const showHandle = !_bulkMode && (inCatSort || inCustomSort);
   const isExpanded = gearExpandedId === item.id;
   const customVals = item.custom_values || {};
   const allFields  = state.custom_fields || [];
@@ -804,7 +1253,10 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
   const dragMode    = inCustomSort ? 'reorder' : 'recategorize';
   const handleFn    = inCustomSort ? `openReorderPickerMobile('${item.id}')` : `openCategoryPickerMobile('${item.id}')`;
   const handleTitle = inCustomSort ? 'Drag to reorder · Tap for options' : 'Drag to move category · Tap on mobile';
-  const handleCell  = showHandle
+  const isBulkSel   = _bulkSelected.has(item.id);
+
+  // First cell: drag handle, real checkbox (bulk mode), or empty
+  const firstCell = showHandle
     ? `<td class="gear-handle-cell" title="${handleTitle}" onclick="event.stopPropagation();${handleFn}">
         <span class="gear-handle"
           draggable="true"
@@ -812,42 +1264,51 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
           ondragend="onItemDragEnd()"
           onclick="event.stopPropagation();${handleFn}">⠿</span>
        </td>`
+    : _bulkMode
+    ? `<td style="width:36px;padding:4px;text-align:center" onclick="event.stopPropagation()">
+        <input type="checkbox" class="bulk-checkbox"
+          ${isBulkSel ? 'checked' : ''}
+          style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;display:block;margin:auto"
+          onchange="toggleItemSelect('${item.id}')"
+          onclick="event.stopPropagation()">
+       </td>`
     : `<td style="width:28px"></td>`;
 
-  return `<tr class="expandable"
+  // In bulk mode, row click still expands (checkboxes handle selection)
+  return `<tr class="expandable ${isBulkSel ? 'bulk-selected' : ''}"
     data-item-id="${item.id}"
     data-item-cat="${esc(item.category)}"
     ondragover="onRowDragOver(event,'${esc(item.category)}','${dragMode}')"
     ondragleave="onRowDragLeave(event)"
     ondrop="onRowDrop(event,'${dragMode}')"
     onclick="toggleExpand('${item.id}')">
-    ${handleCell}
+    ${firstCell}
 
     ${editableCell(item, 'name',
         `<div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand || '')}</div>`,
         cellInput(item.id, 'name', item.name, 'text', 'placeholder="Item name"'))}
 
-    ${editableCell(item, 'category',
+    ${_visibleCols.has('category') ? editableCell(item, 'category',
         badge('badge-gray', item.category),
         cellSelect(item.id, 'category', item.category,
-          categoryNames().map(c => [c, c])))}
+          categoryNames().map(c => [c, c]))) : ''}
 
     ${editableCell(item, 'weight_g',
         `<span class="mono">${wg(item.weight_g)}</span><br><span style="font-size:10px;color:var(--text-3)">${woz(item.weight_g)}</span>`,
         cellInput(item.id, 'weight_g', item.weight_g || '', 'number', 'min="0" step="0.1" placeholder="grams"'))}
 
-    ${editableCell(item, 'cost_usd',
+    ${_visibleCols.has('cost') ? editableCell(item, 'cost_usd',
         usd(item.cost_usd),
-        cellInput(item.id, 'cost_usd', item.cost_usd || '', 'number', 'min="0" step="0.01" placeholder="0.00"'))}
+        cellInput(item.id, 'cost_usd', item.cost_usd || '', 'number', 'min="0" step="0.01" placeholder="0.00"')) : ''}
 
-    <td class="mono" style="color:var(--text-3);font-size:12px">${dpg(item.cost_usd, item.weight_g)}</td>
+    ${_visibleCols.has('dpg') ? `<td class="mono" style="color:var(--text-3);font-size:12px">${dpg(item.cost_usd, item.weight_g)}</td>` : ''}
 
-    ${editableCell(item, 'condition',
+    ${_visibleCols.has('condition') ? editableCell(item, 'condition',
         badge(COND_BADGE[item.condition] || 'badge-gray', COND_LABEL[item.condition] || item.condition),
         cellSelect(item.id, 'condition', item.condition,
-          [['','— (no condition)'],['excellent','Excellent'],['good','Good'],['fair','Fair'],['poor','Poor']]))}
+          [['','— (no condition)'],['excellent','Excellent'],['good','Good'],['fair','Fair'],['poor','Poor']])) : ''}
 
-    <td onclick="event.stopPropagation()" class="editable-cell" style="white-space:nowrap;font-size:11px">
+    ${_visibleCols.has('usage') ? `<td onclick="event.stopPropagation()" class="editable-cell" style="white-space:nowrap;font-size:11px">
       <span onclick="startCellEdit(event,'${item.id}','usage_days')" title="Click to edit days">
         ${isEditing(item.id, 'usage_days')
           ? cellInput(item.id, 'usage_days', item.usage_days || 0, 'number', 'min="0" style="width:44px"')
@@ -858,7 +1319,7 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
           ? cellInput(item.id, 'usage_nights', item.usage_nights || 0, 'number', 'min="0" style="width:44px"')
           : `<span style="color:var(--text-3)">${item.usage_nights}n</span>`}
       </span>` : ''}
-    </td>
+    </td>` : ''}
 
     ${showMiscCol ? editableCell(item, 'misc_stat',
         `<span style="font-size:12px;color:var(--text-2);max-width:120px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(item.misc_stat || '')}">${esc(item.misc_stat || '—')}</span>`,
@@ -898,9 +1359,9 @@ function itemFormHtml(item) {
   item = item || {};
   return `
     <div class="form-grid">
-      <div class="form-row"><label class="form-label">Name *</label><input class="input input-full" id="f-name" value="${esc(item.name || '')}" placeholder="e.g. Zpacks Arc Blast" required></div>
-      <div class="form-row"><label class="form-label">Brand</label><input class="input input-full" id="f-brand" value="${esc(item.brand || '')}" placeholder="e.g. Zpacks"></div>
-      <div class="form-row"><label class="form-label">Model</label><input class="input input-full" id="f-model" value="${esc(item.model || '')}" placeholder="e.g. Arc Blast 55"></div>
+      <div class="form-row"><label class="form-label">Name *</label><input class="input input-full" id="f-name" value="${esc(item.name || '')}" placeholder="e.g. Sleeping bag" required></div>
+      <div class="form-row"><label class="form-label">Brand</label><input class="input input-full" id="f-brand" value="${esc(item.brand || '')}" placeholder="e.g. Big Agnes"></div>
+      <div class="form-row"><label class="form-label">Model</label><input class="input input-full" id="f-model" value="${esc(item.model || '')}" placeholder="e.g. Copper Spur HV UL2"></div>
       <div class="form-row">
         <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
           Category
@@ -908,7 +1369,7 @@ function itemFormHtml(item) {
         </label>
         <select class="select input-full" id="f-cat">${catOptions(item.category || 'Pack')}</select>
       </div>
-      <div class="form-row"><label class="form-label">Weight (grams)</label><input class="input input-full" id="f-weight" type="number" min="0" step="0.1" value="${item.weight_g || ''}"></div>
+      <div class="form-row"><label class="form-label">${weightLabel()}</label><input class="input input-full" id="f-weight" type="number" min="0" step="${weightStep()}" value="${gToDisplay(item.weight_g)}" placeholder="${weightPlaceholder()}"></div>
       <div class="form-row"><label class="form-label">Cost (USD)</label><input class="input input-full" id="f-cost" type="number" min="0" step="0.01" value="${item.cost_usd || ''}"></div>
       <div class="form-row">
         <label class="form-label">Condition</label>
@@ -962,7 +1423,7 @@ function saveItem(id) {
     brand:            document.getElementById('f-brand').value.trim(),
     model:            document.getElementById('f-model').value.trim(),
     category:         document.getElementById('f-cat').value,
-    weight_g:         parseFloat(document.getElementById('f-weight').value) || 0,
+    weight_g:         displayToG(document.getElementById('f-weight').value),
     cost_usd:         parseFloat(document.getElementById('f-cost').value) || 0,
     carry_type:       undefined,   // carry type now lives on trip/template, not the item
     condition:        document.getElementById('f-cond').value,
@@ -1536,7 +1997,7 @@ function wishFormHtml(w) {
       <div class="form-row"><label class="form-label">Type (item category) *</label><input class="input input-full" id="wf-name" value="${esc(w.name || '')}" placeholder="e.g. Pack, Pillow, Tent"></div>
       <div class="form-row"><label class="form-label">Brand</label><input class="input input-full" id="wf-brand" value="${esc(w.brand || '')}"></div>
       <div class="form-row"><label class="form-label">Model</label><input class="input input-full" id="wf-model" value="${esc(w.model || '')}"></div>
-      <div class="form-row"><label class="form-label">Weight (grams)</label><input class="input input-full" id="wf-weight" type="number" min="0" step="0.1" value="${w.weight_g || ''}"></div>
+      <div class="form-row"><label class="form-label">${weightLabel()}</label><input class="input input-full" id="wf-weight" type="number" min="0" step="${weightStep()}" value="${gToDisplay(w.weight_g)}" placeholder="${weightPlaceholder()}"></div>
       <div class="form-row"><label class="form-label">Cost (USD)</label><input class="input input-full" id="wf-cost" type="number" min="0" step="0.01" value="${w.cost_usd || ''}"></div>
       <div class="form-row"><label class="form-label">Volume (liters)</label><input class="input input-full" id="wf-liters" type="number" min="0" step="0.1" value="${w.volume_liters || ''}"></div>
       <div class="form-row"><label class="form-label">Frame type</label><input class="input input-full" id="wf-frame" value="${esc(w.frame_type || '')}"></div>
@@ -1568,7 +2029,7 @@ function saveWish(id) {
     id: id || uid('w'), name,
     brand:        document.getElementById('wf-brand').value.trim(),
     model:        document.getElementById('wf-model').value.trim(),
-    weight_g:     parseFloat(document.getElementById('wf-weight').value) || null,
+    weight_g:     displayToG(document.getElementById('wf-weight').value) || null,
     cost_usd:     parseFloat(document.getElementById('wf-cost').value) || null,
     volume_liters:parseFloat(document.getElementById('wf-liters').value) || null,
     frame_type:   document.getElementById('wf-frame').value.trim() || null,
@@ -3180,7 +3641,7 @@ function renderFoodPlanDetail(plan) {
             ${dayCal ? `${dayCal.toLocaleString()} cal · ${wg(dayW)}` : 'No meals logged yet'}
           </span>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${slots}</div>
+        <div class="meal-day-grid">${slots}</div>
       </div>`;
   }).join('');
 
@@ -3439,8 +3900,8 @@ function openAddMeal(planId, day, mealTime) {
     <div class="form-grid">
       <div class="form-row"><label class="form-label">Calories</label>
         <input class="input input-full" id="mi-cal" type="number" min="0" placeholder="~${guideCal}"></div>
-      <div class="form-row"><label class="form-label">Weight (grams)</label>
-        <input class="input input-full" id="mi-wg" type="number" min="0" placeholder="grams"></div>
+      <div class="form-row"><label class="form-label">${weightLabel()}</label>
+        <input class="input input-full" id="mi-wg" type="number" min="0" step="${weightStep()}" placeholder="${weightPlaceholder()}"></div>
     </div>
     <div class="form-row"><label class="form-label">Notes</label>
       <input class="input input-full" id="mi-notes" placeholder="brand, prep notes…"></div>
@@ -3460,7 +3921,7 @@ function fillFromRecipe() {
   const wgEl   = document.getElementById('mi-wg');
   if (nameEl) nameEl.value = rec.name;
   if (calEl)  calEl.value  = rec.cal_per_serving;
-  if (wgEl)   wgEl.value   = rec.weight_g_per_serving;
+  if (wgEl)   wgEl.value   = gToDisplay(rec.weight_g_per_serving);
 }
 
 function saveMealItem(planId, day, mealTime) {
@@ -3487,7 +3948,7 @@ function saveMealItem(planId, day, mealTime) {
     meal_time: mealTime,
     name,
     cal:       parseInt(document.getElementById('mi-cal').value)  || 0,
-    weight_g:  parseInt(document.getElementById('mi-wg').value)   || 0,
+    weight_g:  displayToG(document.getElementById('mi-wg').value),
     notes:     document.getElementById('mi-notes').value.trim(),
     recipe_id: recipeEl?.value || null,
   });
@@ -4136,6 +4597,12 @@ async function submitAuth() {
 async function signOut() {
   if (_supabaseReady()) await _sb.auth.signOut();
   _user = null;
+  _isSupporter = false;
+  // Clear local data so the next user/session starts fresh
+  try { localStorage.removeItem('trailkit_v1'); } catch(e) {}
+  // Reset to demo state
+  loadState();
+  refreshAll();
   updateHeaderAuth();
   toast('Signed out.');
 }
@@ -4363,6 +4830,15 @@ function openSettings() {
         <button class="btn btn-sm" onclick="changePassword()">Update password</button>
       </div>
 
+      <!-- Feedback -->
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Feedback</div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button class="btn btn-sm" onclick="openFeedbackModal('bug')">🐛 Report a bug</button>
+          <button class="btn btn-sm" onclick="openFeedbackModal('feature')">✨ Request a feature</button>
+        </div>
+      </div>
+
       <!-- Danger zone -->
       <div style="border-top:.5px solid var(--border);padding-top:1rem">
         <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--danger);margin-bottom:.625rem">Account</div>
@@ -4417,6 +4893,69 @@ async function confirmDeleteAccount() {
   closeModal();
   updateHeaderAuth();
   toast('Account data deleted. You have been signed out.');
+}
+
+function openFeedbackModal(type) {
+  const isBug = type !== 'feature';
+  const title = isBug ? '🐛 Report a bug' : '✨ Request a feature';
+  const placeholder = isBug
+    ? 'Describe what happened, what you expected to happen, and the steps to reproduce it…'
+    : 'Describe the feature you\'d like to see and how it would help your workflow…';
+  const subject = isBug ? 'Bug report — Gearnomic' : 'Feature request — Gearnomic';
+  const currentTab = document.querySelector('.nav-tab.active')?.dataset?.tab || '';
+  const context = isBug
+    ? `\n\n---\nPage: ${currentTab || 'unknown'}\nUser: ${_user?.email || 'not signed in'}`
+    : '';
+
+  openModal(title, `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem;line-height:1.6">
+      ${isBug
+        ? 'Found something broken? Let us know and we\'ll fix it.'
+        : 'Have an idea that would make Gearnomic better? We\'d love to hear it.'}
+    </p>
+    <div class="form-row">
+      <label class="form-label">${isBug ? 'What went wrong?' : 'Describe the feature'} *</label>
+      <textarea class="input input-full" id="fb-message" rows="5"
+        placeholder="${placeholder}"
+        style="height:120px;resize:vertical"></textarea>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Your email <span style="color:var(--text-3);font-weight:400">(optional — for follow-up)</span></label>
+      <input class="input input-full" id="fb-email" type="email"
+        value="${_user?.email || ''}" placeholder="you@example.com">
+    </div>
+    <div id="fb-error" style="display:none;font-size:12px;color:var(--danger);margin-bottom:.5rem"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="submitFeedback('${type}','${encodeURIComponent(subject)}')">Send</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+  setTimeout(() => document.getElementById('fb-message')?.focus(), 100);
+}
+
+function submitFeedback(type, encodedSubject) {
+  const message = document.getElementById('fb-message')?.value.trim();
+  const email   = document.getElementById('fb-email')?.value.trim();
+  const errEl   = document.getElementById('fb-error');
+
+  if (!message) {
+    errEl.textContent = 'Please describe the ' + (type === 'bug' ? 'bug' : 'feature') + ' before sending.';
+    errEl.style.display = 'block';
+    document.getElementById('fb-message')?.focus();
+    return;
+  }
+  errEl.style.display = 'none';
+
+  const subject = decodeURIComponent(encodedSubject);
+  const from    = email ? `From: ${email}\n` : '';
+  const tab     = document.querySelector('.nav-tab.active')?.dataset?.tab || 'unknown';
+  const user    = _user?.email || 'not signed in';
+  const body    = `${message}\n\n---\n${from}Page: ${tab}\nAccount: ${user}`;
+
+  const mailto = `mailto:hello@gearnomic.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailto;
+
+  closeModal();
+  toast('Opening your email client…');
 }
 
 function openPrivacyPolicy() {
@@ -4757,6 +5296,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load local data so the app is ready in the background
   loadState();
+  syncUnitBtns();
 
   // Render dashboard immediately with local data — no waiting for auth
   renderDashboard();
