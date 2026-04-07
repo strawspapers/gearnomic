@@ -952,3 +952,32 @@ tr.drop-line-after  td { box-shadow: inset 0 -2px 0 0 var(--accent); }
   .footer-links { justify-content: flex-start; gap: 2rem; }
   .footer-bottom { flex-direction: column; align-items: flex-start; gap: 6px; }
 }
+
+/* ── Bulk selection highlight ── */
+tr.bulk-selected td { background: var(--accent-l) !important; }
+.gear-card.bulk-selected { background: var(--accent-l); border-color: var(--primary); }
+
+/* ── Gear mobile cards ── */
+.gear-cards { display: none; }
+.gear-card {
+  display: flex;
+  flex-direction: column;
+  padding: .75rem 1rem;
+  border-bottom: .5px solid var(--border-2);
+  cursor: pointer;
+  transition: background .1s;
+}
+.gear-card:last-child { border-bottom: none; }
+.gear-card:hover { background: var(--surface-2); }
+.gear-card:active { background: var(--accent-l); }
+.gear-card-main { display: flex; align-items: center; }
+
+@media (max-width: 640px) {
+  .gear-table-wrap { display: none; }
+  .gear-cards { display: block; }
+  .toolbar { gap: .5rem; }
+  .toolbar-left { gap: .375rem; }
+  .toolbar-left input { width: 100% !important; }
+  .toolbar-left select { font-size: 12px; }
+  #bulk-bar { font-size: 12px; }
+}
