@@ -1359,9 +1359,9 @@ function itemFormHtml(item) {
   item = item || {};
   return `
     <div class="form-grid">
-      <div class="form-row"><label class="form-label">Name *</label><input class="input input-full" id="f-name" value="${esc(item.name || '')}" placeholder="e.g. Zpacks Arc Blast" required></div>
-      <div class="form-row"><label class="form-label">Brand</label><input class="input input-full" id="f-brand" value="${esc(item.brand || '')}" placeholder="e.g. Zpacks"></div>
-      <div class="form-row"><label class="form-label">Model</label><input class="input input-full" id="f-model" value="${esc(item.model || '')}" placeholder="e.g. Arc Blast 55"></div>
+      <div class="form-row"><label class="form-label">Name *</label><input class="input input-full" id="f-name" value="${esc(item.name || '')}" placeholder="e.g. Sleeping bag" required></div>
+      <div class="form-row"><label class="form-label">Brand</label><input class="input input-full" id="f-brand" value="${esc(item.brand || '')}" placeholder="e.g. Big Agnes"></div>
+      <div class="form-row"><label class="form-label">Model</label><input class="input input-full" id="f-model" value="${esc(item.model || '')}" placeholder="e.g. Copper Spur HV UL2"></div>
       <div class="form-row">
         <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
           Category
