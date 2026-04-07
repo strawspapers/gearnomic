@@ -425,7 +425,7 @@ function openMobileAccountMenu() {
   const html = isUser
     ? `<div style="padding:.5rem 0">
         <div style="font-size:12px;color:var(--text-3);padding:8px 0 12px;border-bottom:.5px solid var(--border-2);margin-bottom:8px">${esc(_user.email)}</div>
-        <button class="mob-drawer-btn" style="width:100%;margin-bottom:6px" onclick="openSettings();closeModal()">⚙ Settings</button>
+        <button class="mob-drawer-btn" style="width:100%;margin-bottom:6px" onclick="openSettings();closeModal()">Settings</button>
         <button class="mob-drawer-btn" style="width:100%;margin-bottom:6px" onclick="toggleUnits();closeModal()">Switch units (${_units === 'metric' ? 'metric → imperial' : 'imperial → metric'})</button>
         <button class="mob-drawer-btn" style="width:100%;margin-bottom:6px" onclick="exportData();closeModal()">↓ Export data</button>
         <button class="mob-drawer-btn" style="width:100%;color:var(--danger);margin-bottom:6px" onclick="signOut();closeModal()">→ Sign out</button>
@@ -1030,7 +1030,7 @@ function renderGearCards(filtered) {
                 onchange="toggleItemSelect('${item.id}')"
                 onclick="event.stopPropagation()">
             </label>`
-          : `<button class="btn btn-xs" style="margin-left:10px;flex-shrink:0" onclick="event.stopPropagation();openEditItem('${item.id}')">✎</button>`}
+          : `<button class="btn btn-xs" style="margin-left:10px;flex-shrink:0" onclick="event.stopPropagation();openEditItem('${item.id}')">Edit</button>`}
       </div>
       ${item.condition && item.condition !== '' ? `<div style="margin-top:6px">${badge(COND_BADGE[item.condition]||'badge-gray', COND_LABEL[item.condition])}</div>` : ''}
     </div>`;
@@ -1353,7 +1353,7 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
     ${customCells}
 
     <td onclick="event.stopPropagation()">
-      <button class="btn-icon" title="Edit all fields" onclick="openEditItem('${item.id}')">✎</button>
+      <button class="btn-icon" title="Edit all fields" onclick="openEditItem('${item.id}')">Edit</button>
     </td>
   </tr>${detailHtml}`;
 }
@@ -1631,7 +1631,7 @@ function renderTripDetail(trip) {
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <span class="mono" style="font-size:12px">${wg(lw)}</span>
-        <button class="btn btn-xs btn-danger" onclick="detachLoadout('${trip.id}','${lid}')" title="Detach loadout">✕</button>
+        <button class="btn btn-xs btn-danger" onclick="detachLoadout('${trip.id}','${lid}')" title="Detach loadout">Remove</button>
       </div>
     </div>`;
   }).join('');
@@ -1646,7 +1646,7 @@ function renderTripDetail(trip) {
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-xs" onclick="showTab('food');openFoodPlan('${mealPlan.id}')">Open ↗</button>
-          <button class="btn btn-xs btn-danger" onclick="detachMealPlan('${trip.id}')">✕</button>
+          <button class="btn btn-xs btn-danger" onclick="detachMealPlan('${trip.id}')">Remove</button>
         </div>
       </div>`
     : `<div style="padding:8px 0">
@@ -1672,7 +1672,7 @@ function renderTripDetail(trip) {
         <button class="btn btn-sm" onclick="saveAsTemplate('${trip.id}')" title="Save merged gear as a new loadout">Save as loadout</button>
         <button class="btn btn-sm" onclick="shareItem('${trip.id}','trip')">Share ↗</button>
         <button class="btn btn-sm btn-danger" onclick="deleteTrip('${trip.id}')">Delete</button>
-        <button class="btn btn-sm btn-ghost" onclick="closeTripDetail()">Close ✕</button>
+        <button class="btn btn-sm btn-ghost" onclick="closeTripDetail()">Close</button>
       </div>
     </div>
 
@@ -2028,8 +2028,8 @@ function renderWishlist() {
             <div style="display:flex;gap:4px">
               ${w.product_url ? `<a href="${esc(w.product_url)}" target="_blank" class="btn btn-xs">↗</a>` : ''}
               <button class="btn btn-xs" style="border-color:var(--success);color:var(--success-text)" onclick="convertWishToGear('${w.id}')" title="Move to Gear Closet">→ Closet</button>
-              <button class="btn btn-xs" onclick="openEditWish('${w.id}')">✎</button>
-              <button class="btn btn-xs btn-danger" onclick="deleteWish('${w.id}')">✕</button>
+              <button class="btn btn-xs" onclick="openEditWish('${w.id}')">Edit</button>
+              <button class="btn btn-xs btn-danger" onclick="deleteWish('${w.id}')">Remove</button>
             </div>
           </td>
         </tr>`;
@@ -2236,7 +2236,7 @@ function renderAnalytics() {
       <div style="position:relative;border-radius:var(--r-md);overflow:hidden">
         <div style="filter:blur(5px);pointer-events:none;user-select:none">${content}</div>
         <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(237,232,223,.55);backdrop-filter:blur(2px)">
-          <div style="font-size:12px;font-weight:500;margin-bottom:.5rem;color:var(--text-1)">🔒 Supporter feature</div>
+          <div style="font-size:12px;font-weight:500;margin-bottom:.5rem;color:var(--text-1)">Supporter feature</div>
           <button class="btn btn-primary btn-sm" onclick="openUpgradeModal()">Upgrade to unlock</button>
         </div>
       </div>`;
@@ -2300,7 +2300,7 @@ function renderAnalytics() {
       const overlay = document.createElement('div');
       overlay.className = 'analytics-lock-overlay';
       overlay.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(237,232,223,.5);backdrop-filter:blur(2px);border-radius:var(--r-lg)';
-      overlay.innerHTML = `<div style="font-size:12px;font-weight:500;margin-bottom:.5rem;color:var(--text-1)">🔒 Supporter feature</div><button class="btn btn-primary btn-sm" onclick="openUpgradeModal()">Upgrade to unlock</button>`;
+      overlay.innerHTML = `<div style="font-size:12px;font-weight:500;margin-bottom:.5rem;color:var(--text-1)">Supporter feature</div><button class="btn btn-primary btn-sm" onclick="openUpgradeModal()">Upgrade to unlock</button>`;
       parent.appendChild(overlay);
     }
 
@@ -2477,7 +2477,7 @@ function renderAnalytics() {
   // Never used
   const unused = state.items.filter(i => !i.usage_days || i.usage_days === 0);
   document.getElementById('analytics-unused').innerHTML = !unused.length
-    ? `<div class="empty-state"><p>Everything has been used at least once. 🎉</p></div>`
+    ? `<div class="empty-state"><p>Everything has been used at least once.</p></div>`
     : `<div style="font-size:12px;color:var(--text-3);margin-bottom:.5rem">${unused.length} item${unused.length!==1?'s':''} with no logged usage</div>
       ${unused.slice(0,8).map(i => `
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:5px 0;border-bottom:.5px solid var(--border-2)">
@@ -2624,7 +2624,7 @@ function renderTemplateDetail(tmpl) {
         <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Attach to trip…</button>
         <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template')" title="Share via link">Share ↗</button>
         <button class="btn btn-sm" onclick="openTemplateForm('${tmpl.id}')">Edit</button>
-        <button class="btn btn-sm btn-ghost" onclick="closeTemplateDetail()">Close ✕</button>
+        <button class="btn btn-sm btn-ghost" onclick="closeTemplateDetail()">Close</button>
       </div>
     </div>
 
@@ -2846,7 +2846,7 @@ function openApplyTemplateFromLib(loadoutId) {
           onclick="${already ? '' : `attachLoadoutFromLib('${loadoutId}','${t.id}')`}"
           ${already ? 'disabled' : ''}>
           <span>${esc(t.name)}</span>
-          <span style="font-size:11px;color:var(--text-3)">${already ? '✓ attached' : badge(STATUS_BADGE[t.status]||'badge-gray', STATUS_LABEL[t.status]||t.status)}</span>
+          <span style="font-size:11px;color:var(--text-3)">${already ? 'Attached' : badge(STATUS_BADGE[t.status]||'badge-gray', STATUS_LABEL[t.status]||t.status)}</span>
         </button>`;
       }).join('')}
     </div>
@@ -3388,7 +3388,7 @@ function openManageCategories() {
         title="Weight target in grams"
         onchange="updateCategoryTarget(${idx}, this.value)"
         onclick="event.stopPropagation()">
-      <button class="btn btn-xs btn-danger" onclick="event.stopPropagation();deleteCategory('${esc(cat.name)}')" title="Delete">✕</button>
+      <button class="btn btn-xs btn-danger" onclick="event.stopPropagation();deleteCategory('${esc(cat.name)}')" title="Delete">Remove</button>
     </div>`).join('');
 
   const usedByItems = new Set(state.items.map(i => i.category));
@@ -3550,7 +3550,7 @@ function openManageCategoriesFromForm() {
 // ============================================================
 const MEAL_TIMES  = ['breakfast','snack','lunch','dinner'];
 const MEAL_LABELS = { breakfast:'Breakfast', snack:'Snack', lunch:'Lunch', dinner:'Dinner' };
-const MEAL_ICONS  = { breakfast:'☀', snack:'🌿', lunch:'☁', dinner:'★' };
+const MEAL_ICONS  = { breakfast:'', snack:'', lunch:'', dinner:'' };
 // Default meal calorie splits (percentages, must sum to 100)
 // These are the plan defaults; each plan can store its own meal_splits object.
 const MEAL_DEFAULT_SPLITS = { breakfast: 22, snack: 17, lunch: 25, dinner: 36 };
@@ -3585,7 +3585,7 @@ function setFoodView(view) {
       banner.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--accent-l);border:1px solid var(--accent);border-radius:var(--r-lg);padding:.625rem 1rem;margin-bottom:1rem;font-size:13px';
       banner.innerHTML = `
         <span style="color:var(--text-1)">
-          🍽 <strong>Exploring meal planning</strong> — feel free to try it out. You'll need a Supporter account to save your plans.
+          <strong>Exploring meal planning</strong> — feel free to try it out. You'll need a Supporter account to save your plans.
         </span>
         <button class="btn btn-primary btn-sm" onclick="openUpgradeModal('Saving meal plans is a Supporter feature.')">Upgrade</button>`;
       const view = document.getElementById('food-plans-view');
@@ -3680,14 +3680,14 @@ function renderFoodPlanDetail(plan) {
     <div style="background:var(--surface-2);border:.5px solid var(--border);border-radius:var(--r-lg);padding:.875rem 1.25rem;margin-bottom:1rem;font-size:12.5px">
       <div style="font-weight:500;margin-bottom:.375rem">For this ${plan.days}-day/${nights}-night trip you need:</div>
       <div style="display:flex;gap:20px;flex-wrap:wrap;color:var(--text-2)">
-        <span>${MEAL_ICONS.breakfast} <strong>${plan.days}</strong> breakfasts</span>
-        <span>${MEAL_ICONS.snack} <strong>${plan.days}</strong> snack sets</span>
-        <span>${MEAL_ICONS.lunch} <strong>${plan.days}</strong> lunches</span>
-        <span>${MEAL_ICONS.dinner} <strong>${nights}</strong> dinners</span>
+        <span><strong>${plan.days}</strong> breakfasts</span>
+        <span><strong>${plan.days}</strong> snack sets</span>
+        <span><strong>${plan.days}</strong> lunches</span>
+        <span><strong>${nights}</strong> dinners</span>
       </div>
       <div style="margin-top:.5rem;color:var(--text-3)">Target: ${plan.cal_target_per_day.toLocaleString()} cal/day · ${plan.weight_target_g_per_day}g (~${(plan.weight_target_g_per_day/453.6).toFixed(1)}lb) food/day</div>
       <div style="margin-top:.375rem;display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--text-3)">
-        ${MEAL_TIMES.map(mt => `<span>${MEAL_ICONS[mt]} ${MEAL_LABELS[mt]}: <strong>${mealCalTarget(plan, mt)}</strong> cal</span>`).join('')}
+        ${MEAL_TIMES.map(mt => `<span>${MEAL_LABELS[mt]}: <strong>${mealCalTarget(plan, mt)}</strong> cal</span>`).join('')}
         <button class="btn btn-xs" style="margin-left:auto" onclick="openEditFoodPlan('${plan.id}')">Adjust splits</button>
       </div>
     </div>`;
@@ -3732,7 +3732,7 @@ function renderFoodPlanDetail(plan) {
         return `
           <div style="border:.5px dashed var(--border-2);border-radius:var(--r-md);padding:.5rem .75rem;min-height:60px;display:flex;flex-direction:column;justify-content:space-between;opacity:.55">
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <span style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3)">${MEAL_ICONS[mt]} ${MEAL_LABELS[mt]}</span>
+              <span style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3)">${MEAL_LABELS[mt]}</span>
               <button class="btn btn-xs" style="font-size:10px;color:var(--text-3)"
                 onclick="toggleMealSlot('${plan.id}',${day},'${mt}',true)" title="Add this meal">+ Add</button>
             </div>
@@ -3744,7 +3744,7 @@ function renderFoodPlanDetail(plan) {
         <div style="border:.5px solid var(--border);border-radius:var(--r-md);padding:.625rem .75rem;min-height:80px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
             <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3)">${MEAL_ICONS[mt]} ${MEAL_LABELS[mt]}</span>
+              <span style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3)">${MEAL_LABELS[mt]}</span>
               <button class="btn btn-xs" style="font-size:10px;padding:1px 5px;color:var(--text-3);border-color:var(--border-2)"
                 onclick="toggleMealSlot('${plan.id}',${day},'${mt}',false)" title="Skip this meal">Skip</button>
             </div>
@@ -3760,7 +3760,7 @@ function renderFoodPlanDetail(plan) {
               <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(m.name)}">${esc(m.name)}</span>
               <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;margin-left:6px">
                 <span class="mono" style="color:var(--text-3);font-size:11px">${wg(m.weight_g)}</span>
-                <button class="btn btn-xs btn-danger" style="padding:1px 5px" onclick="deleteMealItem('${plan.id}','${m.id}')">✕</button>
+                <button class="btn btn-xs btn-danger" onclick="deleteMealItem('${plan.id}','${m.id}')">Remove</button>
               </div>
             </div>`).join('')}
         </div>`;
@@ -3787,7 +3787,7 @@ function renderFoodPlanDetail(plan) {
       <div style="display:flex;gap:6px">
         <button class="btn btn-sm" onclick="openEditFoodPlan('${plan.id}')">Edit plan</button>
         <button class="btn btn-sm btn-danger" onclick="deleteFoodPlan('${plan.id}')">Delete</button>
-        <button class="btn btn-sm btn-ghost" onclick="closeFoodPlan()">Close ✕</button>
+        <button class="btn btn-sm btn-ghost" onclick="closeFoodPlan()">Close</button>
       </div>
     </div>
     ${guidance}
@@ -3864,7 +3864,7 @@ function foodPlanFormHtml(plan) {
         const pct = (plan.meal_splits || MEAL_DEFAULT_SPLITS)[mt] ?? MEAL_DEFAULT_SPLITS[mt];
         const cal = Math.round((pct/100) * (plan.cal_target_per_day || 3000));
         return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:.625rem">
-          <span style="width:80px;font-size:12px;color:var(--text-2)">${MEAL_ICONS[mt]} ${MEAL_LABELS[mt]}</span>
+          <span style="width:80px;font-size:12px;color:var(--text-2)">${MEAL_LABELS[mt]}</span>
           <input type="range" id="fp-split-${mt}" min="5" max="60" value="${pct}"
             style="flex:1;accent-color:var(--primary)"
             oninput="updateSplitPreview()">
@@ -3872,7 +3872,7 @@ function foodPlanFormHtml(plan) {
           <span style="width:55px;text-align:right;font-size:11px;color:var(--text-3)" id="fp-cal-${mt}">${cal} cal</span>
         </div>`;
       }).join('')}
-      <div id="fp-split-warning" style="display:none;font-size:12px;color:var(--danger);margin-top:.25rem">⚠ Percentages must sum to 100% before saving</div>
+      <div id="fp-split-warning" style="display:none;font-size:12px;color:var(--danger);margin-top:.25rem">! Percentages must sum to 100% before saving</div>
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="saveFoodPlan('${plan.id||''}')">Save plan</button>
@@ -4133,13 +4133,13 @@ function renderRecipeLibrary() {
           <div>
             <div style="font-weight:500;font-size:14px">${esc(r.name)}</div>
             <div style="font-size:11px;color:var(--text-3);margin-top:2px">
-              ${MEAL_ICONS[r.meal_time]||''} ${MEAL_LABELS[r.meal_time]||r.meal_time}
+              ${MEAL_LABELS[r.meal_time]||r.meal_time}
               ${r.source ? ` · ${esc(r.source)}` : ''}
             </div>
           </div>
           <div style="display:flex;gap:5px">
-            <button class="btn btn-xs" onclick="openRecipeForm('${r.id}')">✎</button>
-            <button class="btn btn-xs btn-danger" onclick="deleteRecipe('${r.id}')">✕</button>
+            <button class="btn btn-xs" onclick="openRecipeForm('${r.id}')">Edit</button>
+            <button class="btn btn-xs btn-danger" onclick="deleteRecipe('${r.id}')">Remove</button>
           </div>
         </div>
         <div style="display:flex;gap:16px;font-size:12.5px;margin-bottom:.625rem">
@@ -4495,8 +4495,8 @@ function setSyncIndicator(status) {
   if (!el) return;
   const states = {
     saving:  '↑ Saving…',
-    saved:   '✓ Synced',
-    error:   '⚠ Sync failed',
+    saved:   'Synced',
+    error:   'Sync failed',
     offline: '○ Local only',
     nosync:  '○ Local only',
   };
@@ -4527,12 +4527,12 @@ function updateHeaderAuth() {
     if (_isSupporter) {
       setSyncIndicator('saved');
       if (nudgeEl) nudgeEl.style.display = 'none';
-      if (tierEl)  tierEl.innerHTML = `<span style="color:var(--success);font-weight:600">⛰ Supporter</span> <span style="color:var(--text-3)">· Sync active</span>`;
+      if (tierEl)  tierEl.innerHTML = `<span style="color:var(--success);font-weight:600"> Supporter</span> <span style="color:var(--text-3)">· Sync active</span>`;
     } else {
       setSyncIndicator('nosync');
       if (nudgeEl) nudgeEl.style.display = 'flex';
       if (tierEl)  tierEl.innerHTML = `<span style="color:var(--text-2)">Free plan</span> <span style="color:var(--text-3)">· Local only</span>
-        <button onclick="openUpgradeModal();toggleUserMenu()" style="display:block;margin-top:6px;width:100%;background:var(--primary);color:#fff;border:none;border-radius:var(--r-md);padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;text-align:center">☁ Enable sync — $3.99/mo</button>`;
+        <button onclick="openUpgradeModal();toggleUserMenu()" style="display:block;margin-top:6px;width:100%;background:var(--primary);color:#fff;border:none;border-radius:var(--r-md);padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;text-align:center">Enable cloud sync — $3.99/mo</button>`;
     }
   } else {
     if (userInfo) userInfo.style.display = 'none';
@@ -4640,9 +4640,9 @@ If that doesn't match what you put in the file, GitHub Pages is serving a <stron
       const body = await res.json().catch(() => ({}));
       const emailEnabled = body?.external?.email !== false;
       if (emailEnabled) {
-        show('✓ <strong>Connection OK and Email auth is enabled.</strong> If sign-in still fails, double-check your email/password, or try "Create account" first.', 'green');
+        show('<strong>Connection OK and Email auth is enabled.</strong> If sign-in still fails, double-check your email/password, or try "Create account" first.', 'green');
       } else {
-        show('✓ Connected, but <strong>Email auth is disabled</strong> in your Supabase project.<br>Go to Supabase → Authentication → Providers → Email → enable it.', 'red');
+        show('Connected, but <strong>Email auth is disabled</strong> in your Supabase project.<br>Go to Supabase → Authentication → Providers → Email → enable it.', 'red');
       }
     } else if (res.status === 401 || res.status === 403) {
       show(`<strong>Anon key rejected (${res.status}).</strong> Your key may have extra spaces or be from a different project. Copy it fresh from Supabase → Settings → API → anon public.`, 'red');
@@ -4685,9 +4685,9 @@ async function submitAuth() {
     if (isSignup && data?.user && !data.session) {
       // Replace auth modal contents with a clear confirmation screen
       hideAuthModal();
-      openModal('Check your inbox 📬', `
+      openModal('Check your inbox', `
         <div style="text-align:center;padding:1rem 0 .5rem">
-          <div style="font-size:52px;margin-bottom:1rem">📬</div>
+          <div style="font-size:52px;margin-bottom:1rem"></div>
           <p style="font-size:15px;font-weight:500;margin-bottom:.5rem;color:var(--text-1)">
             Confirmation email sent to:
           </p>
@@ -4781,7 +4781,7 @@ async function sendPasswordReset() {
   } else {
     document.getElementById('forgot-panel').innerHTML = `
       <div style="text-align:center;padding:.5rem 0">
-        <div style="font-size:24px;margin-bottom:.5rem">📬</div>
+        <div style="font-size:24px;margin-bottom:.5rem"></div>
         <div style="font-size:14px;font-weight:500;margin-bottom:.375rem">Check your inbox</div>
         <p style="font-size:12px;color:#888">A reset link has been sent to <strong>${esc(email)}</strong>. Click it to set a new password.</p>
       </div>`;
@@ -4828,7 +4828,7 @@ function openUpgradeModal(reason) {
   openModal('Become a Supporter', `
     ${reasonHtml}
     <div style="text-align:center;padding:.5rem 0 1rem">
-      <div style="font-size:32px;margin-bottom:.5rem">⛰</div>
+      <div style="font-size:32px;margin-bottom:.5rem"></div>
       <p style="font-size:15px;font-weight:500;margin-bottom:.375rem">Unlock the full Gearnomic experience</p>
       <p style="font-size:13px;color:var(--text-2);margin-bottom:1.5rem;line-height:1.6">
         Supporters get unlimited gear, trips, templates, food planning, custom fields, full analytics, and cloud sync across all devices.
@@ -4862,14 +4862,14 @@ function openUpgradeModal(reason) {
     <div style="background:var(--surface-2);border-radius:var(--r-md);padding:.875rem 1rem;margin-bottom:1rem">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">What supporters get</div>
       ${[
-        '♾ Unlimited gear items, trips & templates',
-        '🍽 Save meal plans & attach them to trips',
-        '📊 Full analytics — value, usage & trip history',
-        '🔧 Custom gear fields',
-        '☁ Cloud sync across all devices',
-        '🔄 Automatic backup — never lose your list',
-        '⚡ Priority support & early feature access',
-      ].map(f => `<div style="font-size:13px;color:var(--text-1);padding:3px 0">✓ ${f}</div>`).join('')}
+        'Unlimited gear items, trips & templates',
+        'Save meal plans & attach them to trips',
+        'Full analytics — value, usage & trip history',
+        'Custom gear fields',
+        'Cloud sync across all devices',
+        'Automatic backup — never lose your list',
+        'Priority support & early feature access',
+      ].map(f => `<div style="font-size:13px;color:var(--text-1);padding:3px 0">v ${f}</div>`).join('')}
     </div>
 
     <p style="font-size:11.5px;color:var(--text-3);text-align:center;line-height:1.5">
@@ -4892,13 +4892,13 @@ function openSettings() {
         <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Supporter</div>
         ${_isSupporter
           ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <span style="background:var(--primary);color:#fff;font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px">⛰ SUPPORTER</span>
+              <span style="background:var(--primary);color:#fff;font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px"> SUPPORTER</span>
               <span style="font-size:13px;color:var(--text-2)">Cloud sync is active. Thank you for supporting Gearnomic!</span>
               <a href="https://billing.stripe.com/p/login/00w5kCeTg0vBcNF0zi0oM00" target="_blank" class="btn btn-sm btn-ghost">Manage subscription</a>
             </div>`
           : `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
               <span style="font-size:13px;color:var(--text-2)">Free plan — data saved locally on this device only.</span>
-              <button class="btn btn-sm btn-primary" onclick="closeModal();openUpgradeModal()">Upgrade for sync ☁</button>
+              <button class="btn btn-sm btn-primary" onclick="closeModal();openUpgradeModal()">Upgrade for sync </button>
             </div>`
         }
       </div>
@@ -4967,8 +4967,8 @@ function openSettings() {
       <div>
         <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Feedback</div>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-          <button class="btn btn-sm" onclick="openFeedbackModal('bug')">🐛 Report a bug</button>
-          <button class="btn btn-sm" onclick="openFeedbackModal('feature')">✨ Request a feature</button>
+          <button class="btn btn-sm" onclick="openFeedbackModal('bug')">Report a bug</button>
+          <button class="btn btn-sm" onclick="openFeedbackModal('feature')">Request a feature</button>
         </div>
       </div>
 
@@ -5030,7 +5030,7 @@ async function confirmDeleteAccount() {
 
 function openFeedbackModal(type) {
   const isBug = type !== 'feature';
-  const title = isBug ? '🐛 Report a bug' : '✨ Request a feature';
+  const title = isBug ? 'Report a bug' : 'Request a feature';
   const placeholder = isBug
     ? 'Describe what happened, what you expected to happen, and the steps to reproduce it…'
     : 'Describe the feature you\'d like to see and how it would help your workflow…';
@@ -5216,7 +5216,7 @@ async function shareItem(id, kind) {
   const url = `${window.location.origin}${window.location.pathname}#share=${token}`;
   try {
     await navigator.clipboard.writeText(url);
-    openModal('Link copied! 🎉', `
+    openModal('Link copied!', `
       <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
         Anyone with this link can view your <strong>${esc(obj.name)}</strong> ${kind} and save it to their own account.
       </p>
@@ -5266,7 +5266,7 @@ async function handleShareHash(token) {
 
 function sharedErrorHtml(msg, token) {
   return `<div style="text-align:center;padding:2rem;max-width:400px;margin:auto">
-    <div style="font-size:40px;margin-bottom:1rem">🏕</div>
+    <div style="font-size:40px;margin-bottom:1rem"></div>
     <div style="font-family:var(--font-disp);font-size:20px;margin-bottom:.5rem">Gearnomic</div>
     <p style="font-size:14px;color:var(--text-2);margin-bottom:1.5rem">${msg}</p>
     <a href="${window.location.pathname}" class="btn btn-primary">Open Gearnomic</a>
@@ -5328,15 +5328,15 @@ function renderSharedView(overlay, data) {
             <h1 style="font-family:var(--font-disp);font-size:26px;font-weight:400;margin:0">${esc(data.title)}</h1>
           </div>
           ${payload.description ? `<p style="font-size:14px;color:var(--text-2);margin:.5rem 0">${esc(payload.description)}</p>` : ''}
-          ${payload.location    ? `<p style="font-size:13px;color:var(--text-3)">📍 ${esc(payload.location)}</p>` : ''}
+          ${payload.location    ? `<p style="font-size:13px;color:var(--text-3)"> ${esc(payload.location)}</p>` : ''}
 
           <!-- Stats row -->
           <div style="display:flex;gap:20px;font-size:13px;margin-top:.875rem;flex-wrap:wrap">
             <span><strong>${items.length}</strong> items</span>
             <span>Total: <strong class="mono">${wg(tw)}</strong></span>
             ${wornW ? `<span>Worn: <strong class="mono">${wg(wornW)}</strong></span>` : ''}
-            ${payload.miles  ? `<span>📏 <strong>${payload.miles}</strong> mi</span>` : ''}
-            ${payload.start_date ? `<span>📅 ${payload.start_date}</span>` : ''}
+            ${payload.miles  ? `<span> <strong>${payload.miles}</strong> mi</span>` : ''}
+            ${payload.start_date ? `<span> ${payload.start_date}</span>` : ''}
           </div>
         </div>
 
