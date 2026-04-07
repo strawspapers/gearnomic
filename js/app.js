@@ -2137,6 +2137,79 @@ function convertWishToGear(id) {
 // ============================================================
 // ANALYTICS
 // ============================================================
+function renderAdventureStats(completedTrips) {
+  const el = document.getElementById('analytics-adventure');
+  const card = document.getElementById('analytics-adventure-card');
+  if (!el) return;
+
+  // Bike trip types — bikepacking + any custom type containing "bike" or "cycling"
+  const BIKE_TYPES = new Set(
+    state.trip_types
+      .filter(t => t.value === 'bikepacking' || /bike|cycl/i.test(t.value + t.label))
+      .map(t => t.value)
+  );
+
+  const trips = completedTrips;
+  const totalTrips  = trips.length;
+
+  // Nights: from start/end dates; fallback to manually-set nights field
+  const totalNights = trips.reduce((s, t) => {
+    if (t.start_date && t.end_date) {
+      return s + Math.max(0, Math.round((new Date(t.end_date) - new Date(t.start_date)) / 86400000));
+    }
+    return s + (t.nights || 0);
+  }, 0);
+
+  // Miles hiked: all completed non-bike trips with miles
+  const hikingTrips = trips.filter(t => !BIKE_TYPES.has(t.trip_type) && t.miles > 0);
+  const totalHikedMiles = hikingTrips.reduce((s, t) => s + (parseFloat(t.miles) || 0), 0);
+
+  // Miles biked: completed bike trips with miles
+  const bikeTrips = trips.filter(t => BIKE_TYPES.has(t.trip_type) && t.miles > 0);
+  const totalBikedMiles = bikeTrips.reduce((s, t) => s + (parseFloat(t.miles) || 0), 0);
+
+  // Furthest single trip
+  const furthest = trips.filter(t => t.miles > 0).sort((a, b) => b.miles - a.miles)[0];
+
+  // Most nights on a single trip
+  const longestTrip = trips.map(t => {
+    const n = t.start_date && t.end_date
+      ? Math.round((new Date(t.end_date) - new Date(t.start_date)) / 86400000)
+      : (t.nights || 0);
+    return { trip: t, nights: n };
+  }).sort((a, b) => b.nights - a.nights)[0];
+
+  if (!totalTrips) {
+    el.innerHTML = `<div class="empty-state" style="padding:1rem"><p>No completed trips yet. Mark a trip as completed to see your adventure stats.</p></div>`;
+    return;
+  }
+
+  const statItem = (label, value, sub) => `
+    <div style="text-align:center;padding:1rem .75rem">
+      <div style="font-size:28px;font-weight:600;font-family:var(--font-disp);color:var(--primary);line-height:1.1">${value}</div>
+      <div style="font-size:12px;font-weight:500;color:var(--text-1);margin-top:4px">${label}</div>
+      ${sub ? `<div style="font-size:11px;color:var(--text-3);margin-top:2px">${sub}</div>` : ''}
+    </div>`;
+
+  const divider = `<div style="width:1px;background:var(--border-2);margin:.5rem 0"></div>`;
+
+  const stats = [
+    statItem('Trips completed', totalTrips, `${totalNights} total nights`),
+    totalNights ? statItem('Nights camped', totalNights, longestTrip?.nights ? `Longest: ${longestTrip.nights}n — ${esc(longestTrip.trip.name)}` : null) : null,
+    totalHikedMiles ? statItem('Miles hiked', totalHikedMiles % 1 === 0 ? totalHikedMiles : totalHikedMiles.toFixed(1), `across ${hikingTrips.length} trip${hikingTrips.length !== 1 ? 's' : ''}`) : null,
+    totalBikedMiles ? statItem('Miles biked', totalBikedMiles % 1 === 0 ? totalBikedMiles : totalBikedMiles.toFixed(1), `across ${bikeTrips.length} bikepacking trip${bikeTrips.length !== 1 ? 's' : ''}`) : null,
+    furthest ? statItem('Longest trip', `${furthest.miles} mi`, esc(furthest.name)) : null,
+  ].filter(Boolean);
+
+  el.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-around;gap:.25rem;padding:.25rem 0">
+      ${stats.join(divider)}
+    </div>
+    ${totalTrips < 3 ? `<div style="font-size:12px;color:var(--text-3);text-align:center;padding:.625rem 0;border-top:.5px solid var(--border-2);margin-top:.25rem">
+      Stats grow as you log more completed trips. <a onclick="showTab('trips')" style="cursor:pointer">Add a trip →</a>
+    </div>` : ''}`;
+}
+
 let chartWeight = null, chartCost = null, chartTrips = null;
 
 function renderAnalytics() {
@@ -2152,6 +2225,9 @@ function renderAnalytics() {
   const sortedW = Object.entries(cw).sort((a,b) => b[1]-a[1]);
   const sortedC = Object.entries(cc).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
   const completedTrips = state.trips.filter(t => t.status === 'completed');
+
+  // ── Adventure stats (all users) ───────────────────────────
+  renderAdventureStats(completedTrips);
 
   // ── Free tier: weight chart + 2 metrics + blurred preview ─
   if (!_isSupporter) {
