@@ -164,14 +164,29 @@
         <button id="btn-toggle-misc" class="btn btn-sm" onclick="toggleMiscCol()" title="Show / hide the Misc column">Misc off</button>
         <button class="btn btn-sm" onclick="openColumnChooser()" title="Show or hide columns">Columns ▾</button>
         <button class="btn btn-sm" onclick="openManageCategories()">Manage categories</button>
+        <button id="btn-bulk-select" class="btn btn-sm" onclick="toggleBulkMode()" title="Select multiple items">Select</button>
+      </div>
+      <!-- Bulk action bar (shown in select mode) -->
+      <div id="bulk-bar" style="display:none;align-items:center;gap:8px;padding:.625rem .875rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:.75rem;flex-wrap:wrap">
+        <span id="bulk-count" style="font-size:13px;font-weight:500;color:var(--text-1)">0 selected</span>
+        <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap">
+          <button class="btn btn-sm" onclick="bulkSelectAll()">Select all</button>
+          <button class="btn btn-sm" onclick="bulkRecategorize()">Move to…</button>
+          <button class="btn btn-sm" onclick="bulkAddToLoadout()">Add to loadout</button>
+          <button class="btn btn-sm btn-danger" onclick="bulkDelete()">Delete</button>
+          <button class="btn btn-sm btn-ghost" onclick="toggleBulkMode()">Done</button>
+        </div>
       </div>
       <div class="card" style="padding:0;overflow:hidden">
-        <div class="table-wrap">
+        <!-- Desktop table -->
+        <div class="table-wrap gear-table-wrap">
           <table class="data-table" id="gear-table">
             <thead id="gear-thead"></thead>
             <tbody id="gear-tbody"></tbody>
           </table>
         </div>
+        <!-- Mobile cards -->
+        <div id="gear-cards" class="gear-cards"></div>
       </div>
     </section>
 
