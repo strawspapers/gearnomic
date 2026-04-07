@@ -371,9 +371,9 @@ function toast(msg) {
 let currentTab = 'dashboard';
 
 function showTab(name) {
-  if (currentTab === 'gear' && name !== 'gear') {
+  if (currentTab === 'gear' && name !== 'gear' && _bulkMode) {
+    _bulkMode = false;
     _bulkSelected.clear();
-    updateBulkBar();
   }
   currentTab = name;
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
@@ -797,87 +797,84 @@ function resetCols() {
 
 // ── Bulk actions ──────────────────────────────────────────
 let _bulkSelected = new Set();
+let _bulkMode = false;
 
-function toggleBulkSelect(itemId, checked, e) {
-  e?.stopPropagation();
-  if (checked) _bulkSelected.add(itemId);
-  else _bulkSelected.delete(itemId);
-  updateBulkBar();
+function toggleBulkMode() {
+  _bulkMode = !_bulkMode;
+  if (!_bulkMode) _bulkSelected.clear();
+  const btn = document.getElementById('btn-bulk-select');
+  const bar = document.getElementById('bulk-bar');
+  if (btn) {
+    btn.textContent = _bulkMode ? '✕ Cancel' : 'Select';
+    btn.classList.toggle('btn-primary', _bulkMode);
+  }
+  if (bar) bar.style.display = _bulkMode ? 'flex' : 'none';
+  renderGear();
 }
 
-function toggleSelectAll(checked) {
-  const checkboxes = document.querySelectorAll('.bulk-checkbox');
-  checkboxes.forEach(cb => {
-    cb.checked = checked;
-    if (checked) _bulkSelected.add(cb.dataset.id);
-    else _bulkSelected.delete(cb.dataset.id);
+function toggleItemSelect(itemId) {
+  if (_bulkSelected.has(itemId)) _bulkSelected.delete(itemId);
+  else _bulkSelected.add(itemId);
+  updateBulkCount();
+  // Toggle highlight on the row/card
+  const row = document.querySelector(`[data-item-id="${itemId}"]`);
+  if (row) row.classList.toggle('bulk-selected', _bulkSelected.has(itemId));
+}
+
+function bulkSelectAll() {
+  document.querySelectorAll('[data-item-id]').forEach(el => {
+    const id = el.dataset.itemId;
+    if (id) {
+      _bulkSelected.add(id);
+      el.classList.add('bulk-selected');
+    }
   });
-  updateBulkBar();
+  updateBulkCount();
 }
 
-function updateBulkBar() {
-  let bar = document.getElementById('bulk-action-bar');
-  if (!bar) {
-    bar = document.createElement('div');
-    bar.id = 'bulk-action-bar';
-    bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:var(--primary);color:#fff;padding:12px 24px;display:flex;align-items:center;gap:12px;z-index:300;box-shadow:0 -2px 12px rgba(0,0,0,.15);transform:translateY(100%);transition:transform .2s';
-    bar.innerHTML = `
-      <span id="bulk-count" style="font-size:13px;font-weight:500"></span>
-      <div style="display:flex;gap:8px;margin-left:auto">
-        <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)"
-          onclick="bulkRecategorize()">Move to category</button>
-        <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)"
-          onclick="bulkAddToLoadout()">Add to loadout</button>
-        <button class="btn btn-sm" style="background:rgba(220,53,69,.8);color:#fff;border:none"
-          onclick="bulkDelete()">Delete selected</button>
-        <button class="btn btn-sm" style="background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2)"
-          onclick="clearBulkSelection()">✕ Cancel</button>
-      </div>`;
-    document.body.appendChild(bar);
-  }
-  if (_bulkSelected.size > 0) {
-    bar.style.transform = 'translateY(0)';
-    document.getElementById('bulk-count').textContent =
-      `${_bulkSelected.size} item${_bulkSelected.size !== 1 ? 's' : ''} selected`;
-  } else {
-    bar.style.transform = 'translateY(100%)';
-  }
+function updateBulkCount() {
+  const el = document.getElementById('bulk-count');
+  if (el) el.textContent = `${_bulkSelected.size} item${_bulkSelected.size !== 1 ? 's' : ''} selected`;
 }
 
 function clearBulkSelection() {
   _bulkSelected.clear();
-  updateBulkBar();
-  document.querySelectorAll('.bulk-checkbox').forEach(cb => cb.checked = false);
-  const allCb = document.getElementById('bulk-select-all');
-  if (allCb) allCb.checked = false;
+  _bulkMode = false;
+  const btn = document.getElementById('btn-bulk-select');
+  const bar = document.getElementById('bulk-bar');
+  if (btn) { btn.textContent = 'Select'; btn.classList.remove('btn-primary'); }
+  if (bar) bar.style.display = 'none';
+  renderGear();
 }
 
 function bulkDelete() {
   const count = _bulkSelected.size;
+  if (!count) { toast('No items selected.'); return; }
   if (!confirm(`Delete ${count} item${count !== 1 ? 's' : ''}? This cannot be undone.`)) return;
   state.items = state.items.filter(i => !_bulkSelected.has(i.id));
   state.templates.forEach(t => {
     t.gear_ids = (t.gear_ids || []).filter(id => !_bulkSelected.has(id));
     if (t.carry_types) _bulkSelected.forEach(id => delete t.carry_types[id]);
   });
-  _bulkSelected.clear();
   saveState();
-  updateBulkBar();
-  renderGear();
+  clearBulkSelection();
   if (currentTab === 'dashboard') renderDashboard();
   toast(`${count} item${count !== 1 ? 's' : ''} deleted.`);
 }
 
 function bulkRecategorize() {
+  const count = _bulkSelected.size;
+  if (!count) { toast('No items selected.'); return; }
   const cats = categoryNames();
   openModal('Move to category', `
     <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">
-      Move <strong>${_bulkSelected.size} item${_bulkSelected.size !== 1 ? 's' : ''}</strong> to:
+      Move <strong>${count} item${count !== 1 ? 's' : ''}</strong> to:
     </p>
     <div style="display:flex;flex-direction:column;gap:5px;max-height:50vh;overflow-y:auto">
       ${cats.map(c => `
-        <button class="btn" style="justify-content:flex-start;text-align:left" onclick="bulkSetCategory('${esc(c)}')">
-          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${categoryColor(c)};margin-right:8px"></span>
+        <button class="btn" style="justify-content:flex-start;text-align:left;gap:10px"
+          onclick="bulkSetCategory('${esc(c)}')">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${categoryColor(c)};flex-shrink:0"></span>
           ${esc(c)}
         </button>`).join('')}
     </div>
@@ -887,30 +884,27 @@ function bulkRecategorize() {
 function bulkSetCategory(cat) {
   state.items.forEach(i => { if (_bulkSelected.has(i.id)) i.category = cat; });
   saveState();
-  clearBulkSelection();
   closeModal();
-  renderGear();
-  toast(`Moved to ${cat}.`);
+  clearBulkSelection();
+  toast(`Moved ${_bulkSelected.size || 'selected items'} to ${cat}.`);
 }
 
 function bulkAddToLoadout() {
-  if (!state.templates.length) {
-    toast('No loadouts yet. Create one first.');
-    return;
-  }
+  const count = _bulkSelected.size;
+  if (!count) { toast('No items selected.'); return; }
+  if (!state.templates.length) { toast('No loadouts yet. Create one first.'); return; }
   openModal('Add to loadout', `
     <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">
-      Add <strong>${_bulkSelected.size} item${_bulkSelected.size !== 1 ? 's' : ''}</strong> to:
+      Add <strong>${count} item${count !== 1 ? 's' : ''}</strong> to:
     </p>
     <div style="display:flex;flex-direction:column;gap:5px;max-height:50vh;overflow-y:auto">
       ${state.templates.map(l => {
         const lw = (l.gear_ids||[]).reduce((s,id) => {
-          const item = state.items.find(i=>i.id===id);
-          return s + (item?.weight_g||0);
+          const item = state.items.find(i=>i.id===id); return s+(item?.weight_g||0);
         }, 0);
         return `<button class="btn" style="justify-content:space-between;text-align:left"
           onclick="bulkAddItemsToLoadout('${l.id}')">
-          <span>${esc(l.name)} <span style="font-size:11px;color:var(--text-3)">(${(l.gear_ids||[]).length} items)</span></span>
+          <span>${esc(l.name)} <span style="font-size:11px;color:var(--text-3)">${(l.gear_ids||[]).length} items</span></span>
           <span class="mono" style="font-size:12px;color:var(--text-3)">${wg(lw)}</span>
         </button>`;
       }).join('')}
@@ -925,9 +919,41 @@ function bulkAddItemsToLoadout(loadoutId) {
   _bulkSelected.forEach(id => existing.add(id));
   loadout.gear_ids = [...existing];
   saveState();
-  clearBulkSelection();
   closeModal();
+  clearBulkSelection();
   toast(`Added to ${loadout.name}.`);
+}
+
+// ── Mobile card rendering ─────────────────────────────────
+function renderGearCards(filtered) {
+  const cardsEl = document.getElementById('gear-cards');
+  if (!cardsEl) return;
+  if (!filtered.length) {
+    cardsEl.innerHTML = `<div class="empty-state" style="padding:2rem"><p>No items match your filters.</p><button class="btn btn-sm" onclick="clearGearFilters()">Clear filters</button></div>`;
+    return;
+  }
+  cardsEl.innerHTML = filtered.map(item => {
+    const isSel = _bulkSelected.has(item.id);
+    return `<div class="gear-card ${isSel ? 'bulk-selected' : ''}" data-item-id="${item.id}"
+      onclick="${_bulkMode ? `toggleItemSelect('${item.id}')` : `toggleExpand('${item.id}')`}">
+      <div class="gear-card-main">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}</div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(item.brand||'')}${item.brand && item.category ? ' · ' : ''}${badge('badge-gray', item.category)}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:12px">
+          <div class="mono" style="font-size:14px;font-weight:500">${wg(item.weight_g)}</div>
+          <div style="font-size:11px;color:var(--text-3)">${item.cost_usd ? usd(item.cost_usd) : ''}</div>
+        </div>
+        ${_bulkMode
+          ? `<div style="margin-left:10px;display:flex;align-items:center">
+              <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${isSel ? 'var(--primary)' : 'var(--border)'};background:${isSel ? 'var(--primary)' : 'transparent'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;flex-shrink:0">${isSel ? '✓' : ''}</div>
+            </div>`
+          : `<button class="btn btn-xs" style="margin-left:10px;flex-shrink:0" onclick="event.stopPropagation();openEditItem('${item.id}')">✎</button>`}
+      </div>
+      ${item.condition && item.condition !== '' ? `<div style="margin-top:6px">${badge(COND_BADGE[item.condition]||'badge-gray', COND_LABEL[item.condition])}</div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 // ── Quick-add gear ─────────────────────────────────────────
@@ -1041,12 +1067,7 @@ function renderGear() {
     (_visibleCols.has('usage')?1:0) + (showMiscCol?1:0) + visibleCustomFields.length + 1;
 
   document.getElementById('gear-thead').innerHTML = `<tr>
-    <th style="width:28px;padding:6px 4px">
-      <input type="checkbox" id="bulk-select-all" class="bulk-checkbox-all"
-        style="width:14px;height:14px;accent-color:var(--primary);cursor:pointer"
-        onchange="toggleSelectAll(this.checked)" onclick="event.stopPropagation()"
-        title="Select all">
-    </th>
+    <th style="width:28px;padding:6px 4px"></th>
     <th>Item</th>
     ${_visibleCols.has('category') ? '<th>Category</th>' : ''}
     <th>Weight</th>
@@ -1058,6 +1079,9 @@ function renderGear() {
     ${visibleCustomFields.map(f => `<th style="min-width:80px">${esc(f.name)}${f.unit ? '<span style="font-size:10px;color:var(--text-3);font-weight:400"> '+esc(f.unit)+'</span>' : ''}</th>`).join('')}
     <th></th>
   </tr>`;
+
+  // Render mobile cards
+  renderGearCards(filtered);
 
   let html = '';
   let lastCat = null;
@@ -1172,8 +1196,9 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
   const dragMode    = inCustomSort ? 'reorder' : 'recategorize';
   const handleFn    = inCustomSort ? `openReorderPickerMobile('${item.id}')` : `openCategoryPickerMobile('${item.id}')`;
   const handleTitle = inCustomSort ? 'Drag to reorder · Tap for options' : 'Drag to move category · Tap on mobile';
+  const isBulkSel   = _bulkSelected.has(item.id);
 
-  // First cell: drag handle OR bulk checkbox
+  // First cell: drag handle, bulk selector circle, or empty
   const firstCell = showHandle
     ? `<td class="gear-handle-cell" title="${handleTitle}" onclick="event.stopPropagation();${handleFn}">
         <span class="gear-handle"
@@ -1182,21 +1207,23 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
           ondragend="onItemDragEnd()"
           onclick="event.stopPropagation();${handleFn}">⠿</span>
        </td>`
-    : `<td style="width:28px;padding:4px;text-align:center" onclick="event.stopPropagation()">
-        <input type="checkbox" class="bulk-checkbox" data-id="${item.id}"
-          ${_bulkSelected.has(item.id) ? 'checked' : ''}
-          style="width:14px;height:14px;accent-color:var(--primary);cursor:pointer"
-          onchange="toggleBulkSelect('${item.id}',this.checked,event)"
-          onclick="event.stopPropagation()">
-       </td>`;
+    : _bulkMode
+    ? `<td style="width:32px;padding:4px;text-align:center" onclick="event.stopPropagation();toggleItemSelect('${item.id}')">
+        <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${isBulkSel?'var(--primary)':'var(--border)'};background:${isBulkSel?'var(--primary)':'transparent'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;margin:auto;cursor:pointer">${isBulkSel?'✓':''}</div>
+       </td>`
+    : `<td style="width:28px"></td>`;
 
-  return `<tr class="expandable"
+  const rowClick = _bulkMode
+    ? `toggleItemSelect('${item.id}')`
+    : `toggleExpand('${item.id}')`;
+
+  return `<tr class="expandable ${isBulkSel ? 'bulk-selected' : ''}"
     data-item-id="${item.id}"
     data-item-cat="${esc(item.category)}"
     ondragover="onRowDragOver(event,'${esc(item.category)}','${dragMode}')"
     ondragleave="onRowDragLeave(event)"
     ondrop="onRowDrop(event,'${dragMode}')"
-    onclick="toggleExpand('${item.id}')">
+    onclick="${rowClick}">
     ${firstCell}
 
     ${editableCell(item, 'name',
