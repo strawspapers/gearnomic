@@ -118,7 +118,10 @@ function applyMigrations() {
   });
   state.templates.forEach(t => { if (!t.carry_types) t.carry_types = {}; });
   // Apply saved unit preference
-  if (state.profile?.units) _units = state.profile.units;
+  if (state.profile?.units) {
+    _units = state.profile.units;
+    syncUnitBtns();
+  }
 
   // ── Migration: trip.gear_ids → loadout_ids ──────────────────
   // Any trip that still has gear_ids (old model) gets an auto-created
@@ -229,9 +232,7 @@ function woz(g) {
 }
 function toggleUnits() {
   _units = _units === 'metric' ? 'imperial' : 'metric';
-  const btn = document.getElementById('unit-toggle-btn');
-  if (btn) btn.textContent = _units === 'metric' ? 'g' : 'oz';
-  // Persist to profile
+  syncUnitBtns();
   if (!state.profile) state.profile = {};
   state.profile.units = _units;
   saveState();
@@ -378,8 +379,48 @@ function showTab(name) {
   currentTab = name;
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+  // Sync mobile bottom nav
+  document.querySelectorAll('.mob-tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   const renders = { dashboard: renderDashboard, gear: renderGear, trips: renderTrips, templates: renderTemplates, wishlist: renderWishlist, food: renderFood, analytics: renderAnalytics };
   if (renders[name]) renders[name]();
+}
+
+function openMobileMore() {
+  document.getElementById('mobile-more-overlay').style.display = 'block';
+  document.getElementById('mobile-more-drawer').style.display  = 'block';
+}
+function closeMobileMore() {
+  document.getElementById('mobile-more-overlay').style.display = 'none';
+  document.getElementById('mobile-more-drawer').style.display  = 'none';
+}
+
+function openMobileAccountMenu() {
+  // On mobile, open a simple bottom sheet with account actions
+  const isUser = !!_user;
+  const html = isUser
+    ? `<div style="padding:.5rem 0">
+        <div style="font-size:12px;color:var(--text-3);padding:8px 0 12px;border-bottom:.5px solid var(--border-2);margin-bottom:8px">${esc(_user.email)}</div>
+        <button class="mob-drawer-btn" style="width:100%;margin-bottom:6px" onclick="openSettings();closeModal()">⚙ Settings</button>
+        <button class="mob-drawer-btn" style="width:100%;margin-bottom:6px" onclick="toggleUnits();closeModal()">Switch units (${_units === 'metric' ? 'metric → imperial' : 'imperial → metric'})</button>
+        <button class="mob-drawer-btn" style="width:100%;margin-bottom:6px" onclick="exportData();closeModal()">↓ Export data</button>
+        <button class="mob-drawer-btn" style="width:100%;color:var(--danger);margin-bottom:6px" onclick="signOut();closeModal()">→ Sign out</button>
+      </div>
+      <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`
+    : `<div style="padding:.5rem 0">
+        <button class="mob-drawer-btn" style="width:100%;margin-bottom:8px" onclick="showAuthModal();closeModal()">Sign in / Create account</button>
+        <button class="mob-drawer-btn" style="width:100%;margin-bottom:8px" onclick="toggleUnits();closeModal()">Switch units (${_units === 'metric' ? 'metric → imperial' : 'imperial → metric'})</button>
+      </div>
+      <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`;
+  openModal('Account', html);
+}
+
+// Keep mobile unit btn in sync
+function syncUnitBtns() {
+  const label = _units === 'metric' ? 'g' : 'oz';
+  const d = document.getElementById('unit-toggle-btn');
+  const m = document.getElementById('unit-toggle-btn-mobile');
+  if (d) d.textContent = label;
+  if (m) m.textContent = label;
 }
 
 // ============================================================
@@ -3600,7 +3641,7 @@ function renderFoodPlanDetail(plan) {
             ${dayCal ? `${dayCal.toLocaleString()} cal · ${wg(dayW)}` : 'No meals logged yet'}
           </span>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${slots}</div>
+        <div class="meal-day-grid">${slots}</div>
       </div>`;
   }).join('');
 
@@ -5249,6 +5290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load local data so the app is ready in the background
   loadState();
+  syncUnitBtns();
 
   // Render dashboard immediately with local data — no waiting for auth
   renderDashboard();
