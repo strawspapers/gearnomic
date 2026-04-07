@@ -1536,10 +1536,9 @@ function tripCard(t) {
   const loadoutCount = (t.loadout_ids || []).length;
   const isActive = activeTripId === t.id;
 
-  return `<div onclick="openTripDetail('${t.id}')"
-    style="display:flex;align-items:center;gap:12px;padding:.625rem .875rem;background:var(--surface);border:1px solid ${isActive ? 'var(--primary)' : 'var(--border)'};border-radius:var(--r-lg);cursor:pointer;transition:border-color .12s"
+  return `<div style="display:flex;align-items:center;gap:12px;padding:.625rem .875rem;background:var(--surface);border:1px solid ${isActive ? 'var(--primary)' : 'var(--border)'};border-radius:var(--r-lg);transition:border-color .12s"
     onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='${isActive ? 'var(--primary)' : 'var(--border)'}'">
-    <div style="flex:1;min-width:0">
+    <div style="flex:1;min-width:0;cursor:pointer" onclick="openTripDetail('${t.id}')">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
         <span style="font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}</span>
         ${badge(STATUS_BADGE[t.status] || 'badge-gray', STATUS_LABEL[t.status] || t.status)}
@@ -1548,9 +1547,12 @@ function tripCard(t) {
         ${t.location ? esc(t.location) + ' · ' : ''}${t.start_date || 'No date'}${nights != null ? ` · ${nights}n` : ''}
       </div>
     </div>
-    <div style="text-align:right;flex-shrink:0">
-      <div class="mono" style="font-size:12px;font-weight:500">${wg(tw)}</div>
-      <div style="font-size:11px;color:var(--text-3)">${loadoutCount} loadout${loadoutCount !== 1 ? 's' : ''}</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+      <div style="text-align:right">
+        <div class="mono" style="font-size:12px;font-weight:500">${wg(tw)}</div>
+        <div style="font-size:11px;color:var(--text-3)">${loadoutCount} loadout${loadoutCount !== 1 ? 's' : ''}</div>
+      </div>
+      <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();shareItem('${t.id}','trip')" title="Share trip">↗</button>
     </div>
   </div>`;
 }
@@ -2432,6 +2434,7 @@ function templateCard(tmpl) {
     <div class="template-card-actions" onclick="event.stopPropagation()">
       <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Attach to trip…</button>
       <button class="btn btn-sm" onclick="openTemplateForm('${tmpl.id}')">Edit</button>
+      <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template')" title="Share via link">Share ↗</button>
       <button class="btn btn-sm btn-danger" onclick="deleteTemplate('${tmpl.id}')">Delete</button>
     </div>
   </div>`;
@@ -4597,6 +4600,12 @@ async function submitAuth() {
 async function signOut() {
   if (_supabaseReady()) await _sb.auth.signOut();
   _user = null;
+  _isSupporter = false;
+  // Clear local data so the next user/session starts fresh
+  try { localStorage.removeItem('trailkit_v1'); } catch(e) {}
+  // Reset to demo state
+  loadState();
+  refreshAll();
   updateHeaderAuth();
   toast('Signed out.');
 }
@@ -5015,11 +5024,31 @@ function nanoId(len) {
 // the recipient can import everything even if they have different item IDs
 function buildSharePayload(obj, kind) {
   const payload = JSON.parse(JSON.stringify(obj));
+
   // Embed full item objects so the share is self-contained
-  payload._shared_items = (obj.gear_ids || []).map(id => {
+  let gearIds = obj.gear_ids || [];
+
+  // Trips reference items via loadout_ids → each loadout's gear_ids
+  if (kind === 'trip' && obj.loadout_ids) {
+    const seen = new Set();
+    gearIds = [];
+    (obj.loadout_ids).forEach(lid => {
+      const loadout = state.templates.find(t => t.id === lid);
+      (loadout?.gear_ids || []).forEach(id => {
+        if (!seen.has(id)) { seen.add(id); gearIds.push(id); }
+      });
+    });
+    // Also embed each loadout so carry types are preserved
+    payload._shared_loadouts = (obj.loadout_ids).map(lid =>
+      state.templates.find(t => t.id === lid)
+    ).filter(Boolean).map(l => JSON.parse(JSON.stringify(l)));
+  }
+
+  payload._shared_items = gearIds.map(id => {
     const item = state.items.find(i => i.id === id);
     return item ? JSON.parse(JSON.stringify(item)) : null;
   }).filter(Boolean);
+
   payload._kind    = kind;
   payload._version = 1;
   return payload;
