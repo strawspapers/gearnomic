@@ -2229,8 +2229,18 @@ function renderAnalytics() {
   // ── Adventure stats (all users) ───────────────────────────
   renderAdventureStats(completedTrips);
 
-  // ── Free tier: weight chart + 2 metrics + blurred preview ─
+  // ── Free tier: real metrics where possible, blurred for Supporter-only ─
   if (!_isSupporter) {
+    // Reusable blur overlay wrapper — title stays outside, only content is blurred
+    const blurWrap = (content) => `
+      <div style="position:relative;border-radius:var(--r-md);overflow:hidden">
+        <div style="filter:blur(5px);pointer-events:none;user-select:none">${content}</div>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(237,232,223,.55);backdrop-filter:blur(2px)">
+          <div style="font-size:12px;font-weight:500;margin-bottom:.5rem;color:var(--text-1)">🔒 Supporter feature</div>
+          <button class="btn btn-primary btn-sm" onclick="openUpgradeModal()">Upgrade to unlock</button>
+        </div>
+      </div>`;
+
     document.getElementById('analytics-metrics').innerHTML = `
       <div class="metric-card">
         <div class="metric-label">Total gear weight</div>
@@ -2243,27 +2253,27 @@ function renderAnalytics() {
         <div class="metric-sub">${state.items.filter(i=>i.cost_usd>0).length} items with cost data</div>
       </div>
       <div class="metric-card" style="position:relative;overflow:hidden">
-        <div style="filter:blur(4px);pointer-events:none;user-select:none">
-          <div class="metric-label">Avg cost efficiency</div>
+        <div class="metric-label">Avg cost efficiency</div>
+        <div style="filter:blur(5px);pointer-events:none;user-select:none">
           <div class="metric-val">$1.84</div>
           <div class="metric-sub">per gram · 24 items</div>
         </div>
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
-          <button class="btn btn-xs btn-primary" onclick="openUpgradeModal()">Supporter only</button>
+        <div style="position:absolute;bottom:0;left:0;right:0;top:36px;display:flex;align-items:center;justify-content:center">
+          <button class="btn btn-xs btn-primary" onclick="openUpgradeModal()">Upgrade</button>
         </div>
       </div>
       <div class="metric-card" style="position:relative;overflow:hidden">
-        <div style="filter:blur(4px);pointer-events:none;user-select:none">
-          <div class="metric-label">Gear never used</div>
+        <div class="metric-label">Gear never used</div>
+        <div style="filter:blur(5px);pointer-events:none;user-select:none">
           <div class="metric-val">8</div>
           <div class="metric-sub">32% of closet untested</div>
         </div>
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
-          <button class="btn btn-xs btn-primary" onclick="openUpgradeModal()">Supporter only</button>
+        <div style="position:absolute;bottom:0;left:0;right:0;top:36px;display:flex;align-items:center;justify-content:center">
+          <button class="btn btn-xs btn-primary" onclick="openUpgradeModal()">Upgrade</button>
         </div>
       </div>`;
 
-    // Free users get: weight chart + targets
+    // Weight by category — visible for free
     if (chartWeight) chartWeight.destroy();
     const ctxW = document.getElementById('chart-weight')?.getContext('2d');
     if (ctxW) chartWeight = new Chart(ctxW, {
@@ -2279,7 +2289,22 @@ function renderAnalytics() {
       }
     });
 
-    // Weight targets
+    // Cost distribution — title stays, canvas blurred
+    const ctxC = document.getElementById('chart-cost');
+    if (ctxC) {
+      const parent = ctxC.parentElement;
+      // Remove any existing overlay
+      parent.querySelectorAll('.analytics-lock-overlay').forEach(d => d.remove());
+      parent.style.position = 'relative';
+      ctxC.style.filter = 'blur(4px)';
+      const overlay = document.createElement('div');
+      overlay.className = 'analytics-lock-overlay';
+      overlay.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(237,232,223,.5);backdrop-filter:blur(2px);border-radius:var(--r-lg)';
+      overlay.innerHTML = `<div style="font-size:12px;font-weight:500;margin-bottom:.5rem;color:var(--text-1)">🔒 Supporter feature</div><button class="btn btn-primary btn-sm" onclick="openUpgradeModal()">Upgrade to unlock</button>`;
+      parent.appendChild(overlay);
+    }
+
+    // Weight targets — visible for free
     const targetsHtml = state.categories.filter(cat => cat.target_g).map(cat => {
       const w = cw[cat.name] || 0;
       const p = pct(w, cat.target_g);
@@ -2291,52 +2316,37 @@ function renderAnalytics() {
     }).join('');
     document.getElementById('analytics-targets').innerHTML = targetsHtml || `<div class="empty-state"><p>No category weight targets set.</p></div>`;
 
-    // Blurred previews for paid sections
-    const lockedHtml = (label) => `
-      <div style="position:relative;border-radius:var(--r-lg);overflow:hidden">
-        <div style="filter:blur(5px);pointer-events:none;user-select:none;padding:1rem">
-          <div style="height:160px;background:linear-gradient(135deg,var(--surface-2),var(--surface-3));border-radius:var(--r-md);display:flex;align-items:center;justify-content:center">
-            <div style="font-size:13px;color:var(--text-3)">${label}</div>
-          </div>
-        </div>
-        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(237,232,223,.5);backdrop-filter:blur(2px)">
-          <div style="font-size:13px;font-weight:500;margin-bottom:.5rem;color:var(--text-1)">🔒 Supporter feature</div>
-          <button class="btn btn-primary btn-sm" onclick="openUpgradeModal()">Upgrade to unlock</button>
-        </div>
-      </div>`;
-
-    // Render locked sections in place of paid charts
-    const tripWrap = document.getElementById('analytics-trips-chart-wrap');
+    // Trip weight history — title visible in HTML, content blurred
+    const tripWrap  = document.getElementById('analytics-trips-chart-wrap');
     const tripEmpty = document.getElementById('analytics-trips-empty');
-    if (tripWrap)  tripWrap.innerHTML  = lockedHtml('Trip weight history chart');
+    if (tripWrap) tripWrap.innerHTML = blurWrap(`
+      <div style="height:160px;background:linear-gradient(to right,var(--surface-2),var(--surface-3));border-radius:var(--r-md);display:flex;align-items:flex-end;justify-content:space-around;padding:16px 12px">
+        ${[60,80,45,95,70,55,85].map(h => `<div style="width:24px;background:var(--primary-l);border-radius:3px 3px 0 0;height:${h}%"></div>`).join('')}
+      </div>`);
     if (tripEmpty) tripEmpty.style.display = 'none';
-    document.getElementById('analytics-value').innerHTML  = lockedHtml('Best & worst value analysis');
-    document.getElementById('analytics-unused').innerHTML = lockedHtml('Gear never used list');
 
-    // Cost chart — blurred
-    const ctxC = document.getElementById('chart-cost');
-    if (ctxC) {
-      const parent = ctxC.parentElement;
-      parent.style.position = 'relative';
-      const overlay = document.createElement('div');
-      overlay.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(237,232,223,.6);backdrop-filter:blur(3px);border-radius:var(--r-lg)';
-      overlay.innerHTML = `<div style="font-size:13px;font-weight:500;margin-bottom:.5rem;color:var(--text-1)">🔒 Supporter feature</div><button class="btn btn-primary btn-sm" onclick="openUpgradeModal()">Upgrade to unlock</button>`;
-      parent.appendChild(overlay);
-    }
+    // Value analysis — title visible in HTML, content blurred
+    document.getElementById('analytics-value').innerHTML = blurWrap(`
+      ${['Titanium Spork','Wind Shirt','Cuben Stuff Sack','Sleeping Pad Liner'].map((n,i) =>
+        `<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border-2)">
+          <span>${n}</span><span style="color:var(--${i<2?'success':'danger'})">${i<2?'$0.00'+ (i===0?'2':'8'):'$1.'+i+'0'}/g</span>
+        </div>`).join('')}`);
 
-    // Usage table — blurred
+    // Gear never used — title visible in HTML, content blurred
+    document.getElementById('analytics-unused').innerHTML = blurWrap(`
+      ${['Rain Jacket','Bivy Cover','Ice Axe','Crampons','Gaiters'].map(n =>
+        `<div style="padding:6px 0;border-bottom:1px solid var(--border-2);font-size:13px;color:var(--text-2)">${n}</div>`
+      ).join('')}`);
+
+    // Most used table — title visible in HTML, rows blurred
     document.getElementById('analytics-usage').innerHTML = `
       <tr><td colspan="5" style="padding:0">
-        <div style="position:relative;overflow:hidden">
-          <div style="filter:blur(3px);pointer-events:none;padding:8px 12px">
+        ${blurWrap(`
+          <table style="width:100%;border-collapse:collapse">
             ${['Trail Runners','Sleeping Bag','Backpack','Rain Jacket','Water Filter'].map(n =>
-              `<div style="padding:6px 0;border-bottom:1px solid var(--border-2);font-size:13px;color:var(--text-2)">${n}</div>`
+              `<tr><td style="padding:8px 12px;font-size:13px;color:var(--text-2);border-bottom:1px solid var(--border-2)">${n}</td><td style="padding:8px 12px;font-size:12px;color:var(--text-3)">124 days</td></tr>`
             ).join('')}
-          </div>
-          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(237,232,223,.5)">
-            <button class="btn btn-primary btn-sm" onclick="openUpgradeModal()">Upgrade to see usage data</button>
-          </div>
-        </div>
+          </table>`)}
       </td></tr>`;
     return;
   }
