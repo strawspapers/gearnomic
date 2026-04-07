@@ -127,8 +127,9 @@ function applyMigrations() {
   // Any trip that still has gear_ids (old model) gets an auto-created
   // loadout so no gear is lost. The trip then references it via loadout_ids.
   state.trips.forEach(t => {
-    if (!t.carry_types)  t.carry_types  = {};
-    if (!t.meal_plan_id) t.meal_plan_id = null;
+    if (!t.carry_types)    t.carry_types    = {};
+    if (!t.meal_plan_id)   t.meal_plan_id   = null;
+    if (!t.item_quantities) t.item_quantities = {};
 
     if (t.gear_ids && t.gear_ids.length && !t.loadout_ids) {
       // Create an auto-loadout from the trip's existing gear list
@@ -311,7 +312,11 @@ function prog(val, max, trackClass) {
 }
 
 function tripWeight(trip) {
-  return tripUniqueItems(trip).reduce((s, item) => s + (item.weight_g || 0), 0);
+  const qtys = trip.item_quantities || {};
+  return tripUniqueItems(trip).reduce((s, item) => {
+    const qty = qtys[item.id] ?? 1;
+    return s + (item.weight_g || 0) * qty;
+  }, 0);
 }
 
 // Returns deduplicated item objects across all loadouts attached to a trip
@@ -330,6 +335,26 @@ function tripUniqueItems(trip) {
     });
   });
   return items;
+}
+
+// Get per-trip quantity for an item (defaults to 1)
+function tripItemQty(trip, itemId) {
+  return (trip.item_quantities || {})[itemId] ?? 1;
+}
+
+// Set per-trip quantity for an item
+function setTripItemQty(tripId, itemId, qty) {
+  const trip = state.trips.find(t => t.id === tripId);
+  if (!trip) return;
+  if (!trip.item_quantities) trip.item_quantities = {};
+  const n = Math.max(0, parseInt(qty) || 1);
+  if (n === 1) {
+    delete trip.item_quantities[itemId]; // clean up — 1 is the default
+  } else {
+    trip.item_quantities[itemId] = n;
+  }
+  saveState();
+  renderTripDetail(trip);
 }
 
 // Get carry type for an item across any attached loadout
@@ -1578,8 +1603,14 @@ function renderTripDetail(trip) {
 
   const tw     = tripWeight(trip);
   const items  = tripUniqueItems(trip);
-  const wornW  = items.reduce((s, i) => s + (tripCarryType(trip, i.id) === 'worn'       ? (i.weight_g||0) : 0), 0);
-  const consW  = items.reduce((s, i) => s + (tripCarryType(trip, i.id) === 'consumable' ? (i.weight_g||0) : 0), 0);
+  const wornW  = items.reduce((s, i) => {
+    const qty = tripItemQty(trip, i.id);
+    return s + (tripCarryType(trip, i.id) === 'worn' ? (i.weight_g||0) * qty : 0);
+  }, 0);
+  const consW  = items.reduce((s, i) => {
+    const qty = tripItemQty(trip, i.id);
+    return s + (tripCarryType(trip, i.id) === 'consumable' ? (i.weight_g||0) * qty : 0);
+  }, 0);
   const baseW  = tw - wornW - consW;
   const nights = trip.start_date && trip.end_date
     ? Math.round((new Date(trip.end_date) - new Date(trip.start_date)) / 86400000) : null;
@@ -1695,12 +1726,12 @@ function renderTripDetail(trip) {
         <table class="data-table">
           <thead><tr>
             <th style="width:28px;padding:6px 4px"></th>
-            <th>Item</th><th>Weight</th><th>Carry</th><th>Cost</th>
+            <th>Item</th><th>Weight</th><th>Carry</th><th>Qty</th><th>Cost</th>
           </tr></thead>
           <tbody id="trip-detail-gear-tbody">
             ${allGearIds.length
               ? catGroupedGearTableFromIds(allGearIds, trip)
-              : '<tr><td colspan="5"><div class="empty-state">No gear in attached loadouts.</div></td></tr>'}
+              : '<tr><td colspan="6"><div class="empty-state">No gear in attached loadouts.</div></td></tr>'}
           </tbody>
         </table>
       </div>
@@ -1824,15 +1855,28 @@ function catGroupedGearTableFromIds(gearIds, trip) {
   return sorted.map(cat => {
     const catItems = byCat[cat];
     const headerRow = `<tr class="cat-header-row" data-cat="${esc(cat)}">
-      <td style="width:28px"></td><td colspan="4">${esc(cat)}</td></tr>`;
+      <td style="width:28px"></td><td colspan="5">${esc(cat)}</td></tr>`;
     const itemRows = catItems.map(item => {
-      const ct = tripCarryType(trip, item.id);
+      const ct  = tripCarryType(trip, item.id);
       const ctLabel = ct === 'worn' ? badge('carry-worn','W worn') : ct === 'consumable' ? badge('carry-consumable','C consumable') : '';
+      const qty = tripItemQty(trip, item.id);
+      const totalW = (item.weight_g || 0) * qty;
       return `<tr>
         <td style="width:28px"></td>
         <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand||'')}</div></td>
-        <td class="mono" style="font-size:12px">${wg(item.weight_g)}</td>
+        <td class="mono" style="font-size:12px">
+          ${qty > 1 ? `${wg(totalW)} <span style="color:var(--text-3);font-size:11px">(${qty}×${wg(item.weight_g)})</span>` : wg(item.weight_g)}
+        </td>
         <td>${ctLabel}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:4px">
+            <button class="btn btn-xs btn-ghost" style="padding:2px 6px;min-width:22px"
+              onclick="setTripItemQty('${trip.id}','${item.id}',${qty-1})">−</button>
+            <span style="font-size:12px;min-width:16px;text-align:center">${qty}</span>
+            <button class="btn btn-xs btn-ghost" style="padding:2px 6px;min-width:22px"
+              onclick="setTripItemQty('${trip.id}','${item.id}',${qty+1})">+</button>
+          </div>
+        </td>
         <td style="font-size:12px">${usd(item.cost_usd)}</td>
       </tr>`;
     }).join('');
