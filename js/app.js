@@ -1134,7 +1134,8 @@ function renderGear() {
 
 function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
   visibleCustomFields = visibleCustomFields || [];
-  const showHandle = inCatSort || inCustomSort;
+  // In bulk mode, never show drag handles — show checkboxes instead
+  const showHandle = !_bulkMode && (inCatSort || inCustomSort);
   const isExpanded = gearExpandedId === item.id;
   const customVals = item.custom_values || {};
   const allFields  = state.custom_fields || [];
