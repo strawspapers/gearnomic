@@ -44,7 +44,7 @@
           <button id="sync-upgrade-nudge" onclick="openUpgradeModal()"
             class="btn btn-primary btn-sm"
             style="display:none;gap:5px;white-space:nowrap">
-            ☁ Enable sync
+            Enable sync
           </button>
           <div style="position:relative">
             <button class="btn btn-sm" id="user-menu-btn" onclick="toggleUserMenu()" style="display:flex;align-items:center;gap:6px">
@@ -54,7 +54,7 @@
             <div id="user-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-md);z-index:200;overflow:hidden">
               <!-- Supporter status row — changes based on tier -->
               <div id="user-menu-tier" style="padding:10px 14px;border-bottom:1px solid var(--border-2);font-size:12px"></div>
-              <button onclick="openSettings();toggleUserMenu()" style="display:block;width:100%;text-align:left;padding:10px 14px;font-size:13px;background:none;border:none;cursor:pointer;font-family:inherit;color:var(--text-1)" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">⚙ Settings</button>
+              <button onclick="openSettings();toggleUserMenu()" style="display:block;width:100%;text-align:left;padding:10px 14px;font-size:13px;background:none;border:none;cursor:pointer;font-family:inherit;color:var(--text-1)" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">Settings</button>
               <button onclick="exportData();toggleUserMenu()" style="display:block;width:100%;text-align:left;padding:10px 14px;font-size:13px;background:none;border:none;cursor:pointer;font-family:inherit;color:var(--text-1)" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">↓ Export data</button>
               <div style="height:1px;background:var(--border-2);margin:2px 0"></div>
               <button onclick="signOut();toggleUserMenu()" style="display:block;width:100%;text-align:left;padding:10px 14px;font-size:13px;background:none;border:none;cursor:pointer;font-family:inherit;color:var(--danger)" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">→ Sign out</button>
@@ -483,7 +483,7 @@
     <div class="footer-bottom">
       <span>© <span id="footer-year"></span> Gearnomic. All rights reserved.</span>
       <span style="display:flex;align-items:center;gap:12px">
-        <span style="color:var(--text-3)">Built for the trail ⛰</span>
+        <span style="color:var(--text-3)">Built for the trail</span>
         <a href="https://supabase.com" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:4px;color:var(--text-3);font-size:11px">
           Powered by Supabase
         </a>
