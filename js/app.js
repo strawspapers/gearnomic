@@ -1577,7 +1577,7 @@ function tripCard(t) {
         <div class="mono" style="font-size:12px;font-weight:500">${wg(tw)}</div>
         <div style="font-size:11px;color:var(--text-3)">${loadoutCount} loadout${loadoutCount !== 1 ? 's' : ''}</div>
       </div>
-      <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();shareItem('${t.id}','trip')" title="Share trip">Share</button>
+      <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();shareItem('${t.id}','trip')" title="Share trip">Share ↗</button>
     </div>
   </div>`;
 }
@@ -5270,19 +5270,34 @@ function buildSharePayload(obj, kind) {
 
 async function shareItem(id, kind) {
   if (!_supabaseReady()) {
-    toast('Sign in to share — sharing requires a Gearnomic account.');
+    openModal('Sign in to share', `
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
+        Sharing requires a Gearnomic account so your link stays live. Sign in or create a free account to share.
+      </p>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="closeModal();showAuthModal()">Sign in</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      </div>`);
     return;
   }
   if (!_user) {
-    toast('Sign in to share gear lists.');
-    showAuthModal();
+    openModal('Sign in to share', `
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
+        Sharing requires a Gearnomic account. Sign in or create a free account — sharing is free for everyone.
+      </p>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="closeModal();showAuthModal()">Sign in</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      </div>`);
     return;
   }
 
   const obj = kind === 'trip'
     ? state.trips.find(t => t.id === id)
     : state.templates.find(t => t.id === id);
-  if (!obj) return;
+  if (!obj) { toast('Could not find item to share.'); return; }
+
+  toast('Creating share link…');
 
   const token   = nanoId(10);
   const payload = buildSharePayload(obj, kind);
@@ -5295,7 +5310,15 @@ async function shareItem(id, kind) {
     payload,
   });
 
-  if (error) { toast('Share failed: ' + error.message); return; }
+  if (error) {
+    console.error('Share error:', error);
+    openModal('Share failed', `
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">Could not create share link.</p>
+      <p style="font-size:12px;color:var(--danger);margin-bottom:1rem;font-family:monospace">${esc(error.message)}</p>
+      <p style="font-size:12px;color:var(--text-3)">If this keeps happening, make sure the <code>shared_lists</code> table exists — run <code>supabase/02_shared_lists.sql</code> in your Supabase SQL editor.</p>
+      <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
+    return;
+  }
 
   const url = `${window.location.origin}${window.location.pathname}#share=${token}`;
   try {
@@ -5311,7 +5334,6 @@ async function shareItem(id, kind) {
       <p style="font-size:11.5px;color:var(--text-3)">The link stays active until you delete this ${kind}. Item weights and carry types are included.</p>
       <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`);
   } catch {
-    // Clipboard blocked — just show the URL
     openModal('Share link', `
       <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">Copy this link and share it:</p>
       <input class="input input-full" value="${url}" readonly onclick="this.select()" style="font-size:12px">
