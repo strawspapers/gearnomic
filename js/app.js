@@ -1577,7 +1577,7 @@ function tripCard(t) {
         <div class="mono" style="font-size:12px;font-weight:500">${wg(tw)}</div>
         <div style="font-size:11px;color:var(--text-3)">${loadoutCount} loadout${loadoutCount !== 1 ? 's' : ''}</div>
       </div>
-      <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();shareItem('${t.id}','trip')" title="Share trip">↗</button>
+      <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();shareItem('${t.id}','trip')" title="Share trip">Share</button>
     </div>
   </div>`;
 }
@@ -2137,55 +2137,123 @@ function convertWishToGear(id) {
 // ============================================================
 // ANALYTICS
 // ============================================================
+// ── Adventure stats year state ─────────────────────────────
+let _adventureYear = 'all'; // 'all' | 'year' | number (e.g. 2024)
+
+function setAdventureYear(mode, year) {
+  if (mode === 'all')  _adventureYear = 'all';
+  else if (mode === 'year') _adventureYear = new Date().getFullYear();
+  else if (mode === 'pick') _adventureYear = parseInt(year);
+
+  // Update button states
+  const btnAll  = document.getElementById('adv-btn-alltime');
+  const btnYear = document.getElementById('adv-btn-year');
+  const picker  = document.getElementById('adv-year-picker');
+  const curYear = new Date().getFullYear();
+
+  if (btnAll)  btnAll.className  = `btn btn-xs ${_adventureYear === 'all' ? 'btn-primary' : 'btn-ghost'}`;
+  if (btnYear) btnYear.className = `btn btn-xs ${_adventureYear === curYear ? 'btn-primary' : 'btn-ghost'}`;
+  if (picker) {
+    const isPickedYear = typeof _adventureYear === 'number' && _adventureYear !== curYear;
+    picker.style.display = isPickedYear ? '' : 'none';
+    if (isPickedYear) picker.value = _adventureYear;
+  }
+
+  // Re-render with new filter
+  const completedTrips = state.trips.filter(t => t.status === 'completed');
+  renderAdventureStats(completedTrips);
+}
+
 function renderAdventureStats(completedTrips) {
-  const el = document.getElementById('analytics-adventure');
+  const el   = document.getElementById('analytics-adventure');
   const card = document.getElementById('analytics-adventure-card');
   if (!el) return;
 
-  // Bike trip types — bikepacking + any custom type containing "bike" or "cycling"
+  const curYear = new Date().getFullYear();
+
+  // Build year picker options from years that have completed trips
+  const yearsWithTrips = [...new Set(
+    completedTrips
+      .filter(t => t.start_date)
+      .map(t => parseInt(t.start_date.slice(0, 4)))
+      .filter(y => !isNaN(y))
+  )].sort((a, b) => b - a);
+
+  const picker = document.getElementById('adv-year-picker');
+  if (picker && yearsWithTrips.length > 1) {
+    picker.innerHTML = yearsWithTrips.map(y =>
+      `<option value="${y}" ${y === _adventureYear ? 'selected' : ''}>${y}</option>`
+    ).join('');
+  }
+
+  // Filter trips to selected period
+  let trips = completedTrips;
+  let periodLabel = 'all time';
+  if (_adventureYear !== 'all') {
+    trips = completedTrips.filter(t => {
+      const y = t.start_date ? parseInt(t.start_date.slice(0, 4)) : null;
+      return y === _adventureYear;
+    });
+    periodLabel = _adventureYear === curYear ? 'this year' : String(_adventureYear);
+  }
+
+  // Show year picker button only if there are multiple years of data
+  const btnYear = document.getElementById('adv-btn-year');
+  const pickerBtn = document.getElementById('adv-year-picker');
+  if (yearsWithTrips.length > 1 && btnYear) {
+    // Show "pick year" option — make the year button open the picker
+    btnYear.title = 'Filter by year';
+    if (yearsWithTrips.length > 2 && pickerBtn) {
+      // More than 2 years — show dropdown when not on "all time"
+      if (_adventureYear !== 'all' && _adventureYear !== curYear) {
+        pickerBtn.style.display = '';
+      }
+    }
+  }
+
+  // Bike trip types
   const BIKE_TYPES = new Set(
     state.trip_types
       .filter(t => t.value === 'bikepacking' || /bike|cycl/i.test(t.value + t.label))
       .map(t => t.value)
   );
 
-  const trips = completedTrips;
-  const totalTrips  = trips.length;
+  const totalTrips = trips.length;
 
-  // Nights: from start/end dates; fallback to manually-set nights field
-  const totalNights = trips.reduce((s, t) => {
-    if (t.start_date && t.end_date) {
-      return s + Math.max(0, Math.round((new Date(t.end_date) - new Date(t.start_date)) / 86400000));
-    }
-    return s + (t.nights || 0);
-  }, 0);
+  const tripNights = t => {
+    if (t.start_date && t.end_date)
+      return Math.max(0, Math.round((new Date(t.end_date) - new Date(t.start_date)) / 86400000));
+    return t.nights || 0;
+  };
 
-  // Miles hiked: all completed non-bike trips with miles
-  const hikingTrips = trips.filter(t => !BIKE_TYPES.has(t.trip_type) && t.miles > 0);
+  const totalNights = trips.reduce((s, t) => s + tripNights(t), 0);
+
+  const hikingTrips    = trips.filter(t => !BIKE_TYPES.has(t.trip_type) && t.miles > 0);
   const totalHikedMiles = hikingTrips.reduce((s, t) => s + (parseFloat(t.miles) || 0), 0);
 
-  // Miles biked: completed bike trips with miles
-  const bikeTrips = trips.filter(t => BIKE_TYPES.has(t.trip_type) && t.miles > 0);
+  const bikeTrips      = trips.filter(t => BIKE_TYPES.has(t.trip_type) && t.miles > 0);
   const totalBikedMiles = bikeTrips.reduce((s, t) => s + (parseFloat(t.miles) || 0), 0);
 
-  // Furthest single trip
   const furthest = trips.filter(t => t.miles > 0).sort((a, b) => b.miles - a.miles)[0];
 
-  // Most nights on a single trip
-  const longestTrip = trips.map(t => {
-    const n = t.start_date && t.end_date
-      ? Math.round((new Date(t.end_date) - new Date(t.start_date)) / 86400000)
-      : (t.nights || 0);
-    return { trip: t, nights: n };
-  }).sort((a, b) => b.nights - a.nights)[0];
+  const longestTrip = trips
+    .map(t => ({ trip: t, nights: tripNights(t) }))
+    .sort((a, b) => b.nights - a.nights)[0];
 
-  if (!totalTrips) {
+  if (!completedTrips.length) {
     el.innerHTML = `<div class="empty-state" style="padding:1rem"><p>No completed trips yet. Mark a trip as completed to see your adventure stats.</p></div>`;
     return;
   }
 
+  if (!totalTrips && _adventureYear !== 'all') {
+    el.innerHTML = `<div style="font-size:13px;color:var(--text-3);text-align:center;padding:1.25rem">No completed trips in ${periodLabel}.</div>`;
+    return;
+  }
+
+  const fmt = n => n % 1 === 0 ? n : n.toFixed(1);
+
   const statItem = (label, value, sub) => `
-    <div style="text-align:center;padding:1rem .75rem">
+    <div style="text-align:center;padding:1rem .75rem;min-width:90px">
       <div style="font-size:28px;font-weight:600;font-family:var(--font-disp);color:var(--primary);line-height:1.1">${value}</div>
       <div style="font-size:12px;font-weight:500;color:var(--text-1);margin-top:4px">${label}</div>
       ${sub ? `<div style="font-size:11px;color:var(--text-3);margin-top:2px">${sub}</div>` : ''}
@@ -2193,20 +2261,45 @@ function renderAdventureStats(completedTrips) {
 
   const divider = `<div style="width:1px;background:var(--border-2);margin:.5rem 0"></div>`;
 
+  // Compare to previous period if viewing a specific year
+  let comparisonNote = '';
+  if (typeof _adventureYear === 'number') {
+    const prevTrips = completedTrips.filter(t => {
+      const y = t.start_date ? parseInt(t.start_date.slice(0, 4)) : null;
+      return y === _adventureYear - 1;
+    });
+    const prevNights = prevTrips.reduce((s, t) => s + tripNights(t), 0);
+    const prevMiles  = prevTrips.reduce((s, t) => s + (parseFloat(t.miles) || 0), 0);
+    const curMiles   = totalHikedMiles + totalBikedMiles;
+    const allMiles   = prevMiles;
+    if (prevTrips.length) {
+      const nightsDiff = totalNights - prevNights;
+      const milesDiff  = curMiles - allMiles;
+      const parts = [];
+      if (nightsDiff !== 0) parts.push(`${nightsDiff > 0 ? '+' : ''}${nightsDiff} nights vs ${_adventureYear - 1}`);
+      if (milesDiff  !== 0 && (totalHikedMiles || totalBikedMiles)) parts.push(`${milesDiff > 0 ? '+' : ''}${fmt(milesDiff)} miles vs ${_adventureYear - 1}`);
+      if (parts.length) comparisonNote = parts.join(' · ');
+    }
+  }
+
   const stats = [
-    statItem('Trips completed', totalTrips, `${totalNights} total nights`),
-    totalNights ? statItem('Nights camped', totalNights, longestTrip?.nights ? `Longest: ${longestTrip.nights}n — ${esc(longestTrip.trip.name)}` : null) : null,
-    totalHikedMiles ? statItem('Miles hiked', totalHikedMiles % 1 === 0 ? totalHikedMiles : totalHikedMiles.toFixed(1), `across ${hikingTrips.length} trip${hikingTrips.length !== 1 ? 's' : ''}`) : null,
-    totalBikedMiles ? statItem('Miles biked', totalBikedMiles % 1 === 0 ? totalBikedMiles : totalBikedMiles.toFixed(1), `across ${bikeTrips.length} bikepacking trip${bikeTrips.length !== 1 ? 's' : ''}`) : null,
-    furthest ? statItem('Longest trip', `${furthest.miles} mi`, esc(furthest.name)) : null,
+    statItem('Trips', totalTrips, periodLabel),
+    totalNights ? statItem('Nights camped', totalNights,
+      longestTrip?.nights ? `Longest: ${longestTrip.nights}n` : null) : null,
+    totalHikedMiles ? statItem('Miles hiked', fmt(totalHikedMiles),
+      `${hikingTrips.length} trip${hikingTrips.length !== 1 ? 's' : ''}`) : null,
+    totalBikedMiles ? statItem('Miles biked', fmt(totalBikedMiles),
+      `${bikeTrips.length} trip${bikeTrips.length !== 1 ? 's' : ''}`) : null,
+    furthest ? statItem('Longest trip', `${fmt(furthest.miles)} mi`, esc(furthest.name)) : null,
   ].filter(Boolean);
 
   el.innerHTML = `
     <div style="display:flex;flex-wrap:wrap;justify-content:space-around;gap:.25rem;padding:.25rem 0">
       ${stats.join(divider)}
     </div>
-    ${totalTrips < 3 ? `<div style="font-size:12px;color:var(--text-3);text-align:center;padding:.625rem 0;border-top:.5px solid var(--border-2);margin-top:.25rem">
-      Stats grow as you log more completed trips. <a onclick="showTab('trips')" style="cursor:pointer">Add a trip →</a>
+    ${comparisonNote ? `<div style="font-size:11.5px;color:var(--text-3);text-align:center;padding:.5rem 0;border-top:.5px solid var(--border-2);margin-top:.25rem">${comparisonNote}</div>` : ''}
+    ${!comparisonNote && totalTrips < 3 && _adventureYear === 'all' ? `<div style="font-size:12px;color:var(--text-3);text-align:center;padding:.625rem 0;border-top:.5px solid var(--border-2);margin-top:.25rem">
+      Stats grow as you log more completed trips. <a onclick="showTab('trips')" style="cursor:pointer">Add a trip</a>
     </div>` : ''}`;
 }
 
@@ -2552,7 +2645,6 @@ function templateCard(tmpl) {
     <div class="template-card-accent"></div>
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div class="template-card-name">${esc(tmpl.name)}</div>
-      ${badge('badge-gray', tmpl.trip_type || 'backpacking')}
     </div>
     <div class="template-card-desc">${esc(tmpl.description || 'No description')}</div>
     <div class="template-card-stats">
@@ -2618,7 +2710,6 @@ function renderTemplateDetail(tmpl) {
     <div class="card-header" style="margin-bottom:.75rem">
       <div>
         <span class="card-title" style="font-size:17px;font-family:var(--font-disp)">${esc(tmpl.name)}</span>
-        &nbsp;${badge('badge-gray', tmpl.trip_type || 'backpacking')}
       </div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Attach to trip…</button>
@@ -2694,18 +2785,6 @@ function templateFormHtml(tmpl) {
   return `
     <div class="form-grid">
       <div class="form-row"><label class="form-label">Template name *</label><input class="input input-full" id="tmf-name" value="${esc(tmpl.name || '')}" placeholder="e.g. 3-Season Ultralight Base"></div>
-      <div class="form-row">
-        <label class="form-label">Trip type</label>
-        <select class="select input-full" id="tmf-type" onchange="handleTripTypeChange('tmf')">
-          ${tripTypeOptions(tmpl.trip_type || 'backpacking')}
-        </select>
-        <div id="tmf-new-type-row" style="display:none;margin-top:6px;gap:6px;align-items:center">
-          <input class="input" id="tmf-new-type-input" placeholder="e.g. Ski touring, Trail running…"
-            style="flex:1" onkeydown="newTripTypeKeydown(event,'tmf')">
-          <button type="button" class="btn btn-sm btn-primary" onclick="confirmNewTripType('tmf')">Add</button>
-          <button type="button" class="btn btn-sm" onclick="cancelNewTripType('tmf')">Cancel</button>
-        </div>
-      </div>
     </div>
     <div class="form-row"><label class="form-label">Description</label>
       <input class="input input-full" id="tmf-desc" value="${esc(tmpl.description || '')}" placeholder="When would you use this kit?"></div>
@@ -2770,7 +2849,7 @@ function saveTemplate(id) {
     id:           id || uid('tmpl'),
     name,
     description:  document.getElementById('tmf-desc').value.trim(),
-    trip_type:    document.getElementById('tmf-type').value === '__new__' ? 'other' : document.getElementById('tmf-type').value,
+    trip_type:    id ? (state.templates.find(t => t.id === id)?.trip_type || null) : null,
     gear_ids:     gearIds,
     // Carry types: keep existing template's map, or inherit from trip when saving-as-template
     carry_types:  existing ? (existing.carry_types || {}) : inheritedCarryTypes,
