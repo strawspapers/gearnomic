@@ -362,7 +362,12 @@
       <div class="card" style="margin-bottom:1rem" id="analytics-adventure-card">
         <div class="card-header">
           <span class="card-title">Adventure stats</span>
-          <span class="card-sub">from completed trips</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button id="adv-btn-alltime" class="btn btn-xs btn-primary" onclick="setAdventureYear('all')">All time</button>
+            <button id="adv-btn-year" class="btn btn-xs btn-ghost" onclick="setAdventureYear('year')">This year</button>
+            <select id="adv-year-picker" class="select" style="height:28px;font-size:12px;padding:0 6px;display:none"
+              onchange="setAdventureYear('pick', this.value)"></select>
+          </div>
         </div>
         <div id="analytics-adventure"></div>
       </div>
