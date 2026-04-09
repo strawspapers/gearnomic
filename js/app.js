@@ -5623,8 +5623,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       hideAuthModal();
       const cloudLoaded = await loadFromCloud(); // also sets _isSupporter
       if (!cloudLoaded) {
+        // Brand new user — no cloud data yet.
+        // Reset to a clean empty state (don't keep the demo data).
+        state = {
+          items:         [],
+          trips:         [],
+          wishlist:      [],
+          categories:    JSON.parse(JSON.stringify(SEED_DATA.categories)),
+          templates:     [],
+          trip_types:    JSON.parse(JSON.stringify(SEED_DATA.trip_types)),
+          food_plans:    [JSON.parse(JSON.stringify(DEMO_FOOD_PLAN))],
+          recipes:       JSON.parse(JSON.stringify(SEED_DATA.recipes)),
+          custom_fields: [],
+          profile:       { units: _units },
+        };
         await loadSupporterStatus();
-        await syncToCloud();
+        await syncToCloud(); // save clean state to cloud
+        saveState();         // update localStorage too
       }
       refreshAll();
       updateHeaderAuth();
