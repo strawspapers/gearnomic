@@ -56,6 +56,27 @@ function saveState() {
 }
 
 async function syncToCloud() {
+  // In admin impersonation mode — write to the target user's row using the
+  // admin Supabase client (stored in sessionStorage payload's adminUrl + service key not accessible here).
+  // Instead, we set a flag and the admin panel handles the actual write via postMessage.
+  if (window._adminImpersonateMode) {
+    setSyncIndicator('saving');
+    try {
+      const targetId = window._adminImpersonateUserId;
+      const sb = window._adminSb || _sb;
+      if (!targetId || !sb) { setSyncIndicator('error'); return; }
+      const { error } = await sb.from('user_data').upsert(
+        { user_id: targetId, data: state },
+        { onConflict: 'user_id' }
+      );
+      if (error) throw error;
+      setSyncIndicator('saved');
+    } catch(e) {
+      setSyncIndicator('error');
+      console.error('Admin sync failed:', e);
+    }
+    return;
+  }
   if (!_supabaseReady() || !_user || !_isSupporter) return;
   setSyncIndicator('saving');
   try {
@@ -5189,6 +5210,9 @@ function openPrivacyPolicy() {
       <p style="margin-bottom:.875rem"><strong>Local storage</strong><br>
       Your data is also cached in your browser's localStorage for fast offline access. Clearing your browser data will remove this local copy but your cloud backup remains intact if you have an account.</p>
 
+      <p style="margin-bottom:.875rem"><strong>Admin access</strong><br>
+      Gearnomic's operator may access account data for the purpose of providing customer support. This access is logged and limited to diagnosing issues. We do not access your data for any other purpose.</p>
+
       <p style="margin-bottom:.875rem"><strong>Data deletion</strong><br>
       You can delete your account and all associated data at any time from Settings → Account → Delete account.</p>
 
@@ -5548,19 +5572,15 @@ function refreshAll() {
   if (currentTab !== 'dashboard') showTab(currentTab);
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-  // Check for shared list link FIRST — before loading normal app state
-  const hash = window.location.hash;
-  const shareToken = hash.startsWith('#share=') ? hash.slice(7) : null;
+function exitImpersonate() {
+  if (confirm('Exit admin mode? Any unsaved changes will be lost.')) {
+    sessionStorage.removeItem('gn_admin_impersonate');
+    window._adminImpersonateMode = false;
+    window.close();
+  }
+}
 
-  // Load local data so the app is ready in the background
-  loadState();
-  syncUnitBtns();
-
-  // Render dashboard immediately with local data — no waiting for auth
-  renderDashboard();
-
-  // Set up filter listeners
+function setupListeners() {
   document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.addEventListener('click', () => showTab(btn.dataset.tab));
   });
@@ -5573,6 +5593,69 @@ document.addEventListener('DOMContentLoaded', async () => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', () => { if (currentTab === 'wishlist') renderWishlist(); });
   });
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // ── Admin impersonation mode ───────────────────────────
+  const hash = window.location.hash;
+  if (hash === '#admin-impersonate') {
+    const raw = sessionStorage.getItem('gn_admin_impersonate');
+    if (raw) {
+      try {
+        const payload = JSON.parse(raw);
+        // Load the user's data into state
+        if (payload.data) {
+          state = payload.data;
+          applyMigrations();
+          _isSupporter = payload.isSupporter || false;
+        }
+        // Init a service-role Supabase client for writing back to this user's row
+        if (payload.adminUrl && payload.adminKey && typeof supabase !== 'undefined') {
+          window._adminSb = supabase.createClient(payload.adminUrl, payload.adminKey,
+            { auth: { autoRefreshToken: false, persistSession: false } });
+        }
+        // Show persistent admin banner
+        const banner = document.createElement('div');
+        banner.id = 'admin-impersonate-banner';
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#6a3db8;color:#fff;padding:8px 20px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.2)';
+        banner.innerHTML = `
+          <span style="background:rgba(255,255,255,.2);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.06em">ADMIN MODE</span>
+          <span>Viewing account: <strong>${payload.email}</strong></span>
+          <span style="font-size:12px;opacity:.75">Any saves will write to their Supabase account</span>
+          <button onclick="exitImpersonate()" style="margin-left:auto;padding:5px 14px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);border-radius:6px;color:#fff;font-size:12px;cursor:pointer">Exit admin mode</button>`;
+        document.body.prepend(banner);
+        // Offset content so banner doesn't cover header
+        document.getElementById('site-header').style.top = banner.offsetHeight + 'px';
+        // Store userId for saving back
+        window._adminImpersonateUserId = payload.userId;
+        window._adminImpersonateUrl    = payload.adminUrl;
+        // Wire saveState to also push to that user's Supabase row
+        window._adminImpersonateMode = true;
+        renderDashboard();
+        syncUnitBtns();
+        setupListeners();
+        history.replaceState(null, '', window.location.pathname);
+        return; // skip normal auth flow
+      } catch(e) {
+        console.error('Admin impersonation failed:', e);
+        sessionStorage.removeItem('gn_admin_impersonate');
+      }
+    }
+  }
+
+  function exitImpersonateNoop() {} // exitImpersonate is global above
+
+  // Check for shared list link FIRST — before loading normal app state
+  const shareToken = hash.startsWith('#share=') ? hash.slice(7) : null;
+
+  // Load local data so the app is ready in the background
+  loadState();
+  syncUnitBtns();
+
+  // Render dashboard immediately with local data — no waiting for auth
+  renderDashboard();
+
+  setupListeners();
 
   // Footer
   const yearEl = document.getElementById('footer-year');
