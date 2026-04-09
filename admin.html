@@ -6,25 +6,44 @@
   <title>Gearnomic Admin</title>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0ece4;min-height:100vh;color:#1a1a1a}
-    header{background:#2A4032;color:#fff;padding:14px 24px;display:flex;align-items:center;gap:12px}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0ece4;min-height:100vh;color:#1a1a1a;font-size:14px}
+    header{background:#2A4032;color:#fff;padding:14px 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100}
     header h1{font-size:17px;font-weight:600}
-    header span{font-size:13px;opacity:.65;margin-left:auto}
-    .container{max-width:1000px;margin:0 auto;padding:24px}
+    #header-status{font-size:13px;opacity:.65;margin-left:auto}
+    #btn-logout{margin-left:8px;padding:5px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:6px;color:#fff;font-size:12px;cursor:pointer;display:none}
+    .container{max-width:1100px;margin:0 auto;padding:24px}
+
+    /* Login */
     #login-screen{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 52px)}
-    .login-card{background:#fff;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,.1);padding:2rem;width:400px}
+    .login-card{background:#fff;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,.1);padding:2rem;width:420px}
     .login-card h2{font-size:18px;margin-bottom:.25rem}
     .login-card p{font-size:13px;color:#888;margin-bottom:1.25rem}
     .hint{font-size:11px;color:#aaa;margin-top:-8px;margin-bottom:.875rem;line-height:1.5}
+
+    /* Admin */
     #admin-screen{display:none}
-    .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap}
-    .toolbar input{padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;width:220px;outline:none;font-family:inherit}
+    .tabs{display:flex;gap:2px;margin-bottom:1.5rem;border-bottom:1px solid #ddd}
+    .tab-btn{padding:8px 16px;border:none;background:none;font-size:13px;font-weight:500;color:#888;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+    .tab-btn.active{color:#2A4032;border-bottom-color:#2A4032}
+    .tab-pane{display:none}
+    .tab-pane.active{display:block}
+
+    /* Stats */
     .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem}
     .stat{background:#fff;border-radius:10px;padding:1rem;box-shadow:0 1px 4px rgba(0,0,0,.06)}
     .stat-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:4px}
     .stat-val{font-size:26px;font-weight:600}
     .stat-sub{font-size:12px;color:#aaa;margin-top:2px}
-    .card{background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);overflow:hidden}
+
+    /* Toolbar */
+    .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap}
+    .toolbar input{padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;width:220px;outline:none;font-family:inherit}
+    .toolbar select{padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;outline:none}
+
+    /* Card / table */
+    .card{background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);overflow:hidden;margin-bottom:1rem}
+    .card-header{padding:14px 16px;border-bottom:1px solid #f0f0f0;font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:space-between}
+    .card-body{padding:16px}
     table{width:100%;border-collapse:collapse;font-size:13px}
     th{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888;padding:10px 14px;border-bottom:1px solid #eee;background:#fafafa;white-space:nowrap}
     td{padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
@@ -32,21 +51,53 @@
     tr:hover td{background:#fafafa}
     .email{font-weight:500}
     .sub{font-size:11px;color:#aaa;margin-top:1px}
+
+    /* Badges */
     .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:500}
     .badge-supporter{background:#d5f0e0;color:#1a7a40}
     .badge-free{background:#f0f0f0;color:#888}
     .badge-unconfirmed{background:#fff3cd;color:#856404}
-    .actions{display:flex;gap:6px;flex-wrap:wrap}
-    button{padding:6px 12px;border:none;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;transition:opacity .12s}
+
+    /* Buttons */
+    button{cursor:pointer;font-family:inherit;font-size:inherit;transition:opacity .12s;border:none}
     button:hover{opacity:.82}
-    .btn-primary{background:#2A4032;color:#fff}
-    .btn-success{background:#1a7a40;color:#fff}
-    .btn-warn{background:#e67e22;color:#fff}
-    .btn-danger{background:#c0392b;color:#fff}
-    .btn-ghost{background:#f0f0f0;color:#444}
-    .btn-sm{padding:4px 9px;font-size:11px}
-    #toast{position:fixed;bottom:24px;right:24px;background:#2A4032;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;z-index:100}
-    #toast.show{transform:translateY(0);opacity:1}
+    .btn-primary{background:#2A4032;color:#fff;padding:8px 16px;border-radius:8px;font-weight:500}
+    .btn-success{background:#1a7a40;color:#fff;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:500}
+    .btn-warn{background:#e67e22;color:#fff;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:500}
+    .btn-danger{background:#c0392b;color:#fff;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:500}
+    .btn-ghost{background:#f0f0f0;color:#444;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:500}
+    .btn-info{background:#1a5fa8;color:#fff;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:500}
+    .btn-purple{background:#6a3db8;color:#fff;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:500}
+    .actions{display:flex;gap:5px;flex-wrap:wrap}
+
+    /* Inspect panel */
+    #inspect-panel{display:none;position:fixed;inset:0;z-index:200;background:#f0ece4;overflow-y:auto}
+    .inspect-header{background:#1a5fa8;color:#fff;padding:12px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10}
+    .inspect-header h2{font-size:15px;font-weight:600}
+    .inspect-header span{font-size:12px;opacity:.75}
+    .inspect-close{margin-left:auto;padding:6px 14px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);border-radius:6px;color:#fff;font-size:12px;cursor:pointer}
+    .inspect-container{max-width:900px;margin:0 auto;padding:24px}
+    .inspect-section{background:#fff;border-radius:10px;padding:1.25rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+    .inspect-section h3{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:.875rem}
+    .stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:1rem}
+    .stat-box{background:#f7f3ed;border-radius:8px;padding:.75rem;text-align:center}
+    .stat-box .val{font-size:22px;font-weight:600;color:#2A4032}
+    .stat-box .lbl{font-size:11px;color:#888;margin-top:3px}
+    .item-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:.5px solid #f0f0f0;font-size:13px}
+    .item-row:last-child{border-bottom:none}
+    .raw-json{font-family:monospace;font-size:11px;background:#f7f3ed;padding:1rem;border-radius:8px;overflow-x:auto;white-space:pre;max-height:400px;overflow-y:auto}
+    .impersonate-btn{background:#6a3db8;color:#fff;padding:8px 18px;border-radius:8px;font-weight:500;font-size:13px;cursor:pointer;border:none}
+
+    /* Impersonate banner (shown in Gearnomic when impersonating) */
+    #impersonate-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#6a3db8;color:#fff;padding:8px 20px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:12px}
+
+    /* Audit log */
+    .log-entry{font-size:12px;font-family:monospace;padding:6px 0;border-bottom:.5px solid #eee;color:#555}
+    .log-entry:last-child{border-bottom:none}
+    .log-time{color:#aaa;margin-right:8px}
+    .log-action{color:#2A4032;font-weight:600}
+
+    /* Forms */
     label{display:block;font-size:12px;font-weight:500;color:#555;margin-bottom:4px}
     input.full{width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:7px;font-size:14px;font-family:inherit;outline:none;margin-bottom:.75rem}
     input.full:focus{border-color:#2A4032}
@@ -54,8 +105,11 @@
     .form-actions{display:flex;gap:8px;margin-top:.25rem}
     .err{font-size:12px;color:#c0392b;margin-top:6px;display:none}
     .loading{text-align:center;padding:3rem;color:#aaa;font-size:14px}
-    .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:50;align-items:center;justify-content:center}
-    .modal-box{background:#fff;border-radius:12px;padding:1.5rem;width:380px;box-shadow:0 4px 24px rgba(0,0,0,.15)}
+    .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:300;align-items:center;justify-content:center}
+    .modal-box{background:#fff;border-radius:12px;padding:1.5rem;width:400px;box-shadow:0 4px 24px rgba(0,0,0,.15)}
+
+    #toast{position:fixed;bottom:24px;right:24px;background:#2A4032;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;z-index:999}
+    #toast.show{transform:translateY(0);opacity:1}
   </style>
 </head>
 <body>
@@ -64,23 +118,20 @@
   <div style="width:28px;height:28px;background:#3D6B4F;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#fff">GN</div>
   <h1>Gearnomic Admin</h1>
   <span id="header-status"></span>
-  <button class="btn-ghost btn-sm" id="btn-logout" onclick="logout()" style="display:none;margin-left:8px">Sign out</button>
+  <button id="btn-logout" onclick="logout()">Sign out</button>
 </header>
 
 <!-- Login -->
 <div id="login-screen">
   <div class="login-card">
     <h2>Admin access</h2>
-    <p>Uses your Supabase credentials directly — no Edge Function required.</p>
-
+    <p>Uses your Supabase service role key directly.</p>
     <label>Supabase Project URL</label>
     <input class="full" type="text" id="login-url" placeholder="https://xxxx.supabase.co">
-
     <label>Service Role Key</label>
     <input class="full" type="password" id="login-key" placeholder="eyJhbGci…"
       onkeydown="if(event.key==='Enter')doLogin()">
-    <p class="hint">Found in Supabase → Settings → API → service_role key.<br>This is stored only in your browser's memory — never sent anywhere except Supabase.</p>
-
+    <p class="hint">Supabase → Settings → API → service_role key.<br>Stored in memory only — never persisted.</p>
     <div class="form-actions">
       <button class="btn-primary" style="flex:1;padding:10px" onclick="doLogin()">Sign in</button>
     </div>
@@ -91,38 +142,77 @@
 <!-- Admin UI -->
 <div id="admin-screen">
   <div class="container">
-    <div class="stats">
-      <div class="stat"><div class="stat-label">Total users</div><div class="stat-val" id="stat-total">—</div><div class="stat-sub">registered accounts</div></div>
-      <div class="stat"><div class="stat-label">Supporters</div><div class="stat-val" id="stat-supporters">—</div><div class="stat-sub" id="stat-pct">—</div></div>
-      <div class="stat"><div class="stat-label">Confirmed</div><div class="stat-val" id="stat-confirmed">—</div><div class="stat-sub">email verified</div></div>
-      <div class="stat"><div class="stat-label">Unconfirmed</div><div class="stat-val" id="stat-unconfirmed">—</div><div class="stat-sub">pending</div></div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('users')">Users</button>
+      <button class="tab-btn" onclick="switchTab('audit')">Audit log</button>
     </div>
-    <div class="toolbar">
-      <input type="text" id="search" placeholder="Search by email…" oninput="filterTable()">
-      <select id="filter-tier" onchange="filterTable()" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;outline:none">
-        <option value="">All tiers</option>
-        <option value="supporter">Supporters</option>
-        <option value="free">Free</option>
-      </select>
-      <button class="btn-ghost" onclick="loadUsers()" style="margin-left:auto">↻ Refresh</button>
-      <button class="btn-primary" onclick="openGrantModal()">+ Grant access</button>
+
+    <!-- Users tab -->
+    <div class="tab-pane active" id="tab-users">
+      <div class="stats">
+        <div class="stat"><div class="stat-label">Total users</div><div class="stat-val" id="stat-total">—</div><div class="stat-sub">registered accounts</div></div>
+        <div class="stat"><div class="stat-label">Supporters</div><div class="stat-val" id="stat-supporters">—</div><div class="stat-sub" id="stat-pct">—</div></div>
+        <div class="stat"><div class="stat-label">Confirmed</div><div class="stat-val" id="stat-confirmed">—</div><div class="stat-sub">email verified</div></div>
+        <div class="stat"><div class="stat-label">Unconfirmed</div><div class="stat-val" id="stat-unconfirmed">—</div><div class="stat-sub">pending</div></div>
+      </div>
+      <div class="toolbar">
+        <input type="text" id="search" placeholder="Search by email…" oninput="filterTable()">
+        <select id="filter-tier" onchange="filterTable()">
+          <option value="">All tiers</option>
+          <option value="supporter">Supporters</option>
+          <option value="free">Free</option>
+        </select>
+        <button class="btn-ghost" onclick="loadUsers()" style="margin-left:auto">Refresh</button>
+        <button class="btn-primary" onclick="openGrantModal()">+ Grant access</button>
+      </div>
+      <div class="card">
+        <div id="table-loading" class="loading">Loading users…</div>
+        <table id="users-table" style="display:none">
+          <thead><tr>
+            <th>User</th><th>Status</th><th>Joined</th><th>Last sign in</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+        <div id="table-empty" class="loading" style="display:none">No users match your filter.</div>
+      </div>
     </div>
-    <div class="card">
-      <div id="table-loading" class="loading">Loading users…</div>
-      <table id="users-table" style="display:none">
-        <thead><tr><th>User</th><th>Status</th><th>Joined</th><th>Last sign in</th><th>Actions</th></tr></thead>
-        <tbody id="users-tbody"></tbody>
-      </table>
-      <div id="table-empty" class="loading" style="display:none">No users match your filter.</div>
+
+    <!-- Audit log tab -->
+    <div class="tab-pane" id="tab-audit">
+      <div class="card">
+        <div class="card-header">
+          Session audit log
+          <button class="btn-ghost" onclick="clearAudit()">Clear</button>
+        </div>
+        <div class="card-body" id="audit-log">
+          <div style="color:#aaa;font-size:13px">No actions logged yet this session.</div>
+        </div>
+      </div>
     </div>
+
   </div>
+</div>
+
+<!-- Inspect panel (slides over everything) -->
+<div id="inspect-panel">
+  <div class="inspect-header">
+    <div>
+      <h2 id="inspect-title">User data</h2>
+      <span id="inspect-subtitle"></span>
+    </div>
+    <button class="btn-purple impersonate-btn" id="btn-impersonate" onclick="doImpersonate()">Open in Gearnomic</button>
+    <button class="inspect-close" onclick="closeInspect()">Close</button>
+  </div>
+  <div class="inspect-container" id="inspect-body"></div>
 </div>
 
 <!-- Grant modal -->
 <div id="grant-modal" class="modal-bg">
   <div class="modal-box">
     <h3 style="font-size:16px;margin-bottom:.25rem">Grant Supporter access</h3>
-    <p style="font-size:13px;color:#888;margin-bottom:1rem">Enter the email of a registered Gearnomic user.</p>
+    <p style="font-size:13px;color:#888;margin-bottom:1rem">Enter the email of a registered user.</p>
     <label>Email address</label>
     <input class="full" type="email" id="grant-email" placeholder="user@example.com"
       onkeydown="if(event.key==='Enter')doGrant()">
@@ -141,40 +231,33 @@
 let _sb   = null;
 let _url  = '';
 let _users = [];
+let _auditLog = [];
+let _inspectUser = null;
+let _inspectData = null;
 
+// ── Auth ──────────────────────────────────────────────────
 async function doLogin() {
   const url = document.getElementById('login-url').value.trim();
   const key = document.getElementById('login-key').value.trim();
   const err = document.getElementById('login-err');
   err.style.display = 'none';
-
   if (!url || !key) { showErr(err, 'Both fields are required.'); return; }
-
-  // Create a Supabase client with the service role key
   try {
-    _sb  = supabase.createClient(url, key, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    });
+    _sb  = supabase.createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
     _url = url;
-
-    // Test it — try to list users
     const { data, error } = await _sb.auth.admin.listUsers({ perPage: 1 });
     if (error) { showErr(err, 'Access denied: ' + error.message); _sb = null; return; }
-
-    // Save URL (not the key) for convenience
     localStorage.setItem('gn_admin_url', url);
-
     document.getElementById('login-screen').style.display  = 'none';
     document.getElementById('admin-screen').style.display  = 'block';
     document.getElementById('btn-logout').style.display    = '';
+    audit('LOGIN', 'Admin session started');
     loadUsers();
-  } catch(e) {
-    showErr(err, 'Could not connect. Check the URL and key.');
-    _sb = null;
-  }
+  } catch(e) { showErr(err, 'Could not connect. Check the URL and key.'); _sb = null; }
 }
 
 function logout() {
+  audit('LOGOUT', 'Admin session ended');
   _sb = null; _url = '';
   document.getElementById('admin-screen').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
@@ -183,11 +266,19 @@ function logout() {
   document.getElementById('login-key').value = '';
 }
 
-// Pre-fill URL
 window.addEventListener('DOMContentLoaded', () => {
   const saved = localStorage.getItem('gn_admin_url');
   if (saved) document.getElementById('login-url').value = saved;
 });
+
+// ── Tabs ──────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['users','audit'][i] === name);
+  });
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
 
 // ── Load & render users ───────────────────────────────────
 async function loadUsers() {
@@ -199,13 +290,14 @@ async function loadUsers() {
   if (error) { toast('Failed to load users: ' + error.message); return; }
 
   const { data: userData } = await _sb.from('user_data')
-    .select('user_id, is_supporter, supporter_since, stripe_customer_id');
+    .select('user_id, is_supporter, supporter_since, stripe_customer_id, data');
 
   const map = {};
   (userData || []).forEach(r => { map[r.user_id] = r; });
 
   _users = (authData?.users || []).map(u => {
     const ud = map[u.id] || {};
+    const d  = ud.data || {};
     return {
       id:           u.id,
       email:        u.email,
@@ -215,15 +307,17 @@ async function loadUsers() {
       is_supporter: !!ud.is_supporter,
       supporter_since: ud.supporter_since || null,
       has_stripe:   !!ud.stripe_customer_id,
+      item_count:   (d.items || []).length,
+      trip_count:   (d.trips || []).length,
+      raw_data:     ud.data || null,
     };
   }).sort((a, b) => {
     if (a.is_supporter !== b.is_supporter) return a.is_supporter ? -1 : 1;
     return new Date(b.created_at) - new Date(a.created_at);
   });
 
-  // Stats
-  const sup   = _users.filter(u => u.is_supporter).length;
-  const conf  = _users.filter(u => u.confirmed).length;
+  const sup  = _users.filter(u => u.is_supporter).length;
+  const conf = _users.filter(u => u.confirmed).length;
   document.getElementById('stat-total').textContent       = _users.length;
   document.getElementById('stat-supporters').textContent  = sup;
   document.getElementById('stat-pct').textContent         = _users.length ? Math.round(sup/_users.length*100)+'% of users' : '—';
@@ -251,25 +345,153 @@ function filterTable() {
 
   tbody.innerHTML = filtered.map(u => `
     <tr>
-      <td><div class="email">${esc(u.email)}</div><div class="sub">${u.id.slice(0,8)}…</div></td>
       <td>
-        ${u.is_supporter
-          ? `<span class="badge badge-supporter">⛰ Supporter</span>`
-          : `<span class="badge badge-free">Free</span>`}
+        <div class="email">${esc(u.email)}</div>
+        <div class="sub">${u.id.slice(0,8)}… · ${u.item_count} items · ${u.trip_count} trips</div>
+      </td>
+      <td>
+        ${u.is_supporter ? `<span class="badge badge-supporter">Supporter</span>` : `<span class="badge badge-free">Free</span>`}
         ${!u.confirmed ? `<span class="badge badge-unconfirmed" style="margin-left:4px">Unconfirmed</span>` : ''}
       </td>
       <td><div class="sub">${fmtDate(u.created_at)}</div></td>
       <td><div class="sub">${u.last_sign_in ? fmtDate(u.last_sign_in) : '—'}</div></td>
       <td><div class="actions">
+        <button class="btn-info" onclick="openInspect('${esc(u.id)}')">Inspect</button>
         ${u.is_supporter
-          ? `<button class="btn-warn btn-sm" onclick="doRevoke('${esc(u.email)}')">Revoke</button>`
-          : `<button class="btn-success btn-sm" onclick="doGrantEmail('${esc(u.email)}')">Grant</button>`}
-        <button class="btn-danger btn-sm" onclick="doDelete('${esc(u.email)}')">Delete</button>
+          ? `<button class="btn-warn" onclick="doRevoke('${esc(u.email)}')">Revoke</button>`
+          : `<button class="btn-success" onclick="doGrantEmail('${esc(u.email)}')">Grant</button>`}
+        <button class="btn-danger" onclick="doDelete('${esc(u.email)}')">Delete</button>
       </div></td>
     </tr>`).join('');
 }
 
-// ── Actions ───────────────────────────────────────────────
+// ── Inspect panel ─────────────────────────────────────────
+function openInspect(userId) {
+  const u = _users.find(u => u.id === userId);
+  if (!u) return;
+  _inspectUser = u;
+  _inspectData = u.raw_data;
+
+  audit('INSPECT', `Viewed account data for ${u.email}`);
+
+  document.getElementById('inspect-title').textContent    = u.email;
+  document.getElementById('inspect-subtitle').textContent = `${u.item_count} items · ${u.trip_count} trips · ${u.is_supporter ? 'Supporter' : 'Free'}`;
+
+  const d = u.raw_data || {};
+  const items     = d.items     || [];
+  const trips     = d.trips     || [];
+  const templates = d.templates || [];
+  const wishlist  = d.wishlist  || [];
+  const foodPlans = d.food_plans|| [];
+
+  const totalW = items.reduce((s,i) => s+(i.weight_g||0), 0);
+  const totalC = items.reduce((s,i) => s+(i.cost_usd||0), 0);
+  const completed = trips.filter(t => t.status === 'completed').length;
+
+  const wg = g => !g ? '—' : g>=1000 ? (g/1000).toFixed(2)+' kg' : Math.round(g)+' g';
+  const usd = v => v ? '$'+Number(v).toFixed(2) : '—';
+
+  document.getElementById('inspect-body').innerHTML = `
+    <!-- Summary stats -->
+    <div class="inspect-section">
+      <h3>Account summary</h3>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="val">${items.length}</div><div class="lbl">Gear items</div></div>
+        <div class="stat-box"><div class="val">${wg(totalW)}</div><div class="lbl">Total weight</div></div>
+        <div class="stat-box"><div class="val">${usd(totalC)}</div><div class="lbl">Tracked value</div></div>
+        <div class="stat-box"><div class="val">${trips.length}</div><div class="lbl">Trips</div></div>
+        <div class="stat-box"><div class="val">${completed}</div><div class="lbl">Completed trips</div></div>
+        <div class="stat-box"><div class="val">${templates.length}</div><div class="lbl">Loadouts</div></div>
+        <div class="stat-box"><div class="val">${wishlist.length}</div><div class="lbl">Wishlist items</div></div>
+        <div class="stat-box"><div class="val">${foodPlans.length}</div><div class="lbl">Meal plans</div></div>
+      </div>
+    </div>
+
+    <!-- Gear list -->
+    ${items.length ? `
+    <div class="inspect-section">
+      <h3>Gear closet (${items.length} items)</h3>
+      ${items.slice(0,30).map(i => `
+        <div class="item-row">
+          <div><strong>${esc(i.name)}</strong> <span style="color:#aaa;font-size:12px">${esc(i.brand||'')} · ${esc(i.category)}</span></div>
+          <div style="font-size:12px;color:#555;font-family:monospace">${wg(i.weight_g)}</div>
+        </div>`).join('')}
+      ${items.length > 30 ? `<div style="font-size:12px;color:#aaa;padding-top:8px">+ ${items.length-30} more items</div>` : ''}
+    </div>` : ''}
+
+    <!-- Trips -->
+    ${trips.length ? `
+    <div class="inspect-section">
+      <h3>Trips (${trips.length})</h3>
+      ${trips.map(t => `
+        <div class="item-row">
+          <div>
+            <strong>${esc(t.name)}</strong>
+            <span style="background:#f0f0f0;color:#666;font-size:10px;padding:1px 6px;border-radius:99px;margin-left:6px">${t.status||'—'}</span>
+          </div>
+          <div style="font-size:12px;color:#aaa">${t.start_date||'No date'} · ${(t.loadout_ids||[]).length} loadouts</div>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <!-- Loadouts -->
+    ${templates.length ? `
+    <div class="inspect-section">
+      <h3>Loadouts (${templates.length})</h3>
+      ${templates.map(t => `
+        <div class="item-row">
+          <div><strong>${esc(t.name)}</strong> <span style="color:#aaa;font-size:12px">${(t.gear_ids||[]).length} items</span></div>
+          <div style="font-size:12px;color:#aaa">${esc(t.description||'')}</div>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <!-- Raw JSON -->
+    <div class="inspect-section">
+      <h3 style="margin-bottom:.5rem">Raw account data</h3>
+      <p style="font-size:12px;color:#aaa;margin-bottom:.75rem">Read-only. Use "Open in Gearnomic" to make changes.</p>
+      <div class="raw-json">${esc(JSON.stringify(d, null, 2))}</div>
+    </div>`;
+
+  document.getElementById('inspect-panel').style.display = 'block';
+  document.getElementById('inspect-panel').scrollTop = 0;
+}
+
+function closeInspect() {
+  document.getElementById('inspect-panel').style.display = 'none';
+  _inspectUser = null;
+  _inspectData = null;
+}
+
+// ── Impersonate ───────────────────────────────────────────
+function doImpersonate() {
+  if (!_inspectUser || !_inspectData) return;
+
+  const u = _inspectUser;
+  const confirmMsg = `You are about to open Gearnomic with ${u.email}'s account data loaded.\n\nIMPORTANT:\n• Any saves will overwrite their data in Supabase\n• A visible banner will remind you that you are in admin mode\n• All admin actions are logged\n\nProceed?`;
+  if (!confirm(confirmMsg)) return;
+
+  audit('IMPERSONATE', `Opened impersonation session for ${u.email}`);
+
+  // Store impersonation payload in sessionStorage so Gearnomic picks it up
+  const payload = {
+    adminMode:  true,
+    userId:     u.id,
+    email:      u.email,
+    data:       _inspectData,
+    isSupporter: u.is_supporter,
+    adminUrl:   _url,
+    adminKey:   document.getElementById('login-key').value.trim(),
+    timestamp:  new Date().toISOString(),
+  };
+  sessionStorage.setItem('gn_admin_impersonate', JSON.stringify(payload));
+
+  // Open Gearnomic in a new tab — determine URL from current admin.html location
+  const gearnomicUrl = window.location.href.replace('admin.html', 'index.html');
+  window.open(gearnomicUrl + '#admin-impersonate', '_blank');
+
+  toast(`Impersonation session opened for ${u.email}`);
+}
+
+// ── User actions ──────────────────────────────────────────
 function openGrantModal() {
   document.getElementById('grant-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('grant-email')?.focus(), 80);
@@ -297,6 +519,7 @@ async function doGrant() {
     { onConflict: 'user_id' }
   );
   if (error) { showErr(err, error.message); return; }
+  audit('GRANT', `Granted Supporter access to ${email}`);
   closeGrantModal();
   toast(`Supporter access granted to ${email}`);
   loadUsers();
@@ -311,6 +534,7 @@ async function doGrantEmail(email) {
     { onConflict: 'user_id' }
   );
   if (error) { toast('Error: ' + error.message); return; }
+  audit('GRANT', `Granted Supporter access to ${email}`);
   toast(`Supporter access granted to ${email}`);
   loadUsers();
 }
@@ -324,6 +548,7 @@ async function doRevoke(email) {
     { onConflict: 'user_id' }
   );
   if (error) { toast('Error: ' + error.message); return; }
+  audit('REVOKE', `Revoked Supporter access from ${email}`);
   toast(`Supporter access revoked for ${email}`);
   loadUsers();
 }
@@ -334,8 +559,29 @@ async function doDelete(email) {
   if (!user) { toast('User not found.'); return; }
   const { error } = await _sb.auth.admin.deleteUser(user.id);
   if (error) { toast('Error: ' + error.message); return; }
+  audit('DELETE', `Deleted account for ${email}`);
   toast(`Account deleted: ${email}`);
   loadUsers();
+}
+
+// ── Audit log ─────────────────────────────────────────────
+function audit(action, detail) {
+  const entry = { time: new Date(), action, detail };
+  _auditLog.unshift(entry);
+  const el = document.getElementById('audit-log');
+  if (el) {
+    el.innerHTML = _auditLog.map(e => `
+      <div class="log-entry">
+        <span class="log-time">${e.time.toLocaleTimeString()}</span>
+        <span class="log-action">[${e.action}]</span>
+        ${esc(e.detail)}
+      </div>`).join('');
+  }
+}
+
+function clearAudit() {
+  _auditLog = [];
+  document.getElementById('audit-log').innerHTML = '<div style="color:#aaa;font-size:13px">Log cleared.</div>';
 }
 
 // ── Helpers ───────────────────────────────────────────────
