@@ -5348,9 +5348,14 @@ async function shareItem(id, kind) {
     const token   = nanoId(10);
     const payload = buildSharePayload(obj, kind);
 
-    // Debug logging for payload size
+    // Debug logging for payload size - warn if too large
     const payloadSize = JSON.stringify(payload).length;
-    console.log(`Share payload size: ${(payloadSize / 1024).toFixed(1)} KB for ${kind} with ${(payload._shared_items || []).length} items`);
+    const payloadSizeMB = (payloadSize / 1024 / 1024).toFixed(2);
+    console.log(`Share payload: ${(payloadSize / 1024).toFixed(1)} KB (${payloadSizeMB} MB) for ${kind} with ${(payload._shared_items || []).length} items`);
+
+    if (payloadSize > 5 * 1024 * 1024) {
+      toast('Warning: This item has a lot of gear. Share link creation may be slow.');
+    }
 
     const insertPromise = _sb.from('shared_lists').insert({
       id:       token,
