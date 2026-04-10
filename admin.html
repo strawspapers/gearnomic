@@ -471,19 +471,23 @@ function doImpersonate() {
 
   audit('IMPERSONATE', `Opened impersonation session for ${u.email}`);
 
-  // Store impersonation payload in localStorage (shared across same-origin tabs).
-  // sessionStorage is NOT reliably inherited by window.open() in all browsers.
   // Use {} for users who have no user_data row yet — applyMigrations will seed defaults.
   const payload = {
-    adminMode:  true,
-    userId:     u.id,
-    email:      u.email,
-    data:       _inspectData || {},
+    adminMode:   true,
+    userId:      u.id,
+    email:       u.email,
+    data:        _inspectData || {},
     isSupporter: u.is_supporter,
-    adminUrl:   _url,
-    adminKey:   document.getElementById('login-key').value.trim(),
-    timestamp:  Date.now(),
+    adminUrl:    _url,
+    adminKey:    document.getElementById('login-key').value.trim(),
+    timestamp:   Date.now(),
   };
+
+  // Primary channel: window reference (direct memory, no storage, most reliable).
+  // The new tab reads this via window.opener._pendingImpersonation.
+  window._pendingImpersonation = payload;
+
+  // Fallback channel: localStorage (shared across same-origin tabs).
   localStorage.setItem('gn_admin_impersonate', JSON.stringify(payload));
 
   // Open Gearnomic in a new tab — derive URL from current admin.html location.
@@ -491,10 +495,14 @@ function doImpersonate() {
   const gearnomicUrl = window.location.origin + window.location.pathname.replace('admin.html', 'index.html');
   const newTab = window.open(gearnomicUrl + '#admin-impersonate', '_blank');
   if (!newTab) {
-    toast('Popup blocked — please allow popups for this site and try again.');
+    window._pendingImpersonation = null;
     localStorage.removeItem('gn_admin_impersonate');
+    toast('Popup blocked — please allow popups for this site and try again.');
     return;
   }
+
+  // Clean up localStorage after 30 s in case the new tab never reads it
+  setTimeout(() => localStorage.removeItem('gn_admin_impersonate'), 30000);
 
   toast(`Impersonation session opened for ${u.email}`);
 }

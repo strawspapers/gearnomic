@@ -5641,19 +5641,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ── Admin impersonation mode ───────────────────────────
   const hash = window.location.hash;
   if (hash === '#admin-impersonate') {
-    const raw = localStorage.getItem('gn_admin_impersonate');
-    // Consume immediately — prevents stale entries from being picked up later
-    localStorage.removeItem('gn_admin_impersonate');
-    const isRecent = raw && (Date.now() - (JSON.parse(raw).timestamp || 0)) < 30000;
-    if (raw && isRecent) {
-      try {
-        const payload = JSON.parse(raw);
-        // Load the user's data into state
-        if (payload.data) {
-          state = payload.data;
-          applyMigrations();
-          _isSupporter = payload.isSupporter || false;
+    // Resolve payload: prefer window.opener (direct memory reference, most reliable),
+    // fall back to localStorage (shared across same-origin tabs).
+    let _impPayload = null;
+    try {
+      if (window.opener?._pendingImpersonation) {
+        _impPayload = window.opener._pendingImpersonation;
+        window.opener._pendingImpersonation = null;
+      } else {
+        const raw = localStorage.getItem('gn_admin_impersonate');
+        localStorage.removeItem('gn_admin_impersonate');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Date.now() - (parsed.timestamp || 0) < 30000) _impPayload = parsed;
         }
+      }
+    } catch(e) { console.warn('Could not read impersonation payload:', e); }
+
+    if (_impPayload) {
+      try {
+        const payload = _impPayload;
+        // Load the user's data into state
+        state = payload.data || {};
+        applyMigrations();
+        _isSupporter = payload.isSupporter || false;
+
         // Init a service-role Supabase client for writing back to this user's row
         if (payload.adminUrl && payload.adminKey && typeof supabase !== 'undefined') {
           window._adminSb = supabase.createClient(payload.adminUrl, payload.adminKey,
@@ -5665,26 +5677,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#6a3db8;color:#fff;padding:8px 20px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.2)';
         banner.innerHTML = `
           <span style="background:rgba(255,255,255,.2);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.06em">ADMIN MODE</span>
-          <span>Viewing account: <strong>${payload.email}</strong></span>
+          <span>Viewing account: <strong>${esc(payload.email)}</strong></span>
           <span style="font-size:12px;opacity:.75">Any saves will write to their Supabase account</span>
           <button onclick="exitImpersonate()" style="margin-left:auto;padding:5px 14px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);border-radius:6px;color:#fff;font-size:12px;cursor:pointer">Exit admin mode</button>`;
         document.body.prepend(banner);
-        // Offset content so banner doesn't cover header
-        document.getElementById('site-header').style.top = banner.offsetHeight + 'px';
-        // Store userId for saving back
+        const siteHeader = document.getElementById('site-header');
+        if (siteHeader) siteHeader.style.top = banner.offsetHeight + 'px';
         window._adminImpersonateUserId = payload.userId;
         window._adminImpersonateUrl    = payload.adminUrl;
-        // Wire saveState to also push to that user's Supabase row
-        window._adminImpersonateMode = true;
-        renderDashboard();
+        window._adminImpersonateMode   = true;
+        loadState(); // load local gear as baseline so UI isn't blank
+        state = payload.data || {};
+        applyMigrations();
+        refreshAll();
         syncUnitBtns();
         setupListeners();
         history.replaceState(null, '', window.location.pathname);
         return; // skip normal auth flow
       } catch(e) {
         console.error('Admin impersonation failed:', e);
-        localStorage.removeItem('gn_admin_impersonate');
+        toast('Impersonation error: ' + (e.message || e));
+        // Fall through to normal auth flow
       }
+    } else {
+      console.warn('Admin impersonation: no payload found (opener=', window.opener, ')');
+      toast('Impersonation failed — could not read account data. Check browser popup settings.');
     }
   }
 
