@@ -1720,6 +1720,7 @@ function tripCard(t) {
         <div class="mono" style="font-size:12px;font-weight:500">${wg(tw)}</div>
         <div style="font-size:11px;color:var(--text-3)">${loadoutCount} loadout${loadoutCount !== 1 ? 's' : ''}</div>
       </div>
+      <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();copyGearMarkdown('${t.id}','trip')" title="Copy as markdown">↓md</button>
       <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();shareItem('${t.id}','trip')" title="Share trip">Share ↗</button>
     </div>
   </div>`;
@@ -1813,6 +1814,7 @@ function renderTripDetail(trip) {
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-sm" onclick="openEditTrip('${trip.id}')">Edit</button>
         <button class="btn btn-sm" onclick="saveAsTemplate('${trip.id}')" title="Save merged gear as a new loadout">Save as loadout</button>
+        <button class="btn btn-sm" onclick="copyGearMarkdown('${trip.id}','trip')" title="Copy as markdown for Reddit">Copy as markdown</button>
         <button class="btn btn-sm" onclick="shareItem('${trip.id}','trip')">Share ↗</button>
         <button class="btn btn-sm btn-danger" onclick="deleteTrip('${trip.id}')">Delete</button>
         <button class="btn btn-sm btn-ghost" onclick="closeTripDetail()">Close</button>
@@ -2799,6 +2801,7 @@ function templateCard(tmpl) {
     <div class="template-card-actions" onclick="event.stopPropagation()">
       <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Attach to trip…</button>
       <button class="btn btn-sm" onclick="openTemplateForm('${tmpl.id}')">Edit</button>
+      <button class="btn btn-sm" onclick="copyGearMarkdown('${tmpl.id}','template')" title="Copy as markdown for Reddit">Copy as markdown</button>
       <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template')" title="Share via link">Share ↗</button>
       <button class="btn btn-sm btn-danger" onclick="deleteTemplate('${tmpl.id}')">Delete</button>
     </div>
@@ -2856,6 +2859,7 @@ function renderTemplateDetail(tmpl) {
       </div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Attach to trip…</button>
+        <button class="btn btn-sm" onclick="copyGearMarkdown('${tmpl.id}','template')" title="Copy as markdown for Reddit">Copy as markdown</button>
         <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template')" title="Share via link">Share ↗</button>
         <button class="btn btn-sm" onclick="openTemplateForm('${tmpl.id}')">Edit</button>
         <button class="btn btn-sm btn-ghost" onclick="closeTemplateDetail()">Close</button>
@@ -5380,9 +5384,139 @@ function nanoId(len) {
   return id;
 }
 
-// Build the payload to share — resolves item IDs to full objects so
-// the recipient can import everything even if they have different item IDs
-function buildSharePayload(obj, kind) {
+// Generate Reddit-friendly markdown for a gear list (trip or loadout)
+function generateGearMarkdown(id, kind) {
+  const obj = kind === 'trip'
+    ? state.trips.find(t => t.id === id)
+    : state.templates.find(t => t.id === id);
+  if (!obj) return null;
+
+  let gearIds = obj.gear_ids || [];
+  const title = obj.name || (kind === 'trip' ? 'Trip' : 'Loadout');
+
+  // Trips: get all gear from all loadouts
+  if (kind === 'trip' && obj.loadout_ids) {
+    const seen = new Set();
+    gearIds = [];
+    (obj.loadout_ids).forEach(lid => {
+      const loadout = state.templates.find(t => t.id === lid);
+      (loadout?.gear_ids || []).forEach(id => {
+        if (!seen.has(id)) { seen.add(id); gearIds.push(id); }
+      });
+    });
+  }
+
+  // Get items and group by category
+  const items = gearIds.map(id => state.items.find(i => i.id === id)).filter(Boolean);
+  const catOrder = categoryNames();
+  const byCat = {};
+  items.forEach(item => {
+    if (!byCat[item.category]) byCat[item.category] = [];
+    byCat[item.category].push(item);
+  });
+
+  // Sort categories
+  const sortedCats = Object.keys(byCat).sort((a, b) => {
+    const ai = catOrder.indexOf(a), bi = catOrder.indexOf(b);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1; if (bi === -1) return -1;
+    return ai - bi;
+  });
+
+  // Calculate totals
+  const baseW = items.reduce((s, i) => {
+    const ct = getCarryTypeForMarkdown(id, i.id, kind);
+    return s + (ct === 'packed' ? (i.weight_g || 0) : 0);
+  }, 0);
+  const wornW = items.reduce((s, i) => {
+    const ct = getCarryTypeForMarkdown(id, i.id, kind);
+    return s + (ct === 'worn' ? (i.weight_g || 0) : 0);
+  }, 0);
+  const consumW = items.reduce((s, i) => {
+    const ct = getCarryTypeForMarkdown(id, i.id, kind);
+    return s + (ct === 'consumable' ? (i.weight_g || 0) : 0);
+  }, 0);
+  const totalW = baseW + wornW + consumW;
+
+  // Build markdown
+  let md = `# ${title}\n\n`;
+
+  // Header info for trips
+  if (kind === 'trip') {
+    if (obj.location) md += `**Location**: ${obj.location}\n`;
+    if (obj.start_date) md += `**Dates**: ${obj.start_date}${obj.end_date ? ' → ' + obj.end_date : ''}\n`;
+    if (obj.miles) md += `**Distance**: ${obj.miles} mi\n`;
+    md += '\n';
+  }
+
+  // Weight summary
+  md += `| Weight Summary | |\n`;
+  md += `|---|---|\n`;
+  md += `| Base | ${wg(baseW)} |\n`;
+  if (wornW) md += `| Worn | ${wg(wornW)} |\n`;
+  if (consumW) md += `| Consumable | ${wg(consumW)} |\n`;
+  md += `| **Total** | **${wg(totalW)}** |\n\n`;
+
+  // Gear list
+  md += `## Gear List\n\n`;
+  sortedCats.forEach(cat => {
+    md += `### ${cat}\n\n`;
+    md += `| Item | Brand | Model | Weight | Cost | Carry |\n`;
+    md += `|---|---|---|---|---|---|\n`;
+    byCat[cat].forEach(item => {
+      const ct = getCarryTypeForMarkdown(id, item.id, kind);
+      const carryLabel = ct === 'worn' ? 'worn' : ct === 'consumable' ? 'consumable' : 'packed';
+      const branch = item.brand || '';
+      const model = item.model || '';
+      const cost = item.cost_usd ? `$${item.cost_usd.toFixed(2)}` : '';
+      md += `| ${item.name} | ${branch} | ${model} | ${wg(item.weight_g)} | ${cost} | ${carryLabel} |\n`;
+    });
+    md += '\n';
+  });
+
+  // Footer
+  md += `---\n\n*Shared from [Gearnomic](https://gearnomic.com)*`;
+
+  return md;
+}
+
+// Helper to get carry type for markdown generation
+function getCarryTypeForMarkdown(containerId, itemId, kind) {
+  if (kind === 'template') {
+    const tmpl = state.templates.find(t => t.id === containerId);
+    return (tmpl?.carry_types || {})[itemId] || 'packed';
+  } else if (kind === 'trip') {
+    // Check loadouts' carry types for trips
+    const trip = state.trips.find(t => t.id === containerId);
+    if (trip) {
+      for (const loadoutId of (trip.loadout_ids || [])) {
+        const loadout = state.templates.find(t => t.id === loadoutId);
+        const ct = loadout?.carry_types?.[itemId];
+        if (ct) return ct;
+      }
+    }
+  }
+  return 'packed';
+}
+
+// Copy gear list as markdown to clipboard
+async function copyGearMarkdown(id, kind) {
+  const md = generateGearMarkdown(id, kind);
+  if (!md) {
+    toast('Could not generate markdown.');
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(md);
+    toast('Markdown copied to clipboard!');
+  } catch (err) {
+    openModal('Copy to clipboard failed', `
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">Your browser doesn't support copying. Here's the markdown:</p>
+      <textarea style="width:100%;height:300px;font-size:12px;font-family:monospace;padding:8px;border:.5px solid var(--border);border-radius:var(--r-md)" readonly onclick="this.select()">${md}</textarea>
+      <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
+  }
+}
   const payload = JSON.parse(JSON.stringify(obj));
 
   // Embed full item objects so the share is self-contained
