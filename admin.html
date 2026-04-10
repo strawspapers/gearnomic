@@ -483,26 +483,32 @@ function doImpersonate() {
     timestamp:   Date.now(),
   };
 
-  // Primary channel: window reference (direct memory, no storage, most reliable).
-  // The new tab reads this via window.opener._pendingImpersonation.
+  // Generate a short unique token and store the payload under it.
+  // The token travels in the URL so the new tab always knows exactly which key to read —
+  // no timing issues, no window.opener cross-origin policy problems, no fixed-key collisions.
+  const token = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const storageKey = 'gn_imp_' + token;
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(payload));
+  } catch(e) {
+    toast('Could not write impersonation data to localStorage: ' + e.message);
+    return;
+  }
+
+  // Also expose on window for same-origin tabs where opener is accessible
   window._pendingImpersonation = payload;
 
-  // Fallback channel: localStorage (shared across same-origin tabs).
-  localStorage.setItem('gn_admin_impersonate', JSON.stringify(payload));
-
-  // Open Gearnomic in a new tab — derive URL from current admin.html location.
-  // Strip any existing hash before appending ours to avoid double-hash URLs.
   const gearnomicUrl = window.location.origin + window.location.pathname.replace('admin.html', 'index.html');
-  const newTab = window.open(gearnomicUrl + '#admin-impersonate', '_blank');
+  const newTab = window.open(gearnomicUrl + '?imp=' + token, '_blank');
   if (!newTab) {
+    localStorage.removeItem(storageKey);
     window._pendingImpersonation = null;
-    localStorage.removeItem('gn_admin_impersonate');
     toast('Popup blocked — please allow popups for this site and try again.');
     return;
   }
 
-  // Clean up localStorage after 30 s in case the new tab never reads it
-  setTimeout(() => localStorage.removeItem('gn_admin_impersonate'), 30000);
+  // Clean up the localStorage entry after 60 s in case the new tab never reads it
+  setTimeout(() => localStorage.removeItem(storageKey), 60000);
 
   toast(`Impersonation session opened for ${u.email}`);
 }

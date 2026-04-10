@@ -5599,7 +5599,6 @@ function refreshAll() {
 
 function exitImpersonate() {
   if (confirm('Exit admin mode? Any unsaved changes will be lost.')) {
-    localStorage.removeItem('gn_admin_impersonate');
     window._adminImpersonateMode = false;
     window.close();
   }
@@ -5640,38 +5639,43 @@ function setupListeners() {
 document.addEventListener('DOMContentLoaded', async () => {
   // ── Admin impersonation mode ───────────────────────────
   const hash = window.location.hash;
-  if (hash === '#admin-impersonate') {
-    // Resolve payload: prefer window.opener (direct memory reference, most reliable),
-    // fall back to localStorage (shared across same-origin tabs).
+  // ── Admin impersonation mode ─────────────────────────────
+  // Triggered by ?imp=TOKEN in the URL (set by admin.html's doImpersonate()).
+  // The token is the localStorage key holding the payload — URL-carried token
+  // avoids all window.opener cross-origin-policy and sessionStorage tab-scoping issues.
+  const _impToken = new URLSearchParams(window.location.search).get('imp');
+  if (_impToken) {
+    const _storageKey = 'gn_imp_' + _impToken;
     let _impPayload = null;
     try {
-      if (window.opener?._pendingImpersonation) {
+      // Primary: read from localStorage by the unique token
+      const raw = localStorage.getItem(_storageKey);
+      localStorage.removeItem(_storageKey); // consume immediately
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Date.now() - (parsed.timestamp || 0) < 60000) _impPayload = parsed;
+      }
+      // Fallback: window.opener direct reference (works when COOP is not enforced)
+      if (!_impPayload && window.opener?._pendingImpersonation) {
         _impPayload = window.opener._pendingImpersonation;
         window.opener._pendingImpersonation = null;
-      } else {
-        const raw = localStorage.getItem('gn_admin_impersonate');
-        localStorage.removeItem('gn_admin_impersonate');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Date.now() - (parsed.timestamp || 0) < 30000) _impPayload = parsed;
-        }
       }
     } catch(e) { console.warn('Could not read impersonation payload:', e); }
 
     if (_impPayload) {
       try {
         const payload = _impPayload;
-        // Load the user's data into state
         state = payload.data || {};
         applyMigrations();
         _isSupporter = payload.isSupporter || false;
 
-        // Init a service-role Supabase client for writing back to this user's row
+        // Service-role Supabase client for writing back to the impersonated user's row
         if (payload.adminUrl && payload.adminKey && typeof supabase !== 'undefined') {
           window._adminSb = supabase.createClient(payload.adminUrl, payload.adminKey,
             { auth: { autoRefreshToken: false, persistSession: false } });
         }
-        // Show persistent admin banner
+
+        // Persistent admin banner
         const banner = document.createElement('div');
         banner.id = 'admin-impersonate-banner';
         banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#6a3db8;color:#fff;padding:8px 20px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.2)';
@@ -5683,29 +5687,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.prepend(banner);
         const siteHeader = document.getElementById('site-header');
         if (siteHeader) siteHeader.style.top = banner.offsetHeight + 'px';
+
         window._adminImpersonateUserId = payload.userId;
         window._adminImpersonateUrl    = payload.adminUrl;
         window._adminImpersonateMode   = true;
-        loadState(); // load local gear as baseline so UI isn't blank
-        state = payload.data || {};
-        applyMigrations();
+
         refreshAll();
         syncUnitBtns();
         setupListeners();
+        // Remove the ?imp= token from the URL bar without triggering a reload
         history.replaceState(null, '', window.location.pathname);
-        return; // skip normal auth flow
+        return; // ← skip ALL normal auth flow below
       } catch(e) {
-        console.error('Admin impersonation failed:', e);
-        toast('Impersonation error: ' + (e.message || e));
-        // Fall through to normal auth flow
+        console.error('Admin impersonation setup failed:', e);
+        alert('Impersonation error — ' + (e.message || e) + '\n\nCheck the browser console for details.');
       }
     } else {
-      console.warn('Admin impersonation: no payload found (opener=', window.opener, ')');
-      toast('Impersonation failed — could not read account data. Check browser popup settings.');
+      alert('Impersonation failed: could not read account data.\n\nMake sure popups are allowed and try again.');
     }
+    // On failure fall through to normal Gearnomic auth flow
   }
-
-  function exitImpersonateNoop() {} // exitImpersonate is global above
 
   // Check for shared list link FIRST — before loading normal app state
   const shareToken = hash.startsWith('#share=') ? hash.slice(7) : null;
