@@ -493,7 +493,8 @@ function doImpersonate() {
   try { localStorage.setItem('gn_imp_' + token, JSON.stringify(payload)); } catch(e) {}
 
   // Build URL from href so file:// URLs work (window.location.origin is "null" for file://).
-  const gearnomicUrl = window.location.href.replace(/[?#].*$/, '').replace('admin.html', 'index.html');
+  // Main app is always at the root — gearnomic.com/?imp=token
+  const gearnomicUrl = window.location.origin + '/';
   const newTab = window.open(gearnomicUrl + '?imp=' + token, '_blank');
   if (!newTab) {
     window._pendingImpersonation = null;
