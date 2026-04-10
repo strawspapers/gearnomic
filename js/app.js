@@ -47,6 +47,7 @@ let state = { items: [], trips: [], wishlist: [], categories: [], templates: [],
 
 // ── Persistence ────────────────────────────────────────────
 function saveState() {
+  state._savedAt = Date.now();
   try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
   // Cloud sync only for Supporters
   if (_user && _isSupporter) {
@@ -57,7 +58,7 @@ function saveState() {
 
 async function syncToCloud() {
   // In admin impersonation mode — write to the target user's row using the
-  // admin Supabase client (stored in sessionStorage payload's adminUrl + service key not accessible here).
+  // admin Supabase client (stored in localStorage payload's adminUrl + service key not accessible here).
   // Instead, we set a flag and the admin panel handles the actual write via postMessage.
   if (window._adminImpersonateMode) {
     setSyncIndicator('saving');
@@ -99,6 +100,15 @@ async function loadFromCloud() {
       .select('data,is_supporter,supporter_since').eq('user_id', _user.id).single();
     if (error || !data?.data) return false;
     _isSupporter = !!data.is_supporter;
+    // If local state was saved more recently than the cloud copy (e.g. user refreshed
+    // before the 1500ms debounce fired), keep local and push it to cloud immediately
+    // rather than overwriting newer local data with stale cloud data.
+    const localTs = state._savedAt || 0;
+    const cloudTs = data.data._savedAt || 0;
+    if (localTs > cloudTs) {
+      syncToCloud();
+      return true;
+    }
     state = data.data;
     applyMigrations();
     try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
@@ -117,6 +127,9 @@ async function loadSupporterStatus() {
 }
 
 function applyMigrations() {
+  if (!state.items)         state.items         = [];
+  if (!state.trips)         state.trips         = [];
+  if (!state.wishlist)      state.wishlist      = [];
   if (!state.templates)     state.templates     = [];
   if (!state.trip_types)    state.trip_types    = JSON.parse(JSON.stringify(SEED_DATA.trip_types));
   // Always ensure all built-in system types exist — they may have been lost
@@ -1373,8 +1386,8 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
 
     ${customCells}
 
-    <td onclick="event.stopPropagation()">
-      <button class="btn-icon" title="Edit all fields" onclick="openEditItem('${item.id}')">Edit</button>
+    <td class="gear-edit-col" onclick="event.stopPropagation()">
+      <button class="gear-edit-btn" title="Edit all fields" onclick="openEditItem('${item.id}')">✎</button>
     </td>
   </tr>${detailHtml}`;
 }
@@ -5323,45 +5336,57 @@ async function shareItem(id, kind) {
 
   toast('Creating share link…');
 
-  const token   = nanoId(10);
-  const payload = buildSharePayload(obj, kind);
+  try {
+    const token   = nanoId(10);
+    const payload = buildSharePayload(obj, kind);
 
-  const { error } = await _sb.from('shared_lists').insert({
-    id:       token,
-    owner_id: _user.id,
-    kind,
-    title:    obj.name,
-    payload,
-  });
+    const insertPromise = _sb.from('shared_lists').insert({
+      id:       token,
+      owner_id: _user.id,
+      kind,
+      title:    obj.name,
+      payload,
+    });
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Request timed out after 15 seconds. Check your internet connection.')), 15000)
+    );
+    const { error } = await Promise.race([insertPromise, timeoutPromise]);
 
-  if (error) {
-    console.error('Share error:', error);
+    if (error) {
+      console.error('Share error:', error);
+      openModal('Share failed', `
+        <p style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">Could not create share link.</p>
+        <p style="font-size:12px;color:var(--danger);margin-bottom:1rem;font-family:monospace">${esc(error.message)}</p>
+        <p style="font-size:12px;color:var(--text-3)">If this keeps happening, make sure the <code>shared_lists</code> table exists — run <code>supabase/02_shared_lists.sql</code> in your Supabase SQL editor.</p>
+        <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
+      return;
+    }
+
+    const url = `${window.location.origin}${window.location.pathname}#share=${token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      openModal('Link copied!', `
+        <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
+          Anyone with this link can view your <strong>${esc(obj.name)}</strong> ${kind} and save it to their own account.
+        </p>
+        <div style="display:flex;gap:8px;align-items:center;background:var(--surface-2);border:.5px solid var(--border);border-radius:var(--r-md);padding:8px 12px;margin-bottom:1rem">
+          <span style="font-size:12px;color:var(--text-2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${url}</span>
+          <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${url}').then(()=>toast('Copied!'))">Copy</button>
+        </div>
+        <p style="font-size:11.5px;color:var(--text-3)">The link stays active until you delete this ${kind}. Item weights and carry types are included.</p>
+        <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`);
+    } catch {
+      openModal('Share link', `
+        <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">Copy this link and share it:</p>
+        <input class="input input-full" value="${url}" readonly onclick="this.select()" style="font-size:12px">
+        <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`);
+    }
+  } catch (err) {
+    console.error('Share error:', err);
     openModal('Share failed', `
       <p style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">Could not create share link.</p>
-      <p style="font-size:12px;color:var(--danger);margin-bottom:1rem;font-family:monospace">${esc(error.message)}</p>
-      <p style="font-size:12px;color:var(--text-3)">If this keeps happening, make sure the <code>shared_lists</code> table exists — run <code>supabase/02_shared_lists.sql</code> in your Supabase SQL editor.</p>
+      <p style="font-size:12px;color:var(--danger);margin-bottom:1rem;font-family:monospace">${esc(err.message || String(err))}</p>
       <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
-    return;
-  }
-
-  const url = `${window.location.origin}${window.location.pathname}#share=${token}`;
-  try {
-    await navigator.clipboard.writeText(url);
-    openModal('Link copied!', `
-      <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
-        Anyone with this link can view your <strong>${esc(obj.name)}</strong> ${kind} and save it to their own account.
-      </p>
-      <div style="display:flex;gap:8px;align-items:center;background:var(--surface-2);border:.5px solid var(--border);border-radius:var(--r-md);padding:8px 12px;margin-bottom:1rem">
-        <span style="font-size:12px;color:var(--text-2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${url}</span>
-        <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${url}').then(()=>toast('Copied!'))">Copy</button>
-      </div>
-      <p style="font-size:11.5px;color:var(--text-3)">The link stays active until you delete this ${kind}. Item weights and carry types are included.</p>
-      <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`);
-  } catch {
-    openModal('Share link', `
-      <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">Copy this link and share it:</p>
-      <input class="input input-full" value="${url}" readonly onclick="this.select()" style="font-size:12px">
-      <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`);
   }
 }
 
@@ -5574,13 +5599,30 @@ function refreshAll() {
 
 function exitImpersonate() {
   if (confirm('Exit admin mode? Any unsaved changes will be lost.')) {
-    sessionStorage.removeItem('gn_admin_impersonate');
+    localStorage.removeItem('gn_admin_impersonate');
     window._adminImpersonateMode = false;
     window.close();
   }
 }
 
 function setupListeners() {
+  // Flush any pending cloud sync immediately when the user hides the tab or
+  // navigates away, so a quick refresh doesn't lose unsaved gear.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && _syncTimer) {
+      clearTimeout(_syncTimer);
+      _syncTimer = null;
+      syncToCloud();
+    }
+  }, { once: false });
+  window.addEventListener('beforeunload', () => {
+    if (_syncTimer) {
+      clearTimeout(_syncTimer);
+      _syncTimer = null;
+      syncToCloud();
+    }
+  });
+
   document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.addEventListener('click', () => showTab(btn.dataset.tab));
   });
@@ -5599,8 +5641,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ── Admin impersonation mode ───────────────────────────
   const hash = window.location.hash;
   if (hash === '#admin-impersonate') {
-    const raw = sessionStorage.getItem('gn_admin_impersonate');
-    if (raw) {
+    const raw = localStorage.getItem('gn_admin_impersonate');
+    // Consume immediately — prevents stale entries from being picked up later
+    localStorage.removeItem('gn_admin_impersonate');
+    const isRecent = raw && (Date.now() - (JSON.parse(raw).timestamp || 0)) < 30000;
+    if (raw && isRecent) {
       try {
         const payload = JSON.parse(raw);
         // Load the user's data into state
@@ -5638,7 +5683,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return; // skip normal auth flow
       } catch(e) {
         console.error('Admin impersonation failed:', e);
-        sessionStorage.removeItem('gn_admin_impersonate');
+        localStorage.removeItem('gn_admin_impersonate');
       }
     }
   }

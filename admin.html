@@ -463,7 +463,7 @@ function closeInspect() {
 
 // ── Impersonate ───────────────────────────────────────────
 function doImpersonate() {
-  if (!_inspectUser || !_inspectData) return;
+  if (!_inspectUser) return;
 
   const u = _inspectUser;
   const confirmMsg = `You are about to open Gearnomic with ${u.email}'s account data loaded.\n\nIMPORTANT:\n• Any saves will overwrite their data in Supabase\n• A visible banner will remind you that you are in admin mode\n• All admin actions are logged\n\nProceed?`;
@@ -471,22 +471,30 @@ function doImpersonate() {
 
   audit('IMPERSONATE', `Opened impersonation session for ${u.email}`);
 
-  // Store impersonation payload in sessionStorage so Gearnomic picks it up
+  // Store impersonation payload in localStorage (shared across same-origin tabs).
+  // sessionStorage is NOT reliably inherited by window.open() in all browsers.
+  // Use {} for users who have no user_data row yet — applyMigrations will seed defaults.
   const payload = {
     adminMode:  true,
     userId:     u.id,
     email:      u.email,
-    data:       _inspectData,
+    data:       _inspectData || {},
     isSupporter: u.is_supporter,
     adminUrl:   _url,
     adminKey:   document.getElementById('login-key').value.trim(),
-    timestamp:  new Date().toISOString(),
+    timestamp:  Date.now(),
   };
-  sessionStorage.setItem('gn_admin_impersonate', JSON.stringify(payload));
+  localStorage.setItem('gn_admin_impersonate', JSON.stringify(payload));
 
-  // Open Gearnomic in a new tab — determine URL from current admin.html location
-  const gearnomicUrl = window.location.href.replace('admin.html', 'index.html');
-  window.open(gearnomicUrl + '#admin-impersonate', '_blank');
+  // Open Gearnomic in a new tab — derive URL from current admin.html location.
+  // Strip any existing hash before appending ours to avoid double-hash URLs.
+  const gearnomicUrl = window.location.origin + window.location.pathname.replace('admin.html', 'index.html');
+  const newTab = window.open(gearnomicUrl + '#admin-impersonate', '_blank');
+  if (!newTab) {
+    toast('Popup blocked — please allow popups for this site and try again.');
+    localStorage.removeItem('gn_admin_impersonate');
+    return;
+  }
 
   toast(`Impersonation session opened for ${u.email}`);
 }
