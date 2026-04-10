@@ -483,32 +483,26 @@ function doImpersonate() {
     timestamp:   Date.now(),
   };
 
-  // Generate a short unique token and store the payload under it.
-  // The token travels in the URL so the new tab always knows exactly which key to read —
-  // no timing issues, no window.opener cross-origin policy problems, no fixed-key collisions.
-  const token = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-  const storageKey = 'gn_imp_' + token;
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(payload));
-  } catch(e) {
-    toast('Could not write impersonation data to localStorage: ' + e.message);
-    return;
-  }
-
-  // Also expose on window for same-origin tabs where opener is accessible
+  // Expose payload on window — new tab reads it via window.opener.
+  // This is the most reliable channel for same-origin tabs (works for both
+  // file:// and https://; no COOP headers apply to file:// URLs).
   window._pendingImpersonation = payload;
 
-  const gearnomicUrl = window.location.origin + window.location.pathname.replace('admin.html', 'index.html');
+  // Also try localStorage as a secondary fallback (may not work on file://).
+  const token = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  try { localStorage.setItem('gn_imp_' + token, JSON.stringify(payload)); } catch(e) {}
+
+  // Build URL from href so file:// URLs work (window.location.origin is "null" for file://).
+  const gearnomicUrl = window.location.href.replace(/[?#].*$/, '').replace('admin.html', 'index.html');
   const newTab = window.open(gearnomicUrl + '?imp=' + token, '_blank');
   if (!newTab) {
-    localStorage.removeItem(storageKey);
     window._pendingImpersonation = null;
     toast('Popup blocked — please allow popups for this site and try again.');
     return;
   }
 
-  // Clean up the localStorage entry after 60 s in case the new tab never reads it
-  setTimeout(() => localStorage.removeItem(storageKey), 60000);
+  // Clean up localStorage entry after 60 s
+  setTimeout(() => localStorage.removeItem('gn_imp_' + token), 60000);
 
   toast(`Impersonation session opened for ${u.email}`);
 }

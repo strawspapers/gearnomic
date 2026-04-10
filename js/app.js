@@ -5648,19 +5648,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     const _storageKey = 'gn_imp_' + _impToken;
     let _impPayload = null;
     try {
-      // Primary: read from localStorage by the unique token
-      const raw = localStorage.getItem(_storageKey);
-      localStorage.removeItem(_storageKey); // consume immediately
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Date.now() - (parsed.timestamp || 0) < 60000) _impPayload = parsed;
-      }
-      // Fallback: window.opener direct reference (works when COOP is not enforced)
-      if (!_impPayload && window.opener?._pendingImpersonation) {
+      // Primary: window.opener — direct memory reference, works for file:// and
+      // hosted URLs without Cross-Origin-Opener-Policy headers.
+      if (window.opener && window.opener._pendingImpersonation) {
         _impPayload = window.opener._pendingImpersonation;
         window.opener._pendingImpersonation = null;
+        console.log('[imp] payload from window.opener');
       }
-    } catch(e) { console.warn('Could not read impersonation payload:', e); }
+      // Fallback: localStorage (may not work reliably on file:// in Firefox/Safari)
+      if (!_impPayload) {
+        const raw = localStorage.getItem(_storageKey);
+        localStorage.removeItem(_storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Date.now() - (parsed.timestamp || 0) < 60000) {
+            _impPayload = parsed;
+            console.log('[imp] payload from localStorage');
+          }
+        }
+      }
+      if (!_impPayload) console.warn('[imp] no payload found — opener:', window.opener, 'ls key:', _storageKey);
+    } catch(e) { console.warn('[imp] error reading payload:', e); }
 
     if (_impPayload) {
       try {
