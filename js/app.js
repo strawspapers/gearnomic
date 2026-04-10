@@ -5293,6 +5293,14 @@ function buildSharePayload(obj, kind) {
     payload._shared_loadouts = (obj.loadout_ids).map(lid =>
       state.templates.find(t => t.id === lid)
     ).filter(Boolean).map(l => JSON.parse(JSON.stringify(l)));
+
+    // Also embed the meal plan if attached to this trip
+    if (obj.meal_plan_id) {
+      const mealPlan = state.food_plans.find(p => p.id === obj.meal_plan_id);
+      if (mealPlan) {
+        payload._shared_food_plan = JSON.parse(JSON.stringify(mealPlan));
+      }
+    }
   }
 
   payload._shared_items = gearIds.map(id => {
@@ -5340,6 +5348,10 @@ async function shareItem(id, kind) {
     const token   = nanoId(10);
     const payload = buildSharePayload(obj, kind);
 
+    // Debug logging for payload size
+    const payloadSize = JSON.stringify(payload).length;
+    console.log(`Share payload size: ${(payloadSize / 1024).toFixed(1)} KB for ${kind} with ${(payload._shared_items || []).length} items`);
+
     const insertPromise = _sb.from('shared_lists').insert({
       id:       token,
       owner_id: _user.id,
@@ -5348,16 +5360,26 @@ async function shareItem(id, kind) {
       payload,
     });
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Request timed out after 15 seconds. Check your internet connection.')), 15000)
+      setTimeout(() => reject(new Error('Request timed out after 15 seconds. This may indicate network issues or Supabase configuration problems.')), 15000)
     );
     const { error } = await Promise.race([insertPromise, timeoutPromise]);
 
     if (error) {
       console.error('Share error:', error);
+      const isTimeoutError = error.message?.includes('timed out');
       openModal('Share failed', `
         <p style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">Could not create share link.</p>
         <p style="font-size:12px;color:var(--danger);margin-bottom:1rem;font-family:monospace">${esc(error.message)}</p>
-        <p style="font-size:12px;color:var(--text-3)">If this keeps happening, make sure the <code>shared_lists</code> table exists — run <code>supabase/02_shared_lists.sql</code> in your Supabase SQL editor.</p>
+        ${isTimeoutError ? `
+          <p style="font-size:12px;color:var(--text-3);margin-bottom:1rem">
+            The request took too long. Please check:
+            <ul style="margin:.5rem 0;padding-left:1.5rem">
+              <li>Your internet connection</li>
+              <li>That the <code>shared_lists</code> table exists in Supabase (run <code>supabase/02_shared_lists.sql</code>)</li>
+              <li>That RLS policies are properly configured</li>
+            </ul>
+          </p>` : `
+          <p style="font-size:12px;color:var(--text-3)">If this keeps happening, make sure the <code>shared_lists</code> table exists — run <code>supabase/02_shared_lists.sql</code> in your Supabase SQL editor.</p>`}
         <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
       return;
     }
@@ -5511,6 +5533,50 @@ function renderSharedView(overlay, data) {
           <div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.875rem">Gear list</div>
           ${gearHtml || '<p style="color:var(--text-3);font-size:13px">No gear items in this list.</p>'}
         </div>
+
+        ${payload._shared_food_plan ? (() => {
+          const mp = payload._shared_food_plan;
+          const meals = mp.meals || [];
+          const totalCal = meals.reduce((s, m) => s + (m.cal || 0), 0);
+          const totalW = meals.reduce((s, m) => s + (m.weight_g || 0), 0);
+          const dayCount = mp.days || 1;
+          const nightCount = mp.nights ?? (dayCount - 1);
+
+          const mealsByDay = {};
+          meals.forEach(m => {
+            if (!mealsByDay[m.day]) mealsByDay[m.day] = [];
+            mealsByDay[m.day].push(m);
+          });
+
+          const dayHtml = Array.from({length: dayCount}, (_, i) => i + 1).map(day => {
+            const dayMeals = mealsByDay[day] || [];
+            const dayCal = dayMeals.reduce((s, m) => s + (m.cal || 0), 0);
+            const dayW = dayMeals.reduce((s, m) => s + (m.weight_g || 0), 0);
+            return `
+              <div style="margin-bottom:.75rem;padding:.75rem;background:var(--surface-2);border-radius:var(--r-md)">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.375rem">
+                  <span style="font-weight:500;font-size:13px">Day ${day}</span>
+                  <span style="font-size:12px;color:var(--text-3)">${dayCal ? dayCal.toLocaleString() + ' cal · ' + wg(dayW) : 'No meals'}</span>
+                </div>
+                ${dayMeals.length > 0 ? `
+                  <div style="font-size:12px;color:var(--text-2);display:flex;flex-direction:column;gap:3px">
+                    ${dayMeals.map(m => `<div>• ${esc(m.name || m.recipe_name || 'Meal')}</div>`).join('')}
+                  </div>` : ''}
+              </div>`;
+          }).join('');
+
+          return `
+            <div class="card" style="margin-top:1.5rem">
+              <div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.875rem">Meal plan</div>
+              <div style="display:flex;gap:20px;font-size:13px;margin-bottom:1rem;flex-wrap:wrap">
+                <span><strong>${mp.name || 'Meal Plan'}</strong></span>
+                <span><strong>${dayCount}</strong> days</span>
+                <span>Total: <strong class="mono">${totalCal.toLocaleString()} cal</strong></span>
+                <span><strong class="mono">${wg(totalW)}</strong> food</span>
+              </div>
+              <div>${dayHtml}</div>
+            </div>`;
+        })() : ''}
 
         <p style="text-align:center;font-size:12px;color:var(--text-3);margin-top:1.5rem">
           Shared via <a href="${window.location.pathname}" style="color:var(--accent)">Gearnomic</a>
