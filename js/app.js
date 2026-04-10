@@ -1091,7 +1091,7 @@ function renderGearCards(filtered) {
           <div class="gear-card-main">
             <div style="flex:1;min-width:0">
               <div style="font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}</div>
-              <div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(item.brand||'')}</div>
+              <div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(item.brand||'')}${item.brand ? ' · ' : ''}${item.model ? esc(item.model) + ' · ' : ''}${badge('badge-gray', item.category)}</div>
             </div>
             <div style="text-align:right;flex-shrink:0;margin-left:12px">
               <div class="mono" style="font-size:14px;font-weight:500">${wg(item.weight_g)}</div>
@@ -1120,7 +1120,7 @@ function renderGearCards(filtered) {
         <div class="gear-card-main">
           <div style="flex:1;min-width:0">
             <div style="font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}</div>
-            <div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(item.brand||'')}${item.brand && item.category ? ' · ' : ''}${badge('badge-gray', item.category)}</div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(item.brand||'')}${item.brand ? ' · ' : ''}${item.model ? esc(item.model) + ' · ' : ''}${badge('badge-gray', item.category)}</div>
           </div>
           <div style="text-align:right;flex-shrink:0;margin-left:12px">
             <div class="mono" style="font-size:14px;font-weight:500">${wg(item.weight_g)}</div>
@@ -3573,7 +3573,7 @@ function catGroupedGearTable(ids, containerId, isTemplate, cols) {
           title="Drag to move category · Tap on mobile">
           <span class="gear-handle">⠿</span>
         </td>
-        <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand||'')}</div></td>
+        <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand||'')}${item.brand ? ' · ' : ''}${item.model ? esc(item.model) + ' · ' : ''}${badge('badge-gray', item.category)}</div></td>
         <td class="mono">${wg(effectiveW)}${ov!=null?` <span style="font-size:10px;color:var(--accent)">(override)</span>`:''}</td>
         ${container ? carryCell(containerId, id, isTemplate) : '<td></td>'}
         <td>${usd(item.cost_usd)}</td>
@@ -5620,6 +5620,8 @@ function renderSharedView(overlay, data) {
           <div style="flex:1">
             <span style="font-size:13px;font-weight:500">${esc(item.name)}</span>
             ${item.brand ? `<span style="font-size:11px;color:var(--text-3);margin-left:6px">${esc(item.brand)}</span>` : ''}
+            ${item.model ? `<span style="font-size:11px;color:var(--text-3);margin-left:6px">${esc(item.model)}</span>` : ''}
+            <span style="font-size:11px;margin-left:6px">${badge('badge-gray', item.category)}</span>
             ${badge}
           </div>
           <div style="display:flex;gap:16px;font-size:12px;color:var(--text-2);flex-shrink:0;margin-left:12px">
