@@ -1043,32 +1043,141 @@ function renderGearCards(filtered) {
     cardsEl.innerHTML = `<div class="empty-state" style="padding:2rem"><p>No items match your filters.</p><button class="btn btn-sm" onclick="clearGearFilters()">Clear filters</button></div>`;
     return;
   }
-  cardsEl.innerHTML = filtered.map(item => {
-    const isSel = _bulkSelected.has(item.id);
-    return `<div class="gear-card ${isSel ? 'bulk-selected' : ''}" data-item-id="${item.id}"
-      onclick="${_bulkMode ? `toggleItemSelect('${item.id}')` : `toggleExpand('${item.id}')`}">
-      <div class="gear-card-main">
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}</div>
-          <div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(item.brand||'')}${item.brand && item.category ? ' · ' : ''}${badge('badge-gray', item.category)}</div>
+
+  const sort = document.getElementById('gear-sort')?.value;
+  const groupByCategory = sort === 'custom';
+
+  let html = '';
+
+  if (groupByCategory) {
+    // Group by category and show headers with drag support
+    const catOrder = categoryNames();
+    const byCat = {};
+    filtered.forEach(item => {
+      if (!byCat[item.category]) byCat[item.category] = [];
+      byCat[item.category].push(item);
+    });
+
+    const sortedCats = Object.keys(byCat).sort((a, b) => {
+      const ai = catOrder.indexOf(a), bi = catOrder.indexOf(b);
+      if (ai === -1 && bi === -1) return a.localeCompare(b);
+      if (ai === -1) return 1; if (bi === -1) return -1;
+      return ai - bi;
+    });
+
+    sortedCats.forEach(cat => {
+      const catEsc = JSON.stringify(cat);
+      html += `
+        <div class="gear-cards-cat-header"
+          data-cat="${esc(cat)}"
+          ondragover="onCategoryDragOver(event,${catEsc})"
+          ondragleave="onCategoryDragLeave(event)"
+          ondrop="onCategoryDrop(event,${catEsc})">
+          <span class="gear-handle" style="margin-right:8px;cursor:grab;user-select:none" title="Drag to move items here">⠿</span>
+          <span style="font-weight:500;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2)">${esc(cat)}</span>
+        </div>`;
+
+      byCat[cat].forEach(item => {
+        const isSel = _bulkSelected.has(item.id);
+        const catEsc = JSON.stringify(item.category);
+        html += `<div class="gear-card ${isSel ? 'bulk-selected' : ''}" data-item-id="${item.id}" data-item-cat="${esc(item.category)}"
+          draggable="true"
+          ondragstart="onItemDragStart(event,'${item.id}')"
+          ondragend="onItemDragEnd()"
+          ondragover="onCategoryDragOver(event,${catEsc})"
+          ondragleave="onCategoryDragLeave(event)"
+          ondrop="onCategoryDrop(event,${catEsc})"
+          onclick="${_bulkMode ? `toggleItemSelect('${item.id}')` : `toggleExpand('${item.id}')`}">
+          <div class="gear-card-main">
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}</div>
+              <div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(item.brand||'')}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;margin-left:12px">
+              <div class="mono" style="font-size:14px;font-weight:500">${wg(item.weight_g)}</div>
+              <div style="font-size:11px;color:var(--text-3)">${item.cost_usd ? usd(item.cost_usd) : ''}</div>
+            </div>
+            ${_bulkMode
+              ? `<label style="margin-left:10px;display:flex;align-items:center;cursor:pointer" onclick="event.stopPropagation()">
+                  <input type="checkbox" class="bulk-checkbox"
+                    ${isSel ? 'checked' : ''}
+                    style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer"
+                    onchange="toggleItemSelect('${item.id}')"
+                    onclick="event.stopPropagation()">
+                </label>`
+              : `<button class="btn btn-xs" style="margin-left:10px;flex-shrink:0" onclick="event.stopPropagation();openEditItem('${item.id}')">Edit</button>`}
+          </div>
+          ${item.condition && item.condition !== '' ? `<div style="margin-top:6px">${badge(COND_BADGE[item.condition]||'badge-gray', COND_LABEL[item.condition])}</div>` : ''}
+        </div>`;
+      });
+    });
+  } else {
+    // Flat list without categories
+    html = filtered.map(item => {
+      const isSel = _bulkSelected.has(item.id);
+      return `<div class="gear-card ${isSel ? 'bulk-selected' : ''}" data-item-id="${item.id}"
+        onclick="${_bulkMode ? `toggleItemSelect('${item.id}')` : `toggleExpand('${item.id}')`}">
+        <div class="gear-card-main">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}</div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(item.brand||'')}${item.brand && item.category ? ' · ' : ''}${badge('badge-gray', item.category)}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;margin-left:12px">
+            <div class="mono" style="font-size:14px;font-weight:500">${wg(item.weight_g)}</div>
+            <div style="font-size:11px;color:var(--text-3)">${item.cost_usd ? usd(item.cost_usd) : ''}</div>
+          </div>
+          ${_bulkMode
+            ? `<label style="margin-left:10px;display:flex;align-items:center;cursor:pointer" onclick="event.stopPropagation()">
+                <input type="checkbox" class="bulk-checkbox"
+                  ${isSel ? 'checked' : ''}
+                  style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer"
+                  onchange="toggleItemSelect('${item.id}')"
+                  onclick="event.stopPropagation()">
+              </label>`
+            : `<button class="btn btn-xs" style="margin-left:10px;flex-shrink:0" onclick="event.stopPropagation();openEditItem('${item.id}')">Edit</button>`}
         </div>
-        <div style="text-align:right;flex-shrink:0;margin-left:12px">
-          <div class="mono" style="font-size:14px;font-weight:500">${wg(item.weight_g)}</div>
-          <div style="font-size:11px;color:var(--text-3)">${item.cost_usd ? usd(item.cost_usd) : ''}</div>
-        </div>
-        ${_bulkMode
-          ? `<label style="margin-left:10px;display:flex;align-items:center;cursor:pointer" onclick="event.stopPropagation()">
-              <input type="checkbox" class="bulk-checkbox"
-                ${isSel ? 'checked' : ''}
-                style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer"
-                onchange="toggleItemSelect('${item.id}')"
-                onclick="event.stopPropagation()">
-            </label>`
-          : `<button class="btn btn-xs" style="margin-left:10px;flex-shrink:0" onclick="event.stopPropagation();openEditItem('${item.id}')">Edit</button>`}
-      </div>
-      ${item.condition && item.condition !== '' ? `<div style="margin-top:6px">${badge(COND_BADGE[item.condition]||'badge-gray', COND_LABEL[item.condition])}</div>` : ''}
-    </div>`;
-  }).join('');
+        ${item.condition && item.condition !== '' ? `<div style="margin-top:6px">${badge(COND_BADGE[item.condition]||'badge-gray', COND_LABEL[item.condition])}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  cardsEl.innerHTML = html;
+}
+
+// Drag handlers for mobile gear cards grouped by category
+function onCategoryDragOver(e, targetCat) {
+  if (!_dragItemId) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  // Highlight the category section when dragging over items
+  document.querySelectorAll(`[data-item-cat="${esc(targetCat)}"], [data-cat="${esc(targetCat)}"]`)
+    .forEach(el => el.classList.add('cat-section-highlight'));
+}
+
+function onCategoryDragLeave(e) {
+  // Only clear if we're really leaving the category
+  if (!e.relatedTarget || !e.relatedTarget.closest('[data-item-cat], [data-cat]')) {
+    document.querySelectorAll('.cat-section-highlight')
+      .forEach(el => el.classList.remove('cat-section-highlight'));
+  }
+}
+
+function onCategoryDrop(e, targetCat) {
+  e.preventDefault();
+  const draggedId = e.dataTransfer.getData('text/plain') || _dragItemId;
+  if (!draggedId || !targetCat) return;
+
+  const item = state.items.find(i => i.id === draggedId);
+  if (!item || item.category === targetCat) {
+    document.querySelectorAll('.cat-section-highlight')
+      .forEach(el => el.classList.remove('cat-section-highlight'));
+    return;
+  }
+
+  item.category = targetCat;
+  saveState();
+  renderGear();
+  toast(`Moved "${item.name}" → ${targetCat}`);
 }
 
 // ── Quick-add gear ─────────────────────────────────────────

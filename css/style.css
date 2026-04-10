@@ -1208,11 +1208,34 @@ tr.bulk-selected td { background: var(--accent-l) !important; }
   border-bottom: .5px solid var(--border-2);
   cursor: pointer;
   transition: background .1s;
+  background: var(--surface);
 }
 .gear-card:last-child { border-bottom: none; }
 .gear-card:hover { background: var(--surface-2); }
 .gear-card:active { background: var(--accent-l); }
+.gear-card.cat-section-highlight { background: var(--accent-l); opacity: 0.6; }
 .gear-card-main { display: flex; align-items: center; }
+
+.gear-cards-cat-header {
+  display: flex;
+  align-items: center;
+  padding: .5rem 1rem;
+  margin-top: 0.5rem;
+  background: var(--surface-2);
+  border-bottom: .5px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--text-3);
+  cursor: grab;
+  user-select: none;
+  transition: background .1s;
+}
+.gear-cards-cat-header.cat-section-highlight {
+  background: var(--accent-l);
+  color: var(--text-1);
+}
 
 @media (max-width: 640px) {
   .gear-table-wrap { display: none; }
