@@ -5459,7 +5459,37 @@ function renderSharedView(overlay, data) {
   const payload  = data.payload;
   const kind     = data.kind;
   const items    = payload._shared_items || [];
-  const tw       = items.reduce((s, i) => s + (i.weight_g || 0), 0);
+
+  // Helper to get carry type for a shared item
+  function getSharedCarryType(itemId) {
+    // For trips, check loadouts' carry_types
+    if (kind === 'trip' && payload._shared_loadouts) {
+      for (const loadout of payload._shared_loadouts) {
+        const ct = loadout.carry_types?.[itemId];
+        if (ct) return ct;
+      }
+    }
+    // For templates, check payload.carry_types
+    if (kind === 'template') {
+      return payload.carry_types?.[itemId] || 'packed';
+    }
+    return 'packed';
+  }
+
+  // Calculate weights by carry type
+  const baseW = items.reduce((s, i) => {
+    const ct = getSharedCarryType(i.id);
+    return s + (ct === 'packed' ? (i.weight_g || 0) : 0);
+  }, 0);
+  const wornW = items.reduce((s, i) => {
+    const ct = getSharedCarryType(i.id);
+    return s + (ct === 'worn' ? (i.weight_g || 0) : 0);
+  }, 0);
+  const consumW = items.reduce((s, i) => {
+    const ct = getSharedCarryType(i.id);
+    return s + (ct === 'consumable' ? (i.weight_g || 0) : 0);
+  }, 0);
+  const tw = baseW + wornW + consumW;
 
   // Group items by category for the list
   const byCat = {};
@@ -5471,24 +5501,25 @@ function renderSharedView(overlay, data) {
   const gearHtml = Object.entries(byCat).map(([cat, catItems]) => `
     <div style="margin-bottom:1rem">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);padding:4px 0;border-bottom:.5px solid var(--border);margin-bottom:5px">${esc(cat)}</div>
-      ${catItems.map(item => `
+      ${catItems.map(item => {
+        const ct = getSharedCarryType(item.id);
+        const badge = ct === 'worn' ? '<span style="display:inline-block;padding:2px 6px;border-radius:12px;font-size:10px;font-weight:500;background:var(--warning-bg);color:var(--warning-text);margin-left:4px">W worn</span>' :
+                      ct === 'consumable' ? '<span style="display:inline-block;padding:2px 6px;border-radius:12px;font-size:10px;font-weight:500;background:var(--info-bg);color:var(--info-text);margin-left:4px">C consumable</span>' :
+                      '';
+        return `
         <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:.5px solid var(--border-2)">
-          <div>
+          <div style="flex:1">
             <span style="font-size:13px;font-weight:500">${esc(item.name)}</span>
             ${item.brand ? `<span style="font-size:11px;color:var(--text-3);margin-left:6px">${esc(item.brand)}</span>` : ''}
+            ${badge}
           </div>
           <div style="display:flex;gap:16px;font-size:12px;color:var(--text-2);flex-shrink:0;margin-left:12px">
             <span class="mono">${wg(item.weight_g)}</span>
             ${item.cost_usd ? `<span>${usd(item.cost_usd)}</span>` : ''}
           </div>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
     </div>`).join('');
-
-  // Carry breakdown
-  const wornW = items.filter((_, i) => {
-    const id = payload.gear_ids?.[i];
-    return id && getCarryType(payload, id) === 'worn';
-  }).reduce((s, i) => s + (i.weight_g || 0), 0);
 
   overlay.innerHTML = `
     <div style="min-height:100vh;background:var(--bg);padding:0">
@@ -5515,8 +5546,10 @@ function renderSharedView(overlay, data) {
           <!-- Stats row -->
           <div style="display:flex;gap:20px;font-size:13px;margin-top:.875rem;flex-wrap:wrap">
             <span><strong>${items.length}</strong> items</span>
-            <span>Total: <strong class="mono">${wg(tw)}</strong></span>
-            ${wornW ? `<span>Worn: <strong class="mono">${wg(wornW)}</strong></span>` : ''}
+            <span>Base: <strong class="mono">${wg(baseW)}</strong></span>
+            ${wornW ? `<span><span style="display:inline-block;width:8px;height:8px;background:var(--warning-text);border-radius:2px;margin-right:4px;vertical-align:middle"></span>Worn: <strong class="mono">${wg(wornW)}</strong></span>` : ''}
+            ${consumW ? `<span><span style="display:inline-block;width:8px;height:8px;background:var(--info-text);border-radius:2px;margin-right:4px;vertical-align:middle"></span>Consumable: <strong class="mono">${wg(consumW)}</strong></span>` : ''}
+            <span style="color:var(--text-3)">Total: <strong class="mono">${wg(tw)}</strong></span>
             ${payload.miles  ? `<span> <strong>${payload.miles}</strong> mi</span>` : ''}
             ${payload.start_date ? `<span> ${payload.start_date}</span>` : ''}
           </div>
