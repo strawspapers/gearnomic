@@ -1956,6 +1956,7 @@ function renderTripDetail(trip) {
       ${trip.start_date ? `<div class="info-pair"><div class="info-key">Dates</div><div class="info-val">${trip.start_date}${trip.end_date?' → '+trip.end_date:''}</div></div>` : ''}
       ${nights != null  ? `<div class="info-pair"><div class="info-key">Nights</div><div class="info-val">${nights}</div></div>` : ''}
       ${trip.miles      ? `<div class="info-pair"><div class="info-key">Distance</div><div class="info-val">${trip.miles} mi${nights?` · ${(trip.miles/nights).toFixed(1)} mi/day`:''}</div></div>` : ''}
+      ${trip.route_url  ? `<div class="info-pair"><div class="info-key">Route</div><div class="info-val"><a href="${esc(trip.route_url)}" target="_blank" rel="noopener noreferrer" style="color:var(--primary);text-decoration:none">View route ↗</a></div></div>` : ''}
     </div>
     ${trip.notes ? `<p style="font-size:13px;color:var(--text-2);margin-bottom:.875rem;padding:.625rem .75rem;background:var(--surface-2);border-radius:var(--r-md)">${esc(trip.notes)}</p>` : ''}
 
@@ -2311,6 +2312,7 @@ function tripFormHtml(trip) {
       <div class="form-row"><label class="form-label">Weight target (grams)</label><input class="input input-full" id="tf-target" type="number" min="0" value="${trip.weight_target_g || ''}" placeholder="e.g. 10000"></div>
       <div class="form-row"><label class="form-label">Distance (miles)</label><input class="input input-full" id="tf-miles" type="number" min="0" step="0.1" value="${trip.miles || ''}" placeholder="e.g. 28.5"></div>
     </div>
+    <div class="form-row"><label class="form-label">Route URL <span style="font-weight:400;color:var(--text-3)">(CalTopo, AllTrails, onX, etc.)</span></label><input class="input input-full" id="tf-route-url" type="url" value="${esc(trip.route_url || '')}" placeholder="https://caltopo.com/m/..."></div>
     <div class="form-row"><label class="form-label">Notes</label><textarea class="input input-full" id="tf-notes" rows="2" style="height:60px">${esc(trip.notes || '')}</textarea></div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="saveTrip('${trip.id || ''}')">Save trip</button>
@@ -2344,6 +2346,7 @@ function saveTrip(id) {
     trip_type:        document.getElementById('tf-type').value === '__new__' ? 'other' : document.getElementById('tf-type').value,
     weight_target_g:  parseInt(document.getElementById('tf-target').value) || null,
     miles:            parseFloat(document.getElementById('tf-miles').value) || null,
+    route_url:        document.getElementById('tf-route-url').value.trim() || null,
     notes:            document.getElementById('tf-notes').value.trim(),
     loadout_ids:      id ? (state.trips.find(t => t.id === id)?.loadout_ids || []) : [],
     meal_plan_id:     id ? (state.trips.find(t => t.id === id)?.meal_plan_id || null) : null,
