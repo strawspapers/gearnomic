@@ -164,6 +164,7 @@ function applyMigrations() {
     if (!t.carry_types)    t.carry_types    = {};
     if (!t.meal_plan_id)   t.meal_plan_id   = null;
     if (!t.item_quantities) t.item_quantities = {};
+    if (!t.item_feedback)  t.item_feedback  = {};
 
     if (t.gear_ids && t.gear_ids.length && !t.loadout_ids) {
       // Create an auto-loadout from the trip's existing gear list
@@ -1129,7 +1130,7 @@ function renderGearCards(filtered) {
           onclick="${_bulkMode ? `toggleItemSelect('${item.id}')` : `toggleExpand('${item.id}')`}">
           <div class="gear-card-main">
             <div style="flex:1;min-width:0">
-              <div style="font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}</div>
+              <div style="font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}${_replaceFlags[item.id] ? `<span class="replace-flag-dot" title="Flagged for replacement on: ${esc(_replaceFlags[item.id].join(', '))}"></span>` : ''}</div>
               <div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(item.brand||'')}${item.brand ? ' · ' : ''}${item.model ? esc(item.model) + ' · ' : ''}${badge('badge-gray', item.category)}</div>
             </div>
             <div style="text-align:right;flex-shrink:0;margin-left:12px">
@@ -1158,7 +1159,7 @@ function renderGearCards(filtered) {
         onclick="${_bulkMode ? `toggleItemSelect('${item.id}')` : `toggleExpand('${item.id}')`}">
         <div class="gear-card-main">
           <div style="flex:1;min-width:0">
-            <div style="font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}</div>
+            <div style="font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}${_replaceFlags[item.id] ? `<span class="replace-flag-dot" title="Flagged for replacement on: ${esc(_replaceFlags[item.id].join(', '))}"></span>` : ''}</div>
             <div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(item.brand||'')}${item.brand ? ' · ' : ''}${item.model ? esc(item.model) + ' · ' : ''}${badge('badge-gray', item.category)}</div>
           </div>
           <div style="text-align:right;flex-shrink:0;margin-left:12px">
@@ -1285,7 +1286,10 @@ function toggleMiscCol() {
   renderGear();
 }
 
+let _replaceFlags = {};
+
 function renderGear() {
+  _replaceFlags = getReplaceFlagTrips();
   populateCatFilter('gear-filter-cat');
 
   const q    = document.getElementById('gear-search').value.toLowerCase();
@@ -1492,7 +1496,7 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
     ${firstCell}
 
     ${editableCell(item, 'name',
-        `<div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand || '')}</div>`,
+        `<div class="item-name">${esc(item.name)}${_replaceFlags[item.id] ? `<span class="replace-flag-dot" title="Flagged for replacement on: ${esc(_replaceFlags[item.id].join(', '))}"></span>` : ''}</div><div class="item-sub">${esc(item.brand || '')}</div>`,
         cellInput(item.id, 'name', item.name, 'text', 'placeholder="Item name"'))}
 
     ${_visibleCols.has('category') ? editableCell(item, 'category',
@@ -1780,6 +1784,20 @@ function closeTripDetail() {
   renderTrips();
 }
 
+// Returns map of itemId → [tripName, …] for 'replace' flags on completed trips
+function getReplaceFlagTrips() {
+  const map = {};
+  state.trips.filter(t => t.status === 'completed').forEach(trip => {
+    Object.entries(trip.item_feedback || {}).forEach(([itemId, fb]) => {
+      if (fb.flag === 'replace') {
+        if (!map[itemId]) map[itemId] = [];
+        map[itemId].push(trip.name);
+      }
+    });
+  });
+  return map;
+}
+
 function renderTripDetail(trip) {
   const wrap = document.getElementById('trip-detail-wrap');
   wrap.style.display = 'block';
@@ -1901,10 +1919,10 @@ function renderTripDetail(trip) {
       </div>
     </div>
 
-    <!-- FULL GEAR LIST (collapsed) -->
-    <details style="margin-top:.25rem">
+    <!-- FULL GEAR LIST (collapsed, open by default for completed trips) -->
+    <details style="margin-top:.25rem" ${trip.status === 'completed' ? 'open' : ''}>
       <summary style="font-size:13px;font-weight:500;cursor:pointer;padding:6px 0;user-select:none">
-        Full gear list (${allGearIds.length} items across all loadouts)
+        Full gear list (${allGearIds.length} items across all loadouts)${trip.status === 'completed' ? ' — rate each item below' : ''}
       </summary>
       <div class="table-wrap" style="margin-top:.5rem">
         <table class="data-table">
@@ -1951,6 +1969,66 @@ function saveTripNotes(tripId) {
   trip.notes = notes || null;
   saveState();
   delete _tripNotesTimeouts[tripId];
+}
+
+// ── Item feedback (completed trips) ───────────────────────
+function setItemFeedback(tripId, itemId, flag) {
+  const trip = state.trips.find(t => t.id === tripId);
+  if (!trip) return;
+  if (!trip.item_feedback) trip.item_feedback = {};
+  const existing = trip.item_feedback[itemId] || {};
+  const newFlag = existing.flag === flag ? null : flag;
+  if (newFlag) {
+    trip.item_feedback[itemId] = { flag: newFlag, note: existing.note || '' };
+  } else {
+    delete trip.item_feedback[itemId];
+    delete _feedbackNoteTimers[`${tripId}__${itemId}`];
+  }
+  saveState();
+
+  // Update button states in-place (no full re-render)
+  const container = document.getElementById(`feedback-${tripId}-${itemId}`);
+  if (container) {
+    container.querySelectorAll('[data-flag]').forEach(btn => {
+      const f = btn.dataset.flag;
+      const active = f === newFlag;
+      if (f === 'worked') {
+        btn.style.background  = active ? 'var(--success-bg)' : '';
+        btn.style.borderColor = active ? 'var(--success)' : '';
+        btn.style.color       = active ? 'var(--success-text)' : '';
+      } else if (f === 'didnt_work') {
+        btn.style.background  = active ? 'var(--danger-bg)' : '';
+        btn.style.borderColor = active ? 'var(--danger)' : '';
+        btn.style.color       = active ? 'var(--danger-text)' : '';
+      } else if (f === 'replace') {
+        btn.style.background  = active ? 'var(--warning-bg)' : '';
+        btn.style.borderColor = active ? 'var(--warning)' : '';
+        btn.style.color       = active ? 'var(--warning-text)' : '';
+      }
+    });
+  }
+  const noteWrap = document.getElementById(`feedback-note-wrap-${tripId}-${itemId}`);
+  if (noteWrap) noteWrap.style.display = newFlag ? 'block' : 'none';
+  if (!newFlag) {
+    const noteInput = document.getElementById(`feedback-note-${tripId}-${itemId}`);
+    if (noteInput) noteInput.value = '';
+  }
+}
+
+let _feedbackNoteTimers = {};
+function debounceItemFeedbackNote(tripId, itemId) {
+  const key = `${tripId}__${itemId}`;
+  if (_feedbackNoteTimers[key]) clearTimeout(_feedbackNoteTimers[key]);
+  _feedbackNoteTimers[key] = setTimeout(() => saveItemFeedbackNote(tripId, itemId), 1500);
+}
+function saveItemFeedbackNote(tripId, itemId) {
+  const trip = state.trips.find(t => t.id === tripId);
+  if (!trip || !trip.item_feedback?.[itemId]) return;
+  const input = document.getElementById(`feedback-note-${tripId}-${itemId}`);
+  if (!input) return;
+  trip.item_feedback[itemId].note = input.value;
+  saveState();
+  delete _feedbackNoteTimers[`${tripId}__${itemId}`];
 }
 
 // ── Loadout attach / detach ────────────────────────────────
@@ -2071,11 +2149,40 @@ function catGroupedGearTableFromIds(gearIds, trip) {
     const catItems = byCat[cat];
     const headerRow = `<tr class="cat-header-row" data-cat="${esc(cat)}">
       <td style="width:28px"></td><td colspan="5">${esc(cat)}</td></tr>`;
+    const isCompleted = trip.status === 'completed';
     const itemRows = catItems.map(item => {
       const ct  = tripCarryType(trip, item.id);
       const ctLabel = ct === 'worn' ? badge('carry-worn','W worn') : ct === 'consumable' ? badge('carry-consumable','C consumable') : '';
       const qty = tripItemQty(trip, item.id);
       const totalW = (item.weight_g || 0) * qty;
+      const fb = isCompleted ? (trip.item_feedback?.[item.id] || null) : null;
+      const fbWorked  = fb?.flag === 'worked';
+      const fbBad     = fb?.flag === 'didnt_work';
+      const fbReplace = fb?.flag === 'replace';
+      const feedbackRow = isCompleted ? `<tr class="trip-feedback-row">
+        <td style="width:28px;border-top:none"></td>
+        <td colspan="5" style="padding:3px 0 8px;border-top:none">
+          <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap" id="feedback-${trip.id}-${item.id}">
+            <button class="btn btn-xs" data-flag="worked"
+              style="font-size:11px;${fbWorked?'background:var(--success-bg);border-color:var(--success);color:var(--success-text)':''}"
+              onclick="setItemFeedback('${trip.id}','${item.id}','worked')">Worked well</button>
+            <button class="btn btn-xs" data-flag="didnt_work"
+              style="font-size:11px;${fbBad?'background:var(--danger-bg);border-color:var(--danger);color:var(--danger-text)':''}"
+              onclick="setItemFeedback('${trip.id}','${item.id}','didnt_work')">Didn't work</button>
+            <button class="btn btn-xs" data-flag="replace"
+              style="font-size:11px;${fbReplace?'background:var(--warning-bg);border-color:var(--warning);color:var(--warning-text)':''}"
+              onclick="setItemFeedback('${trip.id}','${item.id}','replace')">Would replace</button>
+          </div>
+          <div id="feedback-note-wrap-${trip.id}-${item.id}" style="margin-top:5px;display:${fb?.flag ? 'block' : 'none'}">
+            <input type="text" class="input" id="feedback-note-${trip.id}-${item.id}"
+              value="${esc(fb?.note || '')}"
+              placeholder="Short note (optional)"
+              style="font-size:12px;height:28px;max-width:380px;width:100%"
+              oninput="debounceItemFeedbackNote('${trip.id}','${item.id}')"
+              onclick="event.stopPropagation()">
+          </div>
+        </td>
+      </tr>` : '';
       return `<tr>
         <td style="width:28px"></td>
         <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand||'')}</div></td>
@@ -2093,7 +2200,7 @@ function catGroupedGearTableFromIds(gearIds, trip) {
           </div>
         </td>
         <td style="font-size:12px">${usd(item.cost_usd)}</td>
-      </tr>`;
+      </tr>${feedbackRow}`;
     }).join('');
     return headerRow + itemRows;
   }).join('');
@@ -2656,6 +2763,25 @@ function renderAnalytics() {
             ).join('')}
           </table>`)}
       </td></tr>`;
+
+    // Field performance — blurred for free users
+    document.getElementById('analytics-field-performance').innerHTML = blurWrap(`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
+        <div>
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--success);margin-bottom:.375rem">Consistently praised</div>
+          ${['Trail Runners','Sleeping Bag','Rain Jacket'].map(n =>
+            `<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:.5px solid var(--border-2)">
+              <span style="font-weight:500">${n}</span><span style="color:var(--success)">3×</span>
+            </div>`).join('')}
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--warning);margin-bottom:.375rem">Flagged for replacement</div>
+          ${['Trekking Poles','Bivy Cover'].map(n =>
+            `<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:.5px solid var(--border-2)">
+              <span style="font-weight:500">${n}</span><span style="color:var(--warning)">2×</span>
+            </div>`).join('')}
+        </div>
+      </div>`);
     return;
   }
 
@@ -2805,6 +2931,38 @@ function renderAnalytics() {
         <td class="mono">${i.usage_nights || '—'}</td>
         <td>${badge(COND_BADGE[i.condition]||'badge-gray', COND_LABEL[i.condition]||'—')}</td>
       </tr>`).join('');
+
+  // Field performance
+  const workedCounts = {}, replaceCounts = {};
+  completedTrips.forEach(trip => {
+    Object.entries(trip.item_feedback || {}).forEach(([itemId, fb]) => {
+      if (fb.flag === 'worked')  workedCounts[itemId]  = (workedCounts[itemId]  || 0) + 1;
+      if (fb.flag === 'replace') replaceCounts[itemId] = (replaceCounts[itemId] || 0) + 1;
+    });
+  });
+  const topWorked  = Object.entries(workedCounts).sort((a,b)=>b[1]-a[1]).slice(0,6)
+    .map(([id,n]) => ({ item: state.items.find(i=>i.id===id), n })).filter(x=>x.item);
+  const topReplace = Object.entries(replaceCounts).sort((a,b)=>b[1]-a[1]).slice(0,6)
+    .map(([id,n]) => ({ item: state.items.find(i=>i.id===id), n })).filter(x=>x.item);
+  const fpRow = (x, color) =>
+    `<div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;padding:5px 0;border-bottom:.5px solid var(--border-2)">
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">${esc(x.item.name)}</span>
+      <span style="color:var(--text-3);font-size:11px;margin-left:6px;flex-shrink:0">${esc(x.item.category)}</span>
+      <span style="color:${color};font-weight:600;margin-left:10px;flex-shrink:0">${x.n}×</span>
+    </div>`;
+  document.getElementById('analytics-field-performance').innerHTML =
+    (!topWorked.length && !topReplace.length)
+    ? `<div class="empty-state"><p>No field feedback yet. Open a completed trip and rate each item.</p></div>`
+    : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
+        <div>
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--success);margin-bottom:.375rem">Consistently praised</div>
+          ${topWorked.length ? topWorked.map(x => fpRow(x,'var(--success)')).join('') : '<div style="font-size:12px;color:var(--text-3)">None yet</div>'}
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--warning);margin-bottom:.375rem">Flagged for replacement</div>
+          ${topReplace.length ? topReplace.map(x => fpRow(x,'var(--warning)')).join('') : '<div style="font-size:12px;color:var(--text-3)">None yet</div>'}
+        </div>
+      </div>`;
 }
 // ============================================================
 // TEMPLATES
@@ -2898,7 +3056,7 @@ function renderTemplateDetail(tmpl) {
 
   const tw = templateWeight(tmpl);
   const cats = templateCategorySummary(tmpl);
-  const validIds = (tmpl.gear_ids || []).filter(id => state.items.find(i => i.id === id));
+  const validIds = (tmpl.gear_ids||[]).filter(id => state.items.find(i => i.id === id));
   const missing  = (tmpl.gear_ids || []).length - validIds.length;
 
   // Weight breakdown using per-template carry types

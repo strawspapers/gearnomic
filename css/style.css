@@ -274,6 +274,27 @@ a:hover { text-decoration: underline; }
 textarea { height: auto; padding: 8px 10px; resize: vertical; }
 
 /* Trip notes textarea */
+/* Replace-flag indicator on gear items */
+.replace-flag-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warning);
+  opacity: .65;
+  margin-left: 6px;
+  vertical-align: middle;
+  cursor: default;
+  flex-shrink: 0;
+}
+
+/* Feedback rows in completed-trip gear table */
+tr.trip-feedback-row td {
+  padding-top: 0;
+  background: var(--surface);
+}
+tr.trip-feedback-row:hover td { background: var(--surface) !important; }
+
 .trip-notes-textarea {
   height: auto !important;
   padding: .75rem !important;
