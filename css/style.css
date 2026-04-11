@@ -273,6 +273,21 @@ a:hover { text-decoration: underline; }
 .select { padding-right: 28px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239A9A87' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; cursor: pointer; }
 textarea { height: auto; padding: 8px 10px; resize: vertical; }
 
+/* Trip notes textarea */
+.trip-notes-textarea {
+  height: auto !important;
+  padding: .75rem !important;
+  min-height: 120px;
+  line-height: 1.5;
+  border: .5px solid var(--border) !important;
+  resize: vertical;
+}
+.trip-notes-textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(184, 123, 10, .08) !important;
+}
+
+
 /* full-width form input variant */
 .input-full { width: 100%; }
 

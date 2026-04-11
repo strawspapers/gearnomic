@@ -1919,7 +1919,38 @@ function renderTripDetail(trip) {
           </tbody>
         </table>
       </div>
-    </details>`;
+    </details>
+
+    <!-- TRIP NOTES SECTION -->
+    <div style="margin-top:1.5rem">
+      <label style="display:block;font-family:var(--font-disp);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">Trip notes</label>
+      <textarea id="trip-notes-${trip.id}"
+        class="trip-notes-textarea"
+        placeholder="How did it go? What worked, what didn't..."
+        style="width:100%;font-family:var(--font-text);font-size:13px;padding:.75rem;border:.5px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--text-1);resize:vertical;min-height:120px;line-height:1.5"
+        onkeyup="debounceAutoSaveTripNotes('${trip.id}')">${esc(trip.notes || '')}</textarea>
+    </div>`;
+}
+
+// Debounced auto-save for trip notes
+let _tripNotesTimeouts = {};
+function debounceAutoSaveTripNotes(tripId) {
+  if (_tripNotesTimeouts[tripId]) clearTimeout(_tripNotesTimeouts[tripId]);
+  _tripNotesTimeouts[tripId] = setTimeout(() => {
+    saveTripNotes(tripId);
+  }, 1500);
+}
+
+function saveTripNotes(tripId) {
+  const trip = state.trips.find(t => t.id === tripId);
+  if (!trip) return;
+  const textarea = document.getElementById(`trip-notes-${tripId}`);
+  if (!textarea) return;
+  const notes = textarea.value.trim();
+  if (notes === (trip.notes || '')) return; // No change
+  trip.notes = notes || null;
+  saveState();
+  delete _tripNotesTimeouts[tripId];
 }
 
 // ── Loadout attach / detach ────────────────────────────────
