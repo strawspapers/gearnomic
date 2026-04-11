@@ -5817,46 +5817,37 @@ async function shareItem(id, kind) {
   toast('Creating share link…');
 
   try {
+    // Preflight: verify the table exists and is reachable before building payload
+    const { error: preflightError } = await _sb.from('shared_lists').select('id').limit(1);
+    if (preflightError) {
+      console.error('Share preflight failed:', preflightError);
+      openModal('Share unavailable', `
+        <p style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">Could not reach the sharing table.</p>
+        <p style="font-size:12px;color:var(--danger);margin-bottom:1rem;font-family:monospace">${esc(preflightError.message)}</p>
+        <p style="font-size:12px;color:var(--text-3)">Run <code>supabase/02_shared_lists.sql</code> in your Supabase SQL editor to set up sharing.</p>
+        <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
+      return;
+    }
+
     const token   = nanoId(10);
     const payload = buildSharePayload(obj, kind);
 
-    // Debug logging for payload size - warn if too large
     const payloadSize = JSON.stringify(payload).length;
-    const payloadSizeMB = (payloadSize / 1024 / 1024).toFixed(2);
-    console.log(`Share payload: ${(payloadSize / 1024).toFixed(1)} KB (${payloadSizeMB} MB) for ${kind} with ${(payload._shared_items || []).length} items`);
+    console.log(`Share payload: ${(payloadSize / 1024).toFixed(1)} KB for ${kind} with ${(payload._shared_items || []).length} items`);
 
-    if (payloadSize > 5 * 1024 * 1024) {
-      toast('Warning: This item has a lot of gear. Share link creation may be slow.');
-    }
-
-    const insertPromise = _sb.from('shared_lists').insert({
+    const { error } = await _sb.from('shared_lists').insert({
       id:       token,
       owner_id: _user.id,
       kind,
       title:    obj.name,
       payload,
     });
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Request timed out after 15 seconds. This may indicate network issues or Supabase configuration problems.')), 15000)
-    );
-    const { error } = await Promise.race([insertPromise, timeoutPromise]);
 
     if (error) {
-      console.error('Share error:', error);
-      const isTimeoutError = error.message?.includes('timed out');
+      console.error('Share insert error:', error);
       openModal('Share failed', `
         <p style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">Could not create share link.</p>
         <p style="font-size:12px;color:var(--danger);margin-bottom:1rem;font-family:monospace">${esc(error.message)}</p>
-        ${isTimeoutError ? `
-          <p style="font-size:12px;color:var(--text-3);margin-bottom:1rem">
-            The request took too long. Please check:
-            <ul style="margin:.5rem 0;padding-left:1.5rem">
-              <li>Your internet connection</li>
-              <li>That the <code>shared_lists</code> table exists in Supabase (run <code>supabase/02_shared_lists.sql</code>)</li>
-              <li>That RLS policies are properly configured</li>
-            </ul>
-          </p>` : `
-          <p style="font-size:12px;color:var(--text-3)">If this keeps happening, make sure the <code>shared_lists</code> table exists — run <code>supabase/02_shared_lists.sql</code> in your Supabase SQL editor.</p>`}
         <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
       return;
     }
@@ -5985,7 +5976,6 @@ function renderSharedView(overlay, data) {
             <span style="font-size:13px;font-weight:500">${esc(item.name)}</span>
             ${item.brand ? `<span style="font-size:11px;color:var(--text-3);margin-left:6px">${esc(item.brand)}</span>` : ''}
             ${item.model ? `<span style="font-size:11px;color:var(--text-3);margin-left:6px">${esc(item.model)}</span>` : ''}
-            <span style="font-size:11px;margin-left:6px">${badge('badge-gray', item.category)}</span>
             ${carryBadge}
           </div>
           <div style="display:flex;gap:16px;font-size:12px;color:var(--text-2);flex-shrink:0;margin-left:12px">
