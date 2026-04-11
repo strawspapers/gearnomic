@@ -5662,6 +5662,52 @@ function openPrivacyPolicy() {
     <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
 }
 
+// ── Changelog ───────────────────────────────────────────────
+const CHANGELOG = [
+  { id: 'cl005', date: 'April 10, 2026', text: 'Added empty states to all blank sections so the app feels less bare when you\'re just getting started.' },
+  { id: 'cl004', date: 'April 10, 2026', text: 'Load sample gear now also loads a demo trip and demo loadout so you can explore the full app right away.' },
+  { id: 'cl003', date: 'April 9, 2026', text: 'Shared trip URLs now include the meal plan — shared gear lists also show carry status (worn/consumable) and a weight breakdown.' },
+  { id: 'cl002', date: 'April 9, 2026', text: 'Added "Copy as markdown" export for trips and loadouts — easy sharing on Reddit, Discord, and forums.' },
+  { id: 'cl001', date: 'April 8, 2026', text: 'Item details (brand, model, weight, cost) now shown consistently across gear closet, loadouts, and shared views.' },
+];
+
+function updateChangelogDot() {
+  const dot = document.getElementById('changelog-dot');
+  if (!dot) return;
+  const seen = localStorage.getItem('gn_changelog_seen');
+  dot.style.display = (seen === CHANGELOG[0].id) ? 'none' : 'inline-block';
+}
+
+function openChangelog() {
+  localStorage.setItem('gn_changelog_seen', CHANGELOG[0].id);
+  updateChangelogDot();
+
+  // Group entries by date
+  const byDate = [];
+  let current = null;
+  for (const entry of CHANGELOG) {
+    if (!current || current.date !== entry.date) {
+      current = { date: entry.date, items: [] };
+      byDate.push(current);
+    }
+    current.items.push(entry.text);
+  }
+
+  const rows = byDate.map(group => `
+    <div style="margin-bottom:1.25rem">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">${group.date}</div>
+      <ul style="margin:0;padding-left:1.25rem;display:flex;flex-direction:column;gap:.375rem">
+        ${group.items.map(t => `<li style="font-size:13px;color:var(--text-2);line-height:1.6">${t}</li>`).join('')}
+      </ul>
+    </div>`).join('');
+
+  openModal("What's new", `
+    <div style="max-height:60vh;overflow-y:auto;padding-right:4px">
+      ${rows}
+    </div>
+    <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
+}
+
 function openTerms() {
   openModal('Terms of Use', `
     <div style="font-size:13px;color:var(--text-2);line-height:1.7;max-height:60vh;overflow-y:auto">
@@ -6402,6 +6448,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Footer
   const yearEl = document.getElementById('footer-year');
   if (yearEl) yearEl.textContent = new Date().getFullYear();
+  updateChangelogDot();
   document.getElementById('dash-date').textContent =
     new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 

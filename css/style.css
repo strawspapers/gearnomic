@@ -652,6 +652,7 @@ tr.trip-feedback-row:hover td { background: var(--surface) !important; }
 .text-right { text-align: right; }
 .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-3); font-size: 14px; }
 .empty-state p { margin-bottom: .875rem; }
+.changelog-dot { position:absolute; top:-2px; right:-10px; width:6px; height:6px; border-radius:50%; background:var(--warning); }
 
 /* ── Analytics target bars ── */
 .target-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
