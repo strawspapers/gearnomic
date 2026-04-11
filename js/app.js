@@ -5587,6 +5587,8 @@ async function copyGearMarkdown(id, kind) {
       <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
   }
 }
+
+function buildSharePayload(obj, kind) {
   const payload = JSON.parse(JSON.stringify(obj));
 
   // Embed full item objects so the share is self-contained
