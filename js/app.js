@@ -229,32 +229,60 @@ function exportData() {
 }
 
 function confirmLoadSampleGear() {
-  const existingCount = state.items.length;
-  openModal('Load sample gear?', `
-    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
-      This will add ${SEED_DATA.items.length} sample gear items to your closet as a starting point.
-      ${existingCount > 0 ? `Items with the same name and brand as existing gear will be skipped.` : ''}
+  const hasTrip = state.trips.some(t => t.name === DEMO_DATA.trip.name);
+  openModal('Load sample data?', `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">
+      This will add the sample gear, loadout, and trip that new users see when they first open Gearnomic:
     </p>
+    <ul style="font-size:13px;color:var(--text-2);margin:.5rem 0 1rem;padding-left:1.25rem">
+      <li>${DEMO_DATA.items.length} generic gear items (duplicates skipped)</li>
+      <li>1 loadout — <strong>${DEMO_DATA.template.name}</strong></li>
+      <li>1 trip — <strong>${DEMO_DATA.trip.name}</strong></li>
+    </ul>
+    ${hasTrip ? `<p style="font-size:12px;color:var(--warning);margin-bottom:1rem">A trip named "${DEMO_DATA.trip.name}" already exists — it will be skipped.</p>` : ''}
     <div class="form-actions">
-      <button class="btn btn-primary" onclick="loadSampleGear()">Add sample gear</button>
+      <button class="btn btn-primary" onclick="loadSampleGear()">Load sample data</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     </div>`);
 }
 
 function loadSampleGear() {
-  const existing = new Set(state.items.map(i => `${i.name}|${i.brand}`));
-  let added = 0;
-  for (const seed of SEED_DATA.items) {
+  // 1. Add demo items, building an oldId → newId map for remapping references
+  const existingKeys = new Set(state.items.map(i => `${i.name}|${i.brand}`));
+  const idMap = {};
+  let itemsAdded = 0;
+  for (const seed of DEMO_DATA.items) {
+    const newId = uid('i');
+    idMap[seed.id] = newId;
     const key = `${seed.name}|${seed.brand}`;
-    if (existing.has(key)) continue;
-    state.items.push({ ...seed, id: uid('i') });
-    existing.add(key);
-    added++;
+    if (existingKeys.has(key)) continue;
+    state.items.push({ ...seed, id: newId });
+    existingKeys.add(key);
+    itemsAdded++;
   }
+
+  // 2. Add demo loadout with fresh ID, remapping gear_ids and carry_types
+  const tmplId = uid('tmpl');
+  const tmpl = JSON.parse(JSON.stringify(DEMO_DATA.template));
+  tmpl.id        = tmplId;
+  tmpl.gear_ids  = tmpl.gear_ids.map(id => idMap[id] || id);
+  tmpl.carry_types = Object.fromEntries(
+    Object.entries(tmpl.carry_types).map(([k, v]) => [idMap[k] || k, v])
+  );
+  state.templates.push(tmpl);
+
+  // 3. Add demo trip with fresh ID referencing the new loadout, skip if name exists
+  if (!state.trips.some(t => t.name === DEMO_DATA.trip.name)) {
+    const trip = JSON.parse(JSON.stringify(DEMO_DATA.trip));
+    trip.id          = uid('t');
+    trip.loadout_ids = [tmplId];
+    state.trips.push(trip);
+  }
+
   saveState();
-  renderGear();
+  refreshAll();
   closeModal();
-  toast(`Added ${added} sample item${added !== 1 ? 's' : ''} to your gear closet.`);
+  toast(`Sample data loaded: ${itemsAdded} items, 1 loadout, 1 trip added.`);
 }
 
 function importData(e) {
