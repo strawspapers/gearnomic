@@ -1380,6 +1380,19 @@ function renderGear() {
     return a.name.localeCompare(b.name);
   });
 
+  // Full closet empty state — shown when there are no items at all
+  if (!state.items.length) {
+    document.getElementById('gear-summary').innerHTML = '';
+    const emptyHtml = `<div class="empty-state">
+      <p style="max-width:380px;margin:0 auto .875rem">Your gear closet is empty. Add your first item to start tracking weight, cost, and what you bring on each trip.</p>
+      <button class="btn btn-primary" onclick="openQuickAdd()">+ Add your first item</button>
+    </div>`;
+    document.getElementById('gear-cards').innerHTML = emptyHtml;
+    document.getElementById('gear-tbody').innerHTML = `<tr><td colspan="10">${emptyHtml}</td></tr>`;
+    document.getElementById('gear-thead').innerHTML = '';
+    return;
+  }
+
   const totalW = filtered.reduce((s, i) => s + (i.weight_g || 0), 0);
   const totalC = filtered.reduce((s, i) => s + (i.cost_usd || 0), 0);
   document.getElementById('gear-summary').innerHTML =
@@ -1786,8 +1799,10 @@ function renderTrips() {
     ? section('Planning',   'badge-amber', planning)
     + section('Confirmed',  'badge-blue',  confirmed)
     + section('Past trips', 'badge-gray',  past)
-    : `<div class="empty-state"><p>No trips yet. Plan your first adventure!</p>
-       <button class="btn btn-primary" onclick="document.getElementById('btn-add-trip').click()">+ New Trip</button></div>`;
+    : `<div class="empty-state">
+        <p style="max-width:380px;margin:0 auto .875rem">No trips yet. Create your first trip to start planning loadouts, tracking base weight, and logging how your kit performs.</p>
+        <button class="btn btn-primary" onclick="document.getElementById('btn-add-trip').click()">+ Plan a trip</button>
+      </div>`;
 
   document.getElementById('trips-grid').innerHTML = html;
 
@@ -2382,7 +2397,12 @@ function renderWishlist() {
   });
 
   document.getElementById('wish-tbody').innerHTML = !filtered.length
-    ? `<tr><td colspan="8"><div class="empty-state"><p>No wishlist items.</p></div></td></tr>`
+    ? `<tr><td colspan="8"><div class="empty-state">
+        <p style="max-width:360px;margin:0 auto .875rem">${state.wishlist.length ? 'No items match your filters.' : 'Nothing on your wishlist. Add gear you\'re researching before committing to a purchase.'}</p>
+        ${!state.wishlist.length
+          ? `<button class="btn btn-primary" onclick="document.getElementById('btn-add-wish').click()">+ Add to wishlist</button>`
+          : `<button class="btn btn-sm" onclick="document.getElementById('wish-filter-cat').value='';renderWishlist()">Clear filters</button>`}
+      </div></td></tr>`
     : filtered.map(w => {
         // Find best matching owned item to compare weight
         const owned = state.items.filter(i =>
@@ -2685,6 +2705,15 @@ function renderAdventureStats(completedTrips) {
 let chartWeight = null, chartCost = null, chartTrips = null;
 
 function renderAnalytics() {
+  // Zero-items empty state
+  if (!state.items.length) {
+    document.getElementById('analytics-metrics').innerHTML =
+      `<div class="empty-state" style="grid-column:1/-1;padding:3rem 1rem">
+        <p style="max-width:360px;margin:0 auto">Add gear to your closet to start seeing weight and cost breakdowns.</p>
+      </div>`;
+    return;
+  }
+
   // ── Aggregate data (always needed) ────────────────────────
   const allW   = state.items.reduce((s, i) => s + (i.weight_g || 0), 0);
   const totalC = state.items.reduce((s, i) => s + (i.cost_usd || 0), 0);
@@ -3051,8 +3080,8 @@ function renderTemplates() {
   const grid = document.getElementById('templates-grid');
   if (!state.templates.length) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
-      <p>No templates yet.<br>Create one from scratch, or open a trip and click "Save as template".</p>
-      <button class="btn btn-primary" onclick="openTemplateForm()">+ New Template</button>
+      <p style="max-width:380px;margin:0 auto .875rem">No loadouts yet. A loadout is a reusable collection of gear you can attach to any trip.</p>
+      <button class="btn btn-primary" onclick="openTemplateForm()">+ New loadout</button>
     </div>`;
   } else {
     grid.innerHTML = state.templates.map(t => templateCard(t)).join('');
@@ -4120,7 +4149,7 @@ function renderFoodPlanGrid() {
   if (!grid) return;
   if (!state.food_plans.length) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
-      <p>No meal plans yet. Create one to start planning food for a trip.</p>
+      <p style="max-width:360px;margin:0 auto .875rem">No meal plans yet. Build a meal plan to track calories and food weight per trip.</p>
       <button class="btn btn-primary" onclick="openNewFoodPlan()">+ New plan</button>
     </div>`;
     return;
