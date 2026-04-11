@@ -5835,19 +5835,29 @@ async function shareItem(id, kind) {
     const payloadSize = JSON.stringify(payload).length;
     console.log(`Share payload: ${(payloadSize / 1024).toFixed(1)} KB for ${kind} with ${(payload._shared_items || []).length} items`);
 
-    const { error } = await _sb.from('shared_lists').insert({
-      id:       token,
-      owner_id: _user.id,
-      kind,
-      title:    obj.name,
-      payload,
-    });
+    const insertResult = await Promise.race([
+      _sb.from('shared_lists').insert({
+        id:       token,
+        owner_id: _user.id,
+        kind,
+        title:    obj.name,
+        payload,
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
+    ]).catch(e => ({ error: e }));
 
-    if (error) {
-      console.error('Share insert error:', error);
+    if (insertResult.error) {
+      const isTimeout = insertResult.error.message === 'timeout';
+      console.error('Share insert error:', insertResult.error);
       openModal('Share failed', `
-        <p style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">Could not create share link.</p>
-        <p style="font-size:12px;color:var(--danger);margin-bottom:1rem;font-family:monospace">${esc(error.message)}</p>
+        <p style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">
+          ${isTimeout ? 'The insert timed out — Supabase received the request but never responded.' : 'Could not create share link.'}
+        </p>
+        <p style="font-size:12px;color:var(--danger);margin-bottom:1rem;font-family:monospace">
+          ${isTimeout
+            ? `user id: ${_user.id}<br>Check that the RLS insert policy on shared_lists uses <code>with check (auth.uid() = owner_id)</code> and that your user is authenticated.`
+            : esc(insertResult.error.message)}
+        </p>
         <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
       return;
     }
