@@ -940,9 +940,9 @@ tr.trip-feedback-row:hover td { background: var(--surface) !important; }
   .gear-card { padding: .875rem 1rem; }
   .gear-card-main { gap: 10px; }
 
-  /* ── Food planning grid — 2-col on mobile ── */
+  /* ── Food planning grid — 1-col on mobile ── */
   .meal-day-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 6px;
   }
 
