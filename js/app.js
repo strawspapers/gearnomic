@@ -5817,8 +5817,11 @@ async function shareItem(id, kind) {
   toast('Creating share link…');
 
   try {
+    console.log('[share] step 1: starting, kind=', kind, 'id=', id);
+
     // Preflight: verify the table exists and is reachable before building payload
     const { error: preflightError } = await _sb.from('shared_lists').select('id').limit(1);
+    console.log('[share] step 2: preflight done, error=', preflightError);
     if (preflightError) {
       console.error('Share preflight failed:', preflightError);
       openModal('Share unavailable', `
@@ -5831,9 +5834,7 @@ async function shareItem(id, kind) {
 
     const token   = nanoId(10);
     const payload = buildSharePayload(obj, kind);
-
-    const payloadSize = JSON.stringify(payload).length;
-    console.log(`Share payload: ${(payloadSize / 1024).toFixed(1)} KB for ${kind} with ${(payload._shared_items || []).length} items`);
+    console.log('[share] step 3: payload built,', (JSON.stringify(payload).length / 1024).toFixed(1), 'KB,', (payload._shared_items || []).length, 'items');
 
     const insertResult = await Promise.race([
       _sb.from('shared_lists').insert({
@@ -5845,6 +5846,8 @@ async function shareItem(id, kind) {
       }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
     ]).catch(e => ({ error: e }));
+
+    console.log('[share] step 4: insert done, error=', insertResult.error);
 
     if (insertResult.error) {
       const isTimeout = insertResult.error.message === 'timeout';
@@ -5861,6 +5864,8 @@ async function shareItem(id, kind) {
         <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
       return;
     }
+
+    console.log('[share] step 5: building URL and opening modal');
 
     const url = `${window.location.origin}${window.location.pathname}#share=${token}`;
     try {
