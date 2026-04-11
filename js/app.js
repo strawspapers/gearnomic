@@ -6001,24 +6001,17 @@ async function shareItem(id, kind) {
     console.log('[share] step 5: building URL and opening modal');
 
     const url = `${window.location.origin}${window.location.pathname}#share=${token}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      openModal('Link copied!', `
-        <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
-          Anyone with this link can view your <strong>${esc(obj.name)}</strong> ${kind} and save it to their own account.
-        </p>
-        <div style="display:flex;gap:8px;align-items:center;background:var(--surface-2);border:.5px solid var(--border);border-radius:var(--r-md);padding:8px 12px;margin-bottom:1rem">
-          <span style="font-size:12px;color:var(--text-2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${url}</span>
-          <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${url}').then(()=>toast('Copied!'))">Copy</button>
-        </div>
-        <p style="font-size:11.5px;color:var(--text-3)">The link stays active until you delete this ${kind}. Item weights and carry types are included.</p>
-        <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`);
-    } catch {
-      openModal('Share link', `
-        <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">Copy this link and share it:</p>
-        <input class="input input-full" value="${url}" readonly onclick="this.select()" style="font-size:12px">
-        <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`);
-    }
+    const kindLabel = kind === 'template' ? 'loadout' : kind;
+    openModal('Share link', `
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
+        Anyone with this link can view your <strong>${esc(obj.name)}</strong> ${kindLabel} and save it to their own account.
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;background:var(--surface-2);border:.5px solid var(--border);border-radius:var(--r-md);padding:8px 12px;margin-bottom:1rem">
+        <span style="font-size:12px;color:var(--text-2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace">${url}</span>
+        <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${url}').then(()=>toast('Copied!')).catch(()=>this.previousElementSibling.select())">Copy</button>
+      </div>
+      <p style="font-size:11.5px;color:var(--text-3)">The link stays active until you delete this ${kindLabel}. Item weights and carry types are included.</p>
+      <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`);
   } catch (err) {
     console.error('Share error:', err);
     openModal('Share failed', `
@@ -6033,7 +6026,7 @@ async function handleShareHash(token) {
   // Show a loading state in place of the normal app
   const overlay = document.createElement('div');
   overlay.id = 'share-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:400;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1rem';
+  overlay.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:400;overflow-y:auto;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1rem';
   overlay.innerHTML = `<div style="font-family:var(--font-disp);font-size:22px;color:var(--text-1)">Loading shared list…</div>`;
   document.body.appendChild(overlay);
 
@@ -6134,6 +6127,8 @@ function renderSharedView(overlay, data) {
       }).join('')}
     </div>`).join('');
 
+  // Switch from centered loading state to scrollable page layout
+  overlay.style.display = 'block';
   overlay.innerHTML = `
     <div style="min-height:100vh;background:var(--bg);padding:0">
       <!-- Header -->
