@@ -4178,7 +4178,7 @@ function renderFoodPlanDetail(plan) {
   const calPct = targetCal ? Math.round(totalCal/targetCal*100) : 0;
   const wPct   = targetW   ? Math.round(totalW/targetW*100)     : 0;
   const metrics = `
-    <div class="metrics-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:1rem">
+    <div class="metrics-row" style="margin-bottom:1rem">
       <div class="metric-card"><div class="metric-label">Total calories</div><div class="metric-val">${totalCal.toLocaleString()}</div><div class="metric-sub">${calPct}% of ${(targetCal/1000).toFixed(1)}k target</div></div>
       <div class="metric-card"><div class="metric-label">Cal / day</div><div class="metric-val">${avgCalPD.toLocaleString()}</div><div class="metric-sub">target ${plan.cal_target_per_day.toLocaleString()}</div></div>
       <div class="metric-card"><div class="metric-label">Total food weight</div><div class="metric-val">${wg(totalW)}</div><div class="metric-sub">${wPct}% of ${wg(targetW)} target</div></div>
