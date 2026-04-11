@@ -1386,7 +1386,7 @@ function renderGear() {
     `<strong>${filtered.length}</strong> items &nbsp;·&nbsp; total: <strong>${wg(totalW)}</strong> &nbsp;·&nbsp; tracked value: <strong>${usd(totalC)}</strong>`;
 
   const visibleCustomFields = (state.custom_fields || []).filter(f => f.show_column);
-  const cols = 2 + (_visibleCols.has('category')?1:0) + (_visibleCols.has('cost')?1:0) +
+  const cols = 3 + (_visibleCols.has('category')?1:0) + (_visibleCols.has('cost')?1:0) +
     (_visibleCols.has('dpg')?1:0) + (_visibleCols.has('condition')?1:0) +
     (_visibleCols.has('usage')?1:0) + (showMiscCol?1:0) + visibleCustomFields.length + 1;
 
