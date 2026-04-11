@@ -228,6 +228,35 @@ function exportData() {
   toast('Data exported!');
 }
 
+function confirmLoadSampleGear() {
+  const existingCount = state.items.length;
+  openModal('Load sample gear?', `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
+      This will add ${SEED_DATA.items.length} sample gear items to your closet as a starting point.
+      ${existingCount > 0 ? `Items with the same name and brand as existing gear will be skipped.` : ''}
+    </p>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="loadSampleGear()">Add sample gear</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+
+function loadSampleGear() {
+  const existing = new Set(state.items.map(i => `${i.name}|${i.brand}`));
+  let added = 0;
+  for (const seed of SEED_DATA.items) {
+    const key = `${seed.name}|${seed.brand}`;
+    if (existing.has(key)) continue;
+    state.items.push({ ...seed, id: uid('i') });
+    existing.add(key);
+    added++;
+  }
+  saveState();
+  renderGear();
+  closeModal();
+  toast(`Added ${added} sample item${added !== 1 ? 's' : ''} to your gear closet.`);
+}
+
 function importData(e) {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
@@ -5402,6 +5431,7 @@ function openSettings() {
           <button class="btn btn-sm" onclick="exportData()">Export all data as JSON</button>
           <button class="btn btn-sm" onclick="document.getElementById('import-file').click()">Import from JSON</button>
           ${_isSupporter ? `<button class="btn btn-sm" onclick="syncToCloud().then(()=>toast('Synced!'))">Force sync to cloud</button>` : ''}
+          <button class="btn btn-sm" onclick="confirmLoadSampleGear()">Load sample gear</button>
         </div>
       </div>
 
