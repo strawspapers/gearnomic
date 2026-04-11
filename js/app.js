@@ -5914,6 +5914,7 @@ async function handleShareHash(token) {
     }
     renderSharedView(overlay, data);
   } catch(e) {
+    console.error('[share] handleShareHash error:', e);
     overlay.innerHTML = sharedErrorHtml('Could not load the shared list.', token);
   }
 }
@@ -5975,9 +5976,9 @@ function renderSharedView(overlay, data) {
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);padding:4px 0;border-bottom:.5px solid var(--border);margin-bottom:5px">${esc(cat)}</div>
       ${catItems.map(item => {
         const ct = getSharedCarryType(item.id);
-        const badge = ct === 'worn' ? '<span style="display:inline-block;padding:2px 6px;border-radius:12px;font-size:10px;font-weight:500;background:var(--warning-bg);color:var(--warning-text);margin-left:4px">W worn</span>' :
-                      ct === 'consumable' ? '<span style="display:inline-block;padding:2px 6px;border-radius:12px;font-size:10px;font-weight:500;background:var(--info-bg);color:var(--info-text);margin-left:4px">C consumable</span>' :
-                      '';
+        const carryBadge = ct === 'worn' ? '<span style="display:inline-block;padding:2px 6px;border-radius:12px;font-size:10px;font-weight:500;background:var(--warning-bg);color:var(--warning-text);margin-left:4px">W worn</span>' :
+                           ct === 'consumable' ? '<span style="display:inline-block;padding:2px 6px;border-radius:12px;font-size:10px;font-weight:500;background:var(--info-bg);color:var(--info-text);margin-left:4px">C consumable</span>' :
+                           '';
         return `
         <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:.5px solid var(--border-2)">
           <div style="flex:1">
@@ -5985,7 +5986,7 @@ function renderSharedView(overlay, data) {
             ${item.brand ? `<span style="font-size:11px;color:var(--text-3);margin-left:6px">${esc(item.brand)}</span>` : ''}
             ${item.model ? `<span style="font-size:11px;color:var(--text-3);margin-left:6px">${esc(item.model)}</span>` : ''}
             <span style="font-size:11px;margin-left:6px">${badge('badge-gray', item.category)}</span>
-            ${badge}
+            ${carryBadge}
           </div>
           <div style="display:flex;gap:16px;font-size:12px;color:var(--text-2);flex-shrink:0;margin-left:12px">
             <span class="mono">${wg(item.weight_g)}</span>
