@@ -544,7 +544,7 @@ function openManageTripTypes() {
   const custom = state.trip_types.filter(t => !t.system);
   openModal('Manage trip types', `
     <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
-      Built-in types can't be removed. Custom types can be deleted — trips using them keep their stored value.
+      Built-in types can't be removed. Delete a custom type to remove it (trips using it will be reassigned to "Other").
     </p>
 
     <!-- Built-in types -->
@@ -607,27 +607,66 @@ function addTripTypeFromManager() {
   input.value = '';
   if (errEl) errEl.style.display = 'none';
   toast(`"${label}" added!`);
-  // Refresh the custom list in-place without closing the modal
-  const listEl = document.getElementById('mtt-custom-list');
-  if (listEl) {
-    const custom = state.trip_types.filter(t => !t.system);
-    listEl.innerHTML = custom.map(t =>
-      `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-md);border:1px solid var(--border);margin-bottom:4px;font-size:13px">
-        <span>${esc(t.label)}</span>
-        <button class="btn btn-xs btn-danger" onclick="deleteTripType('${esc(t.value)}')">Delete</button>
-      </div>`).join('');
-  }
+  refreshTripTypesList();
   input.focus();
 }
 
 function deleteTripType(value) {
   const t = state.trip_types.find(t => t.value === value);
   if (!t || t.system) return;
-  if (!confirm(`Delete trip type "${t.label}"?`)) return;
+
+  // Check how many trips use this type
+  const tripsUsingType = state.trips.filter(trip => trip.trip_type === value);
+  const count = tripsUsingType.length;
+
+  if (count > 0) {
+    // Warn user about affected trips
+    openModal(`Delete "${t.label}"?`, `
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
+        <strong>${count}</strong> trip${count !== 1 ? 's' : ''} ${count !== 1 ? 'are' : 'is'} using this type.
+      </p>
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:1.5rem">
+        If you delete "${t.label}", these trips will be reassigned to "Other". This cannot be undone.
+      </p>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="confirmDeleteTripType('${esc(value)}')">Delete and reassign</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      </div>`);
+  } else {
+    // No trips using it, simple confirmation
+    if (!confirm(`Delete trip type "${t.label}"?`)) return;
+    state.trip_types = state.trip_types.filter(t => t.value !== value);
+    saveState();
+    toast(`"${t.label}" deleted.`);
+    refreshTripTypesList();
+  }
+}
+
+function confirmDeleteTripType(value) {
+  const t = state.trip_types.find(t => t.value === value);
+  if (!t) return;
+
+  // Find "other" trip type (should be built-in)
+  const otherType = state.trip_types.find(t => t.value === 'other');
+  if (!otherType) {
+    toast('Error: "other" trip type not found.');
+    return;
+  }
+
+  // Reassign all trips using this type to "other"
+  const tripsUsingType = state.trips.filter(trip => trip.trip_type === value);
+  tripsUsingType.forEach(trip => { trip.trip_type = 'other'; });
+
+  // Delete the type
   state.trip_types = state.trip_types.filter(t => t.value !== value);
   saveState();
-  toast(`"${t.label}" deleted.`);
-  // Refresh the list in-place
+  closeModal();
+  toast(`"${t.label}" deleted. ${tripsUsingType.length} trip${tripsUsingType.length !== 1 ? 's' : ''} reassigned to Other.`);
+  refreshTripTypesList();
+}
+
+function refreshTripTypesList() {
+  // Refresh the custom types list in-place without closing the modal
   const listEl = document.getElementById('mtt-custom-list');
   if (listEl) {
     const custom = state.trip_types.filter(t => !t.system);
