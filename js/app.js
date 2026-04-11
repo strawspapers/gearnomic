@@ -2870,10 +2870,8 @@ function templateCard(tmpl) {
     ${sourceTrip ? `<div style="font-size:11px;color:var(--text-3);margin-top:6px;padding-left:4px">Saved from: ${esc(sourceTrip.name)}</div>` : ''}
     <div class="template-card-actions" onclick="event.stopPropagation()">
       <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Attach to trip…</button>
-      <button class="btn btn-sm" onclick="openTemplateForm('${tmpl.id}')">Edit</button>
       <button class="btn btn-sm" onclick="copyGearMarkdown('${tmpl.id}','template')" title="Copy as markdown for Reddit">Copy as markdown</button>
       <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template')" title="Share via link">Share ↗</button>
-      <button class="btn btn-sm btn-danger" onclick="deleteTemplate('${tmpl.id}')">Delete</button>
     </div>
   </div>`;
 }
@@ -2932,6 +2930,7 @@ function renderTemplateDetail(tmpl) {
         <button class="btn btn-sm" onclick="copyGearMarkdown('${tmpl.id}','template')" title="Copy as markdown for Reddit">Copy as markdown</button>
         <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template')" title="Share via link">Share ↗</button>
         <button class="btn btn-sm" onclick="openTemplateForm('${tmpl.id}')">Edit</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteTemplate('${tmpl.id}')">Delete</button>
         <button class="btn btn-sm btn-ghost" onclick="closeTemplateDetail()">Close</button>
       </div>
     </div>
