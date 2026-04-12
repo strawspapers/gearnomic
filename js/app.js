@@ -5955,23 +5955,11 @@ async function shareItem(id, kind) {
   try {
     console.log('[share] step 1: starting, kind=', kind, 'id=', id);
 
-    // Preflight: verify the table exists and is reachable before building payload
-    const { error: preflightError } = await _sb.from('shared_lists').select('id').limit(1);
-    console.log('[share] step 2: preflight done, error=', preflightError);
-    if (preflightError) {
-      console.error('Share preflight failed:', preflightError);
-      openModal('Share unavailable', `
-        <p style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">Could not reach the sharing table.</p>
-        <p style="font-size:12px;color:var(--danger);margin-bottom:1rem;font-family:monospace">${esc(preflightError.message)}</p>
-        <p style="font-size:12px;color:var(--text-3)">Run <code>supabase/02_shared_lists.sql</code> in your Supabase SQL editor to set up sharing.</p>
-        <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
-      return;
-    }
-
     const token   = nanoId(10);
     const payload = buildSharePayload(obj, kind);
-    console.log('[share] step 3: payload built,', (JSON.stringify(payload).length / 1024).toFixed(1), 'KB,', (payload._shared_items || []).length, 'items');
+    console.log('[share] step 2: payload built,', (JSON.stringify(payload).length / 1024).toFixed(1), 'KB,', (payload._shared_items || []).length, 'items');
 
+    let _timeoutId;
     const insertResult = await Promise.race([
       _sb.from('shared_lists').insert({
         id:       token,
@@ -5980,28 +5968,37 @@ async function shareItem(id, kind) {
         title:    obj.name,
         payload,
       }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
-    ]).catch(e => ({ error: e }));
+      new Promise((_, reject) => { _timeoutId = setTimeout(() => reject(new Error('timeout')), 30000); }),
+    ]).then(
+      result => { clearTimeout(_timeoutId); return result; },
+      err    => { clearTimeout(_timeoutId); return { error: err }; }
+    );
 
-    console.log('[share] step 4: insert done, error=', insertResult.error);
+    console.log('[share] step 3: insert done, error=', insertResult?.error);
 
-    if (insertResult.error) {
+    if (insertResult?.error) {
       const isTimeout = insertResult.error.message === 'timeout';
+      const isRls     = insertResult.error.message?.includes('row-level security');
+      const isMissing = insertResult.error.message?.includes('does not exist');
       console.error('Share insert error:', insertResult.error);
       openModal('Share failed', `
         <p style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">
-          ${isTimeout ? 'The insert timed out — Supabase received the request but never responded.' : 'Could not create share link.'}
+          ${isTimeout ? 'The request timed out — Supabase did not respond in time.' : 'Could not create share link.'}
         </p>
         <p style="font-size:12px;color:var(--danger);margin-bottom:1rem;font-family:monospace">
           ${isTimeout
-            ? `user id: ${_user.id}<br>Check that the RLS insert policy on shared_lists uses <code>with check (auth.uid() = owner_id)</code> and that your user is authenticated.`
-            : esc(insertResult.error.message)}
+            ? `Check your connection and try again. If this keeps happening, verify the RLS insert policy on shared_lists allows <code>auth.uid() = owner_id</code>.`
+            : isMissing
+              ? `The shared_lists table is missing. Run <code>supabase/02_shared_lists.sql</code> in your Supabase SQL editor.`
+              : isRls
+                ? `Row-level security blocked the insert. Check that the RLS insert policy on shared_lists uses <code>with check (auth.uid() = owner_id)</code>.`
+                : esc(insertResult.error.message)}
         </p>
         <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
       return;
     }
 
-    console.log('[share] step 5: building URL and opening modal');
+    console.log('[share] step 4: building URL and opening modal');
 
     const url = `${window.location.origin}${window.location.pathname}#share=${token}`;
     const kindLabel = kind === 'template' ? 'loadout' : kind;
