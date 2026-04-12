@@ -5915,7 +5915,7 @@ function buildSharePayload(obj, kind) {
     const item = state.items.find(i => i.id === id);
     return item ? JSON.parse(JSON.stringify(item)) : null;
   }).filter(Boolean);
-  console.log('[share] _shared_items product_urls:', payload._shared_items.map(i => ({ name: i.name, product_url: i.product_url })));
+  console.log('[share] _shared_items product_urls:', JSON.stringify(payload._shared_items.map(i => ({ name: i.name, product_url: i.product_url }))));
 
   payload._kind    = kind;
   payload._version = 1;
