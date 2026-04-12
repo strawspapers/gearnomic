@@ -112,7 +112,11 @@
     #toast.show{transform:translateY(0);opacity:1}
   </style>
 </head>
-<body>
+<body style="display:none">
+
+<div id="auth-checking" style="display:flex;position:fixed;inset:0;align-items:center;justify-content:center;background:#f0ece4;z-index:9999;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:#888">
+  Checking access&hellip;
+</div>
 
 <header>
   <div style="width:28px;height:28px;background:#3D6B4F;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#fff">GN</div>
@@ -227,6 +231,27 @@
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+// ── Auth gate — runs before anything else renders ─────────
+(async () => {
+  const ADMIN_EMAILS = ['straws@gmail.com'];
+  const SUPABASE_URL  = 'https://ecmispvfbhqzrnzstvyi.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjbWlzcHZmYmhxenJuenN0dnlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMzM4NjEsImV4cCI6MjA5MDgwOTg2MX0.t2Rse_UxKFuGk9_zFrCQFAMELWhqCl_1FU-_t6UgEB4';
+
+  const anonClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  const { data: { session } } = await anonClient.auth.getSession();
+  const email = session?.user?.email?.toLowerCase() ?? '';
+
+  if (!email || !ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email)) {
+    window.location.replace('https://gearnomic.com');
+    return;
+  }
+
+  // Access granted — show page
+  document.getElementById('auth-checking').style.display = 'none';
+  document.body.style.display = '';
+})();
+</script>
 <script>
 let _sb   = null;
 let _url  = '';
