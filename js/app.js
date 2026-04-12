@@ -5915,7 +5915,6 @@ function buildSharePayload(obj, kind) {
     const item = state.items.find(i => i.id === id);
     return item ? JSON.parse(JSON.stringify(item)) : null;
   }).filter(Boolean);
-  console.log('[share] _shared_items product_urls:', JSON.stringify(payload._shared_items.map(i => ({ name: i.name, product_url: i.product_url }))));
 
   payload._kind    = kind;
   payload._version = 1;
@@ -6115,16 +6114,15 @@ function renderSharedView(overlay, data) {
         return `
         <div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:.5px solid var(--border-2)">
           <div style="flex:1">
-            ${item.product_url
-              ? `<a href="${esc(item.product_url)}" target="_blank" rel="noopener noreferrer" style="font-size:13px;font-weight:500;color:var(--primary);text-decoration:none">${esc(item.name)}</a>`
-              : `<span style="font-size:13px;font-weight:500">${esc(item.name)}</span>`}
+            <span style="font-size:13px;font-weight:500">${esc(item.name)}</span>
             ${item.brand ? `<span style="font-size:11px;color:var(--text-3);margin-left:6px">${esc(item.brand)}</span>` : ''}
             ${item.model ? `<span style="font-size:11px;color:var(--text-3);margin-left:6px">${esc(item.model)}</span>` : ''}
             ${carryBadge}
           </div>
-          <div style="display:flex;gap:16px;font-size:12px;color:var(--text-2);flex-shrink:0;margin-left:12px">
+          <div style="display:flex;gap:16px;font-size:12px;color:var(--text-2);flex-shrink:0;margin-left:12px;align-items:baseline">
             <span class="mono">${wg(item.weight_g)}</span>
             ${item.cost_usd ? `<span>${usd(item.cost_usd)}</span>` : ''}
+            ${item.product_url ? `<a href="${esc(item.product_url)}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:var(--primary);text-decoration:none">link ↗</a>` : ''}
           </div>
         </div>`;
       }).join('')}
