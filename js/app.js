@@ -4662,11 +4662,16 @@ function openShoppingList(planId) {
   });
 
   const recipeCount = recipeIdsSeen.size;
+  const panel = document.getElementById('shopping-list-panel');
 
   if (allIngredients.length === 0) {
-    openModal('Shopping list', `
-      <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">No recipes added to this plan yet.</p>
-      <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
+    panel.innerHTML = `
+      <div class="sl-header">
+        <div style="font-weight:600;font-size:16px">${esc(plan.name)}</div>
+        <div style="font-size:12px;color:var(--text-3);margin-top:2px">No recipes with ingredients added yet.</div>
+        <div style="margin-top:10px"><button class="btn btn-ghost" onclick="closeShoppingList()">Close</button></div>
+      </div>`;
+    panel.style.display = 'flex';
     return;
   }
 
@@ -4701,7 +4706,7 @@ function openShoppingList(planId) {
 
   // Sort alphabetically by ingredient name
   const sorted = Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
-  const uniqueCount = sorted.length;
+  const total = sorted.length;
 
   function formatQtys(qtys) {
     return Object.values(qtys).map(q => {
@@ -4714,28 +4719,87 @@ function openShoppingList(planId) {
     }).filter(Boolean).join(', ');
   }
 
-  const rows = sorted.map(([, g]) => {
+  // Load persisted checked state
+  const storageKey = `gn_shopping_${planId}`;
+  let checked = new Set();
+  try {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) checked = new Set(JSON.parse(saved));
+  } catch (_) {}
+
+  function saveChecked() {
+    try { localStorage.setItem(storageKey, JSON.stringify([...checked])); } catch (_) {}
+  }
+
+  function counterText() {
+    const n = checked.size;
+    return n === 0 ? `${total} item${total !== 1 ? 's' : ''}` : `${n} of ${total} checked`;
+  }
+
+  // Render panel
+  const itemsHtml = sorted.map(([key, g]) => {
     const qty = formatQtys(g.qtys);
+    const isChecked = checked.has(key);
     return `
-      <div style="display:flex;align-items:baseline;gap:10px;padding:6px 0;border-bottom:.5px solid var(--border-2)">
-        <input type="checkbox" style="flex-shrink:0;margin-top:1px;accent-color:var(--primary)">
-        <span style="flex:1;font-size:13px">${esc(g.displayName)}</span>
-        ${qty ? `<span style="font-size:12px;color:var(--text-3);flex-shrink:0">${esc(qty)}</span>` : ''}
+      <div class="sl-item${isChecked ? ' checked' : ''}" data-key="${esc(key)}" onclick="slToggle(this,'${storageKey}')">
+        <span class="sl-check"><span class="sl-check-mark"></span></span>
+        <span class="sl-text">${esc(g.displayName)}</span>
+        ${qty ? `<span class="sl-qty">${esc(qty)}</span>` : ''}
       </div>`;
   }).join('');
 
-  openModal('Shopping list', `
-    <div id="shopping-list-content">
-      <div style="margin-bottom:1rem">
-        <div style="font-size:15px;font-weight:600;margin-bottom:3px">${esc(plan.name)}</div>
-        <div style="font-size:12px;color:var(--text-3)">${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} · ${plan.days} day${plan.days !== 1 ? 's' : ''} · ${uniqueCount} unique ingredient${uniqueCount !== 1 ? 's' : ''}</div>
+  panel.innerHTML = `
+    <div class="sl-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:600;font-size:16px">${esc(plan.name)}</div>
+          <div id="sl-counter" style="font-size:12px;color:var(--text-3);margin-top:2px">${counterText()}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-sm btn-ghost" onclick="slClearAll('${planId}','${storageKey}')">Clear all</button>
+          <button class="btn btn-sm btn-ghost" onclick="window.print()">Print</button>
+          <button class="btn btn-sm btn-ghost" onclick="closeShoppingList()">Close</button>
+        </div>
       </div>
-      ${rows}
+      <div style="font-size:12px;color:var(--text-3);margin-top:6px">${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} · ${plan.days} day${plan.days !== 1 ? 's' : ''}</div>
     </div>
-    <div id="shopping-list-print-actions" class="form-actions" style="margin-top:1rem">
-      <button class="btn btn-primary" onclick="window.print()">Print</button>
-      <button class="btn btn-ghost" onclick="closeModal()">Close</button>
-    </div>`);
+    <div class="sl-body">${itemsHtml}</div>`;
+
+  panel.style.display = 'flex';
+}
+
+function slToggle(el, storageKey) {
+  const key = el.dataset.key;
+  const isChecked = el.classList.toggle('checked');
+  let checked = new Set();
+  try {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) checked = new Set(JSON.parse(saved));
+  } catch (_) {}
+  if (isChecked) checked.add(key); else checked.delete(key);
+  try { localStorage.setItem(storageKey, JSON.stringify([...checked])); } catch (_) {}
+
+  // Update counter
+  const panel = document.getElementById('shopping-list-panel');
+  const total = panel.querySelectorAll('.sl-item').length;
+  const checkedCount = panel.querySelectorAll('.sl-item.checked').length;
+  const counter = document.getElementById('sl-counter');
+  if (counter) counter.textContent = checkedCount === 0 ? `${total} item${total !== 1 ? 's' : ''}` : `${checkedCount} of ${total} checked`;
+}
+
+function slClearAll(planId, storageKey) {
+  const panel = document.getElementById('shopping-list-panel');
+  panel.querySelectorAll('.sl-item.checked').forEach(el => el.classList.remove('checked'));
+  try { localStorage.removeItem(storageKey); } catch (_) {}
+  const counter = document.getElementById('sl-counter');
+  const total = panel.querySelectorAll('.sl-item').length;
+  if (counter) counter.textContent = `${total} item${total !== 1 ? 's' : ''}`;
+}
+
+function closeShoppingList() {
+  const panel = document.getElementById('shopping-list-panel');
+  panel.style.display = 'none';
+  panel.innerHTML = '';
 }
 
 function toggleMealSlot(planId, day, mealTime, enabled) {

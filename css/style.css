@@ -1284,24 +1284,140 @@ tr.bulk-selected td { background: var(--accent-l) !important; }
   #bulk-bar { font-size: 12px; }
 }
 
+/* ── Shopping list panel ──────────────────────────────────── */
+#shopping-list-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--bg);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sl-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: .75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+
+.sl-header-name {
+  font-family: var(--font-disp);
+  font-size: 16px;
+  font-weight: 400;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sl-counter {
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.sl-body {
+  flex: 1;
+  max-width: 680px;
+  width: 100%;
+  margin: 0 auto;
+  padding: .75rem 0 2rem;
+}
+
+.sl-summary {
+  font-size: 12px;
+  color: var(--text-3);
+  padding: .25rem 1rem .75rem;
+}
+
+.sl-item {
+  display: flex;
+  align-items: center;
+  gap: .875rem;
+  padding: .75rem 1rem;
+  min-height: 48px;
+  border-bottom: .5px solid var(--border-2);
+  cursor: pointer;
+  user-select: none;
+  transition: background .08s;
+}
+.sl-item:active { background: var(--surface-2); }
+
+.sl-check {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .1s, border-color .1s;
+}
+.sl-item.checked .sl-check {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.sl-check-mark {
+  display: none;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  margin-top: -1px;
+}
+.sl-check-mark::before { content: '✓'; }
+.sl-item.checked .sl-check-mark { display: block; }
+
+.sl-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  color: var(--text-1);
+  display: flex;
+  align-items: baseline;
+  gap: .625rem;
+  flex-wrap: wrap;
+}
+.sl-item.checked .sl-text {
+  text-decoration: line-through;
+  color: var(--text-3);
+}
+.sl-item.checked .sl-qty { color: var(--text-3); }
+
+.sl-qty {
+  font-size: 13px;
+  color: var(--text-3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* ── Print styles (shopping list) ─────────────────────────── */
 @media print {
-  /* Hide everything on the page */
-  body > *                    { display: none !important; }
-  /* Show only the modal overlay and its children */
-  body > #modal-overlay       { display: block !important; position: static !important;
-                                 background: none !important; padding: 0 !important; }
-  #modal-overlay .modal        { box-shadow: none !important; border: none !important;
-                                 border-radius: 0 !important; max-height: none !important;
-                                 width: 100% !important; max-width: 100% !important;
-                                 margin: 0 !important; padding: 0 !important; }
-  .modal-header                { display: none !important; }
-  /* Shopping list content */
-  #shopping-list-content       { display: block !important; }
-  #shopping-list-print-actions { display: none !important; }
-  /* Clean black-on-white output */
-  * { color: #000 !important; background: #fff !important;
-      -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  input[type="checkbox"]       { appearance: auto !important; }
+  body > *                { display: none !important; }
+  body > #shopping-list-panel {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+  }
+  .sl-header              { position: static !important; border: none !important;
+                            padding: 0 0 .5rem !important; }
+  .sl-header-actions      { display: none !important; }
+  .sl-body                { padding: 0 !important; }
+  .sl-item                { page-break-inside: avoid; min-height: 0 !important;
+                            padding: 4px 0 !important; }
+  .sl-item.checked .sl-text { text-decoration: none !important; color: #000 !important; }
+  .sl-check               { border: 1px solid #999 !important; border-radius: 2px !important; }
+  .sl-item.checked .sl-check { background: none !important; border-color: #999 !important; }
+  .sl-check-mark          { display: none !important; }
+  * { color: #000 !important; background: #fff !important; }
 }
 
