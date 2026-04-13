@@ -4327,6 +4327,7 @@ function renderFoodPlanDetail(plan) {
         ${trip ? `&nbsp;<span style="font-size:12px;color:var(--text-3)">· ${esc(trip.name)}</span>` : ''}
       </div>
       <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" onclick="openShoppingList('${plan.id}')">Shopping list</button>
         <button class="btn btn-sm" onclick="openEditFoodPlan('${plan.id}')">Edit plan</button>
         <button class="btn btn-sm btn-danger" onclick="deleteFoodPlan('${plan.id}')">Delete</button>
         <button class="btn btn-sm btn-ghost" onclick="closeFoodPlan()">Close</button>
@@ -4638,6 +4639,103 @@ function deleteMealItem(planId, mealId) {
   plan.meals = (plan.meals || []).filter(m => m.id !== mealId);
   saveState();
   renderFoodPlanDetail(plan);
+}
+
+function openShoppingList(planId) {
+  const plan = state.food_plans.find(p => p.id === planId);
+  if (!plan) return;
+
+  const meals = plan.meals || [];
+
+  // Collect ingredients from every meal that has a recipe
+  const recipeIdsSeen = new Set();
+  const allIngredients = []; // [{ name, qty }]
+
+  meals.forEach(meal => {
+    if (!meal.recipe_id) return;
+    const recipe = state.recipes.find(r => r.id === meal.recipe_id);
+    if (!recipe || !recipe.ingredients?.length) return;
+    if (!recipeIdsSeen.has(meal.recipe_id)) recipeIdsSeen.add(meal.recipe_id);
+    recipe.ingredients.forEach(ing => {
+      if (ing.name?.trim()) allIngredients.push({ name: ing.name.trim(), qty: (ing.qty || '').trim() });
+    });
+  });
+
+  const recipeCount = recipeIdsSeen.size;
+
+  if (allIngredients.length === 0) {
+    openModal('Shopping list', `
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">No recipes added to this plan yet.</p>
+      <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
+    return;
+  }
+
+  // Group by ingredient name (case-insensitive)
+  // Within each group, sub-group by unit suffix to enable numeric summing
+  const groups = {}; // key: lowercaseName → { displayName, qtys: { suffixKey → { num, suffix } | { raw, count } } }
+
+  allIngredients.forEach(({ name, qty }) => {
+    const key = name.toLowerCase();
+    if (!groups[key]) groups[key] = { displayName: name, qtys: {} };
+
+    if (!qty) {
+      const rk = '__raw__';
+      groups[key].qtys[rk] = groups[key].qtys[rk] || { raw: '', count: 0 };
+      groups[key].qtys[rk].count++;
+      return;
+    }
+
+    const m = qty.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+    if (m) {
+      const num    = parseFloat(m[1]);
+      const suffix = m[2].trim();
+      const sk     = '__num__' + suffix.toLowerCase();
+      if (!groups[key].qtys[sk]) groups[key].qtys[sk] = { num: 0, suffix, isNum: true };
+      groups[key].qtys[sk].num += num;
+    } else {
+      const rk = '__raw__' + qty.toLowerCase();
+      if (!groups[key].qtys[rk]) groups[key].qtys[rk] = { raw: qty, count: 0 };
+      groups[key].qtys[rk].count++;
+    }
+  });
+
+  // Sort alphabetically by ingredient name
+  const sorted = Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  const uniqueCount = sorted.length;
+
+  function formatQtys(qtys) {
+    return Object.values(qtys).map(q => {
+      if (q.isNum) {
+        const n = q.num % 1 === 0 ? String(q.num) : q.num.toFixed(1);
+        return q.suffix ? `${n} ${q.suffix}` : n;
+      }
+      if (q.raw === '') return q.count > 1 ? `×${q.count}` : '';
+      return q.count > 1 ? `${q.raw} ×${q.count}` : q.raw;
+    }).filter(Boolean).join(', ');
+  }
+
+  const rows = sorted.map(([, g]) => {
+    const qty = formatQtys(g.qtys);
+    return `
+      <div style="display:flex;align-items:baseline;gap:10px;padding:6px 0;border-bottom:.5px solid var(--border-2)">
+        <input type="checkbox" style="flex-shrink:0;margin-top:1px;accent-color:var(--primary)">
+        <span style="flex:1;font-size:13px">${esc(g.displayName)}</span>
+        ${qty ? `<span style="font-size:12px;color:var(--text-3);flex-shrink:0">${esc(qty)}</span>` : ''}
+      </div>`;
+  }).join('');
+
+  openModal('Shopping list', `
+    <div id="shopping-list-content">
+      <div style="margin-bottom:1rem">
+        <div style="font-size:15px;font-weight:600;margin-bottom:3px">${esc(plan.name)}</div>
+        <div style="font-size:12px;color:var(--text-3)">${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} · ${plan.days} day${plan.days !== 1 ? 's' : ''} · ${uniqueCount} unique ingredient${uniqueCount !== 1 ? 's' : ''}</div>
+      </div>
+      ${rows}
+    </div>
+    <div id="shopping-list-print-actions" class="form-actions" style="margin-top:1rem">
+      <button class="btn btn-primary" onclick="window.print()">Print</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+    </div>`);
 }
 
 function toggleMealSlot(planId, day, mealTime, enabled) {

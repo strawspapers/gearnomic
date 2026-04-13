@@ -1283,3 +1283,25 @@ tr.bulk-selected td { background: var(--accent-l) !important; }
   .toolbar-left select { font-size: 12px; }
   #bulk-bar { font-size: 12px; }
 }
+
+/* ── Print styles (shopping list) ─────────────────────────── */
+@media print {
+  /* Hide everything on the page */
+  body > *                    { display: none !important; }
+  /* Show only the modal overlay and its children */
+  body > #modal-overlay       { display: block !important; position: static !important;
+                                 background: none !important; padding: 0 !important; }
+  #modal-overlay .modal        { box-shadow: none !important; border: none !important;
+                                 border-radius: 0 !important; max-height: none !important;
+                                 width: 100% !important; max-width: 100% !important;
+                                 margin: 0 !important; padding: 0 !important; }
+  .modal-header                { display: none !important; }
+  /* Shopping list content */
+  #shopping-list-content       { display: block !important; }
+  #shopping-list-print-actions { display: none !important; }
+  /* Clean black-on-white output */
+  * { color: #000 !important; background: #fff !important;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  input[type="checkbox"]       { appearance: auto !important; }
+}
+
