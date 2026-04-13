@@ -4691,9 +4691,9 @@ function renderRecipeLibrary() {
         </div>
         ${r.ingredients?.length ? `
           <div style="font-size:11.5px;color:var(--text-2);margin-bottom:.5rem">
-            ${r.ingredients.map(i => `<span style="margin-right:8px">${esc(i.name)}</span>`).join('')}
+            ${r.ingredients.map(i => `<div style="padding:1px 0">${i.qty ? `<span style="color:var(--text-3)">${esc(i.qty)}</span> ` : ''}${esc(i.name)}</div>`).join('')}
           </div>` : ''}
-        ${r.prep_notes ? `<div style="font-size:11.5px;color:var(--text-3);font-style:italic">${esc(r.prep_notes)}</div>` : ''}
+        ${r.prep_notes ? `<div style="font-size:11.5px;color:var(--text-3);font-style:italic;margin-top:.25rem">${esc(r.prep_notes)}</div>` : ''}
       </div>`).join('') + '</div>';
 }
 
@@ -4704,6 +4704,13 @@ function openRecipeForm(id) {
 
 function recipeFormHtml(r) {
   r = r || {};
+  const ings = (r.ingredients && r.ingredients.length) ? r.ingredients : [{ qty: '', name: '' }];
+  const ingRowHtml = i => `
+    <div class="rf-ing-row" style="display:flex;gap:6px;margin-bottom:5px">
+      <input class="input rf-ing-qty" style="width:90px;flex-shrink:0" placeholder="qty" value="${esc(i.qty||'')}">
+      <input class="input rf-ing-name" style="flex:1;min-width:0" placeholder="ingredient" value="${esc(i.name||'')}">
+      <button type="button" class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:4px 8px" onclick="this.closest('.rf-ing-row').remove()">×</button>
+    </div>`;
   return `
     <div class="form-grid">
       <div class="form-row"><label class="form-label">Recipe name *</label>
@@ -4719,27 +4726,49 @@ function recipeFormHtml(r) {
     </div>
     <div class="form-row"><label class="form-label">Source / credit</label>
       <input class="input input-full" id="rf-src" value="${esc(r.source||'')}" placeholder="e.g. Andrew Skurka"></div>
+    <div class="form-row">
+      <label class="form-label">Ingredients</label>
+      <div id="rf-ingredients-list">${ings.map(ingRowHtml).join('')}</div>
+      <button type="button" class="btn btn-xs" style="margin-top:4px" onclick="rfAddIngredient()">+ Add ingredient</button>
+    </div>
     <div class="form-row"><label class="form-label">Prep notes</label>
-      <textarea class="input input-full" id="rf-prep" rows="2" style="height:56px">${esc(r.prep_notes||'')}</textarea></div>
+      <textarea class="input input-full" id="rf-prep" rows="3" placeholder="Preparation method, cook time, water temperature, tips...">${esc(r.prep_notes||'')}</textarea></div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="saveRecipe('${r.id||''}')">Save recipe</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     </div>`;
 }
 
+function rfAddIngredient() {
+  const list = document.getElementById('rf-ingredients-list');
+  if (!list) return;
+  const row = document.createElement('div');
+  row.className = 'rf-ing-row';
+  row.style.cssText = 'display:flex;gap:6px;margin-bottom:5px';
+  row.innerHTML = `
+    <input class="input rf-ing-qty" style="width:90px;flex-shrink:0" placeholder="qty" value="">
+    <input class="input rf-ing-name" style="flex:1;min-width:0" placeholder="ingredient" value="">
+    <button type="button" class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:4px 8px" onclick="this.closest('.rf-ing-row').remove()">×</button>`;
+  list.appendChild(row);
+  row.querySelector('.rf-ing-qty').focus();
+}
+
 function saveRecipe(id) {
   const name = document.getElementById('rf-name').value.trim();
   if (!name) { alert('Recipe name required.'); return; }
-  const existing = id ? state.recipes.find(r => r.id === id) : null;
+  const ingredients = Array.from(document.querySelectorAll('#rf-ingredients-list .rf-ing-row')).map(row => ({
+    qty:  row.querySelector('.rf-ing-qty').value.trim(),
+    name: row.querySelector('.rf-ing-name').value.trim(),
+  })).filter(i => i.name);
   const data = {
     id:   id || uid('rec'),
     name,
-    meal_time:          document.getElementById('rf-meal').value,
-    cal_per_serving:    parseInt(document.getElementById('rf-cal').value) || 0,
+    meal_time:            document.getElementById('rf-meal').value,
+    cal_per_serving:      parseInt(document.getElementById('rf-cal').value) || 0,
     weight_g_per_serving: parseInt(document.getElementById('rf-wg').value) || 0,
-    source:    document.getElementById('rf-src').value.trim(),
-    prep_notes: document.getElementById('rf-prep').value.trim(),
-    ingredients: existing?.ingredients || [],
+    source:               document.getElementById('rf-src').value.trim(),
+    prep_notes:           document.getElementById('rf-prep').value.trim(),
+    ingredients,
   };
   if (existing) {
     const idx = state.recipes.findIndex(r => r.id === id);
