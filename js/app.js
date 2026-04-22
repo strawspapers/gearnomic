@@ -1835,7 +1835,7 @@ function tripCard(t) {
         <div class="mono" style="font-size:12px;font-weight:500">${wg(tw)}</div>
         <div style="font-size:11px;color:var(--text-3)">${loadoutCount} loadout${loadoutCount !== 1 ? 's' : ''}</div>
       </div>
-      <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();copyGearMarkdown('${t.id}','trip')" title="Copy as markdown">↓md</button>
+      <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();copyGearMarkdown('${t.id}','trip')" title="Copy as markdown">Copy as markdown</button>
       <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();shareItem('${t.id}','trip')" title="Share trip">Share ↗</button>
     </div>
   </div>`;
