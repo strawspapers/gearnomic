@@ -4183,7 +4183,7 @@ function renderFoodPlanGrid() {
 
 function neededMealsSummary(plan) {
   const d = plan.days, n = plan.nights ?? (plan.days - 1);
-  return `${d}B · ${d}L · ${d}S · ${n}D`;
+  return `${d} Breakfast${d !== 1 ? 's' : ''} · ${d} Lunch${d !== 1 ? 'es' : ''} · ${d} Snack${d !== 1 ? 's' : ''} · ${n} Dinner${n !== 1 ? 's' : ''}`;
 }
 
 function openFoodPlan(id) {
