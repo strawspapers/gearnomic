@@ -23,8 +23,8 @@
         <span class="logo-name">Gearnomic</span>
       </div>
       <nav class="main-nav" id="main-nav">
-        <button class="nav-tab active" data-tab="dashboard">Dashboard</button>
-        <button class="nav-tab" data-tab="gear">Gear Closet</button>
+        <button class="nav-tab" data-tab="dashboard">Dashboard</button>
+        <button class="nav-tab active" data-tab="gear">Gear Closet</button>
         <button class="nav-tab" data-tab="wishlist">Wishlist</button>
         <button class="nav-tab" data-tab="trips">Trips</button>
         <button class="nav-tab" data-tab="templates">Loadouts</button>
@@ -91,11 +91,11 @@
 
   <!-- Mobile bottom nav -->
   <nav id="mobile-bottom-nav">
-    <button class="mob-tab active" data-tab="dashboard" onclick="showTab('dashboard')">
+    <button class="mob-tab" data-tab="dashboard" onclick="showTab('dashboard')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
       <span>Home</span>
     </button>
-    <button class="mob-tab" data-tab="gear" onclick="showTab('gear')">
+    <button class="mob-tab active" data-tab="gear" onclick="showTab('gear')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
       <span>Gear</span>
     </button>
@@ -196,6 +196,7 @@
 
     <!-- GEAR CLOSET -->
     <section id="tab-gear" class="tab-panel">
+      <div id="save-prompt-banner" style="display:none"></div>
       <div class="page-header">
         <div>
           <h1 class="page-title">Gear Closet</h1>
@@ -504,7 +505,7 @@
       <span>© <span id="footer-year"></span> Gearnomic. All rights reserved.</span>
       <span style="display:flex;align-items:center;gap:12px">
         <span style="color:var(--text-3)">Built for the trail</span>
-<span style="color:var(--text-3);font-size:11px;font-family:monospace" title="Build commit">2026-04-24 0550Z</span>
+<span style="color:var(--text-3);font-size:11px;font-family:monospace" title="Build commit">2026-04-24 0555Z</span>
       </span>
     </div>
   </footer>

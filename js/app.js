@@ -199,14 +199,13 @@ function loadState() {
       return;
     }
   } catch(e) {}
-  // First visit — start with demo data so new users can explore the app.
-  // Generic labeled items only (no personal data).
-  const demoItems = JSON.parse(JSON.stringify(DEMO_DATA.items));
+  // First visit — start with demo trips/loadout so new users can explore,
+  // but keep the gear closet empty so the empty state is shown.
   const demoTrip  = JSON.parse(JSON.stringify(DEMO_DATA.trip));
   const demoTmpl  = JSON.parse(JSON.stringify(DEMO_DATA.template));
 
   state = {
-    items:         demoItems,
+    items:         [],
     trips:         [demoTrip],
     wishlist:      [],
     categories:    JSON.parse(JSON.stringify(SEED_DATA.categories)),
@@ -486,7 +485,7 @@ function toast(msg) {
 }
 
 // ── Navigation ─────────────────────────────────────────────
-let currentTab = 'dashboard';
+let currentTab = 'gear';
 
 function showTab(name) {
   if (currentTab === 'gear' && name !== 'gear' && _bulkMode) {
@@ -1384,8 +1383,8 @@ function renderGear() {
   if (!state.items.length) {
     document.getElementById('gear-summary').innerHTML = '';
     const emptyHtml = `<div class="empty-state">
-      <p style="max-width:380px;margin:0 auto .875rem">Your gear closet is empty. Add your first item to start tracking weight, cost, and what you bring on each trip.</p>
-      <button class="btn btn-primary" onclick="openQuickAdd()">+ Add your first item</button>
+      <p style="max-width:380px;margin:0 auto .875rem">Nothing here yet. Add your first piece of gear to start tracking weight and cost, building loadouts, and planning trips.</p>
+      <button class="btn btn-primary" onclick="openModal('Add gear item', itemFormHtml())">+ Add your first item</button>
     </div>`;
     document.getElementById('gear-cards').innerHTML = emptyHtml;
     document.getElementById('gear-tbody').innerHTML = `<tr><td colspan="10">${emptyHtml}</td></tr>`;
@@ -1695,6 +1694,46 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+function showSavePromptBanner() {
+  if (_user) return; // signed in — no banner needed
+  if (sessionStorage.getItem('gn_save_prompt_dismissed')) return;
+  const banner = document.getElementById('save-prompt-banner');
+  if (!banner || banner.dataset.shown) return;
+  banner.dataset.shown = '1';
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+      background:var(--accent-l);border:1px solid var(--accent);border-radius:var(--r-lg);
+      padding:.625rem 1rem;margin-bottom:1rem;font-size:13px">
+      <span style="color:var(--text-1)">Your gear is saved on this device. <strong>Create a free account</strong> to keep it safe and access it anywhere.</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        <button class="btn btn-primary btn-sm" onclick="showAuthModal()">Sign up</button>
+        <button class="btn btn-ghost btn-sm" onclick="dismissSavePrompt()">Dismiss</button>
+      </div>
+    </div>`;
+  banner.style.display = 'block';
+}
+
+function dismissSavePrompt() {
+  sessionStorage.setItem('gn_save_prompt_dismissed', '1');
+  const banner = document.getElementById('save-prompt-banner');
+  if (banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
+}
+
+function hideSavePromptBanner() {
+  const banner = document.getElementById('save-prompt-banner');
+  if (banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
+}
+
+function clearDemoDataOnFirstItem() {
+  const hasDemoTrip = state.trips.some(t => t.id === DEMO_DATA.trip.id);
+  const hasDemoTmpl = state.templates.some(t => t.id === DEMO_DATA.template.id);
+  if (!hasDemoTrip && !hasDemoTmpl) return; // already cleared
+  state.trips     = state.trips.filter(t => t.id !== DEMO_DATA.trip.id);
+  state.templates = state.templates.filter(t => t.id !== DEMO_DATA.template.id);
+  saveState();
+  toast('Demo data cleared — this is your account now.');
+}
+
 function saveItem(id) {
   const name = document.getElementById('f-name').value.trim();
   if (!name) { alert('Name is required.'); return; }
@@ -1717,6 +1756,7 @@ function saveItem(id) {
     notes:            document.getElementById('f-notes').value.trim(),
   };
 
+  const isNew = !id;
   if (id) {
     const idx = state.items.findIndex(i => i.id === id);
     if (idx >= 0) state.items[idx] = data;
@@ -1727,6 +1767,12 @@ function saveItem(id) {
   saveState(); closeModal(); renderGear();
   if (currentTab === 'dashboard') renderDashboard();
   toast(id ? 'Item updated!' : 'Item added!');
+
+  if (isNew && !_user && state.items.length === 1) {
+    clearDemoDataOnFirstItem();
+    // Show banner after a brief delay so the toast doesn't compete
+    setTimeout(showSavePromptBanner, 800);
+  }
 
   // Handle wishlist → gear closet conversion
   if (!id && window._convertFromWishId) {
@@ -6627,8 +6673,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadState();
   syncUnitBtns();
 
-  // Render dashboard immediately with local data — no waiting for auth
-  renderDashboard();
+  // Render gear closet immediately with local data — no waiting for auth
+  renderGear();
 
   setupListeners();
 
@@ -6680,6 +6726,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (event === 'SIGNED_IN' && session?.user) {
       _user = session.user;
       hideAuthModal();
+      hideSavePromptBanner();
       const cloudLoaded = await loadFromCloud(); // also sets _isSupporter
       if (!cloudLoaded) {
         // Brand new user — no cloud data yet.
