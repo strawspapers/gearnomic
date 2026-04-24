@@ -532,11 +532,12 @@ function openMobileAccountMenu() {
 
 // Keep mobile unit btn in sync
 function syncUnitBtns() {
-  const label = _units === 'metric' ? 'g' : 'oz';
+  const isMetric = _units === 'metric';
+  const html = `<span style="opacity:${isMetric ? '1' : '.4'}">g</span><span style="opacity:.3;margin:0 3px">|</span><span style="opacity:${isMetric ? '.4' : '1'}">oz</span>`;
   const d = document.getElementById('unit-toggle-btn');
   const m = document.getElementById('unit-toggle-btn-mobile');
-  if (d) d.textContent = label;
-  if (m) m.textContent = label;
+  if (d) d.innerHTML = html;
+  if (m) m.innerHTML = html;
 }
 
 // ============================================================
