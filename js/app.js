@@ -6703,7 +6703,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateHeaderAuth();
   } else {
     updateHeaderAuth();
-    if (!shareToken) showAuthModal(); // don't cover the share view with auth modal
   }
 
   // Show shared list view if applicable (after auth check)
