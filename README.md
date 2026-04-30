@@ -191,6 +191,7 @@ gearnomic/
 - [ ] **Mobile layout polish** — the app works on mobile but the gear table needs a more compact card layout for small screens
 
 ### Near-term features
+- [ ] **Google OAuth** — "Continue with Google" sign-in via Supabase Auth provider; shown as primary CTA on the auth modal and save-prompt banner for guests
 - [ ] **PWA / installable app** — service worker + manifest so Gearnomic installs on phone home screens and works offline
 - [ ] **Gear maintenance reminders** — flag items due for inspection based on logged usage
 - [ ] **Bikepacking-specific fields** — frame bag volume, bike fit notes, drivetrain notes
