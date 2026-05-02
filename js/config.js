@@ -13,4 +13,4 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 
 // Comma-separated list of Supabase email addresses allowed to access admin.html.
 // Keep this out of public source — override in a gitignored config or at the hosting layer.
-const ADMIN_EMAILS = [];
+const ADMIN_EMAILS = [straws@gmail.com];
