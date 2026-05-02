@@ -9,18 +9,24 @@ let _syncTimer = null;    // debounce handle
 let _isSupporter = false; // paid supporter status
 
 // ── Free tier limits ─────────────────────────────────────────
+// These are intentionally enforced client-side only — a soft nudge, not a hard gate.
+// Pre-launch with no paying users; a Postgres trigger adds complexity we don't need yet.
+// Revisit post-launch if abuse becomes real.
 const FREE_LIMITS = {
   items:     30,
   trips:     3,
   templates: 2,
 };
 
-// Returns true if the user can proceed; false + shows upgrade modal if not.
-// pass `count` = current count, `kind` = 'items'|'trips'|'templates'
-function checkLimit(kind, count) {
+// Returns true if the user can add one more of `kind`; false + shows upgrade modal if not.
+// Counts from state directly so callers can't pass a stale or off-by-one value.
+const _limitStateKey = { items: 'items', trips: 'trips', templates: 'templates' };
+function checkLimit(kind) {
   if (_isSupporter) return true;
   const limit = FREE_LIMITS[kind];
-  if (limit == null || count < limit) return true;
+  if (limit == null) return true;
+  const count = (state[_limitStateKey[kind]] || []).length;
+  if (count < limit) return true;
   const labels = { items: 'gear items', trips: 'trips', templates: 'loadouts' };
   openUpgradeModal(`Free accounts include up to ${limit} ${labels[kind] || kind}. Upgrade to add unlimited ${labels[kind] || kind}.`);
   return false;
@@ -56,40 +62,53 @@ function saveState() {
   }
 }
 
-async function syncToCloud() {
-  // In admin impersonation mode — write to the target user's row using the
-  // admin Supabase client (stored in localStorage payload's adminUrl + service key not accessible here).
-  // Instead, we set a flag and the admin panel handles the actual write via postMessage.
-  if (window._adminImpersonateMode) {
-    setSyncIndicator('saving');
-    try {
-      const targetId = window._adminImpersonateUserId;
-      const sb = window._adminSb || _sb;
-      if (!targetId || !sb) { setSyncIndicator('error'); return; }
-      const { error } = await sb.from('user_data').upsert(
-        { user_id: targetId, data: state },
-        { onConflict: 'user_id' }
-      );
-      if (error) throw error;
-      setSyncIndicator('saved');
-    } catch(e) {
-      setSyncIndicator('error');
-      console.error('Admin sync failed:', e);
-    }
-    return;
-  }
-  if (!_supabaseReady() || !_user || !_isSupporter) return;
+// Writes the impersonated user's state back to their DB row.
+// Kept separate from syncToCloud so a stale _adminImpersonateMode flag can never
+// silently overwrite a real user's data during a normal save flow.
+async function adminSyncToCloud() {
+  const targetId = window._adminImpersonateUserId;
+  const sb       = window._adminSb || _sb;
+  if (!targetId || !sb) { setSyncIndicator('error'); return; }
   setSyncIndicator('saving');
   try {
-    const { error } = await _sb.from('user_data').upsert(
-      { user_id: _user.id, data: state },
+    const { error } = await sb.from('user_data').upsert(
+      { user_id: targetId, data: state },
       { onConflict: 'user_id' }
     );
     if (error) throw error;
     setSyncIndicator('saved');
   } catch(e) {
     setSyncIndicator('error');
-    console.error('Sync failed:', e);
+    console.error('Admin sync failed:', e);
+  }
+}
+
+async function syncToCloud() {
+  if (window._adminImpersonateMode) {
+    adminSyncToCloud();
+    return;
+  }
+  if (!_supabaseReady() || !_user || !_isSupporter) return;
+  setSyncIndicator('saving');
+  const MAX_ATTEMPTS = 4;
+  const BASE_DELAY   = 1500; // ms; doubles each retry: 1.5s → 3s → 6s → give up
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const { error } = await _sb.from('user_data').upsert(
+        { user_id: _user.id, data: state },
+        { onConflict: 'user_id' }
+      );
+      if (error) throw error;
+      setSyncIndicator('saved');
+      return;
+    } catch(e) {
+      if (attempt === MAX_ATTEMPTS) {
+        setSyncIndicator('error');
+        console.error('Sync failed after retries:', e);
+        return;
+      }
+      await new Promise(r => setTimeout(r, BASE_DELAY * Math.pow(2, attempt - 1)));
+    }
   }
 }
 
@@ -97,14 +116,14 @@ async function loadFromCloud() {
   if (!_supabaseReady() || !_user) return false;
   try {
     const { data, error } = await _sb.from('user_data')
-      .select('data,is_supporter,supporter_since').eq('user_id', _user.id).single();
+      .select('data,is_supporter,supporter_since,updated_at').eq('user_id', _user.id).single();
     if (error || !data?.data) return false;
     _isSupporter = !!data.is_supporter;
-    // If local state was saved more recently than the cloud copy (e.g. user refreshed
-    // before the 1500ms debounce fired), keep local and push it to cloud immediately
-    // rather than overwriting newer local data with stale cloud data.
-    const localTs = state._savedAt || 0;
-    const cloudTs = data.data._savedAt || 0;
+    // Compare local _savedAt against the DB's updated_at (set by a server trigger on
+    // every write — trustworthy, clock-skew-safe, and not affected by stale localStorage).
+    // If local is newer the user edited before the debounce flushed; push local up.
+    const localTs  = state._savedAt || 0;
+    const cloudTs  = data.updated_at ? new Date(data.updated_at).getTime() : 0;
     if (localTs > cloudTs) {
       syncToCloud();
       return true;
@@ -126,7 +145,13 @@ async function loadSupporterStatus() {
   } catch(e) { _isSupporter = false; }
 }
 
+// Current schema version. Bump this when adding a new structural migration below.
+// Cheap field-existence guards always run; numbered migrations only run when
+// state._schemaVersion is behind, so old migrations are skipped on every subsequent load.
+const SCHEMA_VERSION = 1;
+
 function applyMigrations() {
+  // ── Field-existence guards (always run — cheap, idempotent) ─────
   if (!state.items)         state.items         = [];
   if (!state.trips)         state.trips         = [];
   if (!state.wishlist)      state.wishlist      = [];
@@ -157,37 +182,44 @@ function applyMigrations() {
     syncUnitBtns();
   }
 
-  // ── Migration: trip.gear_ids → loadout_ids ──────────────────
-  // Any trip that still has gear_ids (old model) gets an auto-created
-  // loadout so no gear is lost. The trip then references it via loadout_ids.
-  state.trips.forEach(t => {
-    if (!t.carry_types)    t.carry_types    = {};
-    if (!t.meal_plan_id)   t.meal_plan_id   = null;
-    if (!t.item_quantities) t.item_quantities = {};
-    if (!t.item_feedback)  t.item_feedback  = {};
+  // ── Numbered structural migrations (skip if already applied) ───
+  const sv = state._schemaVersion || 0;
 
-    if (t.gear_ids && t.gear_ids.length && !t.loadout_ids) {
-      // Create an auto-loadout from the trip's existing gear list
-      const autoLoadout = {
-        id:           uid('tmpl'),
-        name:         t.name + ' — Gear',
-        description:  'Automatically created from trip gear list.',
-        trip_type:    t.trip_type || 'backpacking',
-        gear_ids:     [...t.gear_ids],
-        carry_types:  { ...(t.carry_types || {}) },
-        created_from: t.id,
-        created_at:   new Date().toISOString().slice(0, 10),
-      };
-      state.templates.push(autoLoadout);
-      t.loadout_ids = [autoLoadout.id];
-    } else if (!t.loadout_ids) {
-      t.loadout_ids = [];
-    }
-    // Remove old fields now that migration is done
-    delete t.gear_ids;
-    delete t.carry_types;
-    delete t.gear_overrides;
-  });
+  if (sv < 1) {
+    // Migration 1: trip.gear_ids → loadout_ids
+    // Any trip that still has gear_ids (old model) gets an auto-created
+    // loadout so no gear is lost. The trip then references it via loadout_ids.
+    state.trips.forEach(t => {
+      if (!t.carry_types)     t.carry_types     = {};
+      if (!t.meal_plan_id)    t.meal_plan_id    = null;
+      if (!t.item_quantities) t.item_quantities = {};
+      if (!t.item_feedback)   t.item_feedback   = {};
+
+      if (t.gear_ids && t.gear_ids.length && !t.loadout_ids) {
+        const autoLoadout = {
+          id:           uid('tmpl'),
+          name:         t.name + ' — Gear',
+          description:  'Automatically created from trip gear list.',
+          trip_type:    t.trip_type || 'backpacking',
+          gear_ids:     [...t.gear_ids],
+          carry_types:  { ...(t.carry_types || {}) },
+          created_from: t.id,
+          created_at:   new Date().toISOString().slice(0, 10),
+        };
+        state.templates.push(autoLoadout);
+        t.loadout_ids = [autoLoadout.id];
+      } else if (!t.loadout_ids) {
+        t.loadout_ids = [];
+      }
+      delete t.gear_ids;
+      delete t.carry_types;
+      delete t.gear_overrides;
+    });
+  }
+
+  // Add future migrations here as: if (sv < N) { ... }
+
+  state._schemaVersion = SCHEMA_VERSION;
 }
 
 function loadState() {
@@ -1311,7 +1343,7 @@ function openQuickAdd() {
 }
 
 function saveQuickAdd(addAnother) {
-  if (!checkLimit('items', state.items.length)) return;
+  if (!checkLimit('items')) return;
   const name = document.getElementById('qa-name')?.value.trim();
   if (!name) { document.getElementById('qa-name')?.focus(); return; }
   const item = {
@@ -1690,7 +1722,7 @@ function openEditItem(id) {
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-add-item').addEventListener('click', () => {
-    if (!checkLimit('items', state.items.length)) return;
+    if (!checkLimit('items')) return;
     openModal('Add gear item', itemFormHtml());
   });
 });
@@ -2375,7 +2407,7 @@ function openEditTrip(id) {
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-add-trip').addEventListener('click', () => {
-    if (!checkLimit('trips', state.trips.length)) return;
+    if (!checkLimit('trips')) return;
     openModal('New trip', tripFormHtml());
   });
 });
@@ -3259,7 +3291,7 @@ function renderTemplateDetail(tmpl) {
 
 // ── Template form (create / edit) ──────────────────────────
 function openTemplateForm(id) {
-  if (!id && !checkLimit('templates', state.templates.length)) return;
+  if (!id && !checkLimit('templates')) return;
   const tmpl = id ? state.templates.find(t => t.id === id) : null;
   openModal(tmpl ? 'Edit loadout' : 'New loadout', templateFormHtml(tmpl));
 }

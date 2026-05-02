@@ -143,6 +143,93 @@ a:hover { text-decoration: underline; }
   flex-shrink: 0;
 }
 
+/* ── Header: auth / user-menu chrome ── */
+#auth-user-info    { align-items: center; gap: 8px; }
+#auth-anon-actions { align-items: center; gap: 8px; }
+.header-meta       { font-size: 12px; color: var(--text-3); }
+#user-menu-btn     { display: flex; align-items: center; gap: 6px; }
+.user-email        { font-size: 12px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-menu-caret   { font-size: 10px; opacity: .6; }
+#sync-indicator    { font-size: 11px; color: var(--text-3); }
+#user-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+  z-index: 200;
+  overflow: hidden;
+}
+#user-menu-tier {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-2);
+  font-size: 12px;
+}
+.menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 13px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-1);
+}
+.menu-item:hover        { background: var(--surface-2); }
+.menu-item.danger       { color: var(--danger); }
+.menu-divider           { height: 1px; background: var(--border-2); margin: 2px 0; }
+
+/* ── Mobile More drawer ── */
+#mobile-more-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.4);
+  z-index: 400;
+}
+#mobile-more-drawer {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  padding: 1rem;
+  z-index: 401;
+  box-shadow: var(--shadow-lg);
+}
+.drawer-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto .75rem;
+}
+.drawer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.drawer-close {
+  margin-top: 12px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  font-size: 14px;
+  color: var(--text-2);
+  cursor: pointer;
+  font-family: inherit;
+}
+
 /* ── Main content ── */
 #main-content {
   max-width: var(--content-max);

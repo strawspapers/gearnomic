@@ -213,6 +213,7 @@ gearnomic/
 - [ ] **User dashboard** — sign-up trends, active users, churn rate
 - [ ] **Aggregated gear analytics** — most popular items across all users, average base weight by trip type
 - [ ] **Content moderation** — review/remove public shared lists
+- [ ] **Server-side free tier enforcement** — Postgres trigger validating item/trip/loadout counts so limits can't be bypassed via console or direct API calls; intentionally deferred until post-launch when abuse is a real concern
 
 ### Longer-term
 - [ ] **Category comparison tables** — side-by-side comparison of e.g. all sleeping bags
@@ -221,3 +222,9 @@ gearnomic/
 - [ ] **Trip journal** — attach photos and notes to completed trips
 - [ ] **Resupply planner** — for thru-hikers: map resupply points, calculate food drops per section
 - [ ] **Mobile app** — native iOS/Android via Capacitor once web product is stable
+
+---
+
+## To-do
+
+- [ ] **Revisit font pairing** — Fraunces + DM Sans is solid but common in indie SaaS. If the brand should feel more distinctively "expedition log," consider something like Tiempos/Söhne, or pair Fraunces with a more characterful mono for data tables.
