@@ -399,6 +399,12 @@ function toggleMiscCol() {
 
 let _replaceFlags = {};
 
+// ── Catalog search state ────────────────────────────────────
+let _catalogSearchTimer  = null;
+let _catalogResults      = [];      // current search result set, indexed by position
+let _catalogSelectedId   = null;    // catalog_item_id chosen for the current add session
+let _pendingCatalogSubmit = null;   // item data waiting for catalog submission prompt
+
 function renderGear() {
   _replaceFlags = getReplaceFlagTrips();
   populateCatFilter('gear-filter-cat');
@@ -439,7 +445,7 @@ function renderGear() {
     document.getElementById('gear-summary').innerHTML = '';
     const emptyHtml = `<div class="empty-state">
       <p style="max-width:380px;margin:0 auto .875rem">Nothing here yet. Add your first piece of gear to start tracking weight and cost, building loadouts, and planning trips.</p>
-      <button class="btn btn-primary" onclick="openModal('Add gear item', itemFormHtml())">+ Add your first item</button>
+      <button class="btn btn-primary" onclick="openAddItemModal()">+ Add your first item</button>
     </div>`;
     document.getElementById('gear-cards').innerHTML = emptyHtml;
     document.getElementById('gear-tbody').innerHTML = `<tr><td colspan="10">${emptyHtml}</td></tr>`;
@@ -692,7 +698,31 @@ function logUsage(id, type) {
 // â”€â”€ Gear CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function itemFormHtml(item) {
   item = item || {};
+  const isNew = !item.id;
+
+  // Catalog search section — only shown when adding a new item and Supabase is available
+  const catalogSection = isNew && _supabaseReady() ? `
+    <div id="catalog-search-wrap" style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:.5px solid var(--border-2)">
+      <label class="form-label">Search catalog <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">— find your item and pre-fill the form</span></label>
+      <div style="position:relative">
+        <input class="input input-full" id="catalog-search-input"
+          placeholder="e.g. Big Agnes · Copper Spur · sleeping bag…"
+          oninput="catalogSearchDebounced()" autocomplete="off">
+        <div id="catalog-search-results"
+          style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);
+                 background:var(--surface);border:1px solid var(--border);
+                 border-radius:var(--r-lg);box-shadow:var(--shadow-md);z-index:50;overflow:hidden;max-height:280px;overflow-y:auto">
+        </div>
+      </div>
+      <div id="catalog-selected-badge" style="display:none;margin-top:6px;font-size:12px;color:var(--primary)">
+        ✓ Pre-filled from catalog.
+        <button type="button" style="background:none;border:none;color:var(--text-3);font-size:12px;cursor:pointer;padding:0 0 0 4px;text-decoration:underline;font-family:inherit" onclick="clearCatalogSelection()">Clear</button>
+      </div>
+    </div>` : '';
+
   return `
+    ${catalogSection}
+    <input type="hidden" id="f-catalog-id" value="${esc(item.catalog_item_id || '')}">
     <div class="form-grid">
       <div class="form-row"><label class="form-label">Name *</label><input class="input input-full" id="f-name" value="${esc(item.name || '')}" placeholder="e.g. Sleeping bag" required></div>
       <div class="form-row"><label class="form-label">Brand</label><input class="input input-full" id="f-brand" value="${esc(item.brand || '')}" placeholder="e.g. Big Agnes"></div>
@@ -745,7 +775,7 @@ function openEditItem(id) {
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-add-item').addEventListener('click', () => {
     if (!checkLimit('items')) return;
-    openModal('Add gear item', itemFormHtml());
+    openAddItemModal();
   });
 });
 
@@ -793,6 +823,8 @@ function saveItem(id) {
   const name = document.getElementById('f-name').value.trim();
   if (!name) { alert('Name is required.'); return; }
 
+  const catalogId = document.getElementById('f-catalog-id')?.value.trim() || null;
+
   const data = {
     name, id: id || uid('i'),
     brand:            document.getElementById('f-brand').value.trim(),
@@ -809,6 +841,7 @@ function saveItem(id) {
     usage_days:       parseInt(document.getElementById('f-days').value) || 0,
     usage_nights:     parseInt(document.getElementById('f-nights').value) || 0,
     notes:            document.getElementById('f-notes').value.trim(),
+    catalog_item_id:  catalogId || undefined,
   };
 
   const isNew = !id;
@@ -825,11 +858,22 @@ function saveItem(id) {
 
   if (isNew && !_user && state.items.length === 1) {
     clearDemoDataOnFirstItem();
-    // Show banner after a brief delay so the toast doesn't compete
+    // Show banner after a brief delay so the toast doesn’t compete
     setTimeout(showSavePromptBanner, 800);
   }
 
-  // Handle wishlist â†’ gear closet conversion
+  // Offer catalog submission for new manually-added items (no catalog match),
+  // once per session, only when signed in (catalog insert requires auth)
+  if (isNew && !catalogId && _user && _supabaseReady()
+      && !sessionStorage.getItem(‘gn_catalog_prompted’)) {
+    _pendingCatalogSubmit = data;
+    setTimeout(showCatalogSubmitPrompt, 700);
+  }
+
+  // Reset catalog selection state for the next add
+  _catalogSelectedId = null;
+
+  // Handle wishlist → gear closet conversion
   if (!id && window._convertFromWishId) {
     const wid = window._convertFromWishId;
     window._convertFromWishId = null;
@@ -841,6 +885,213 @@ function saveItem(id) {
       }
     }, 300);
   }
+}
+
+// ── Catalog search & submission ─────────────────────────────
+
+function openAddItemModal() {
+  _catalogSelectedId = null;
+  _catalogResults    = [];
+  openModal('Add gear item', itemFormHtml());
+}
+
+function catalogSearchDebounced() {
+  clearTimeout(_catalogSearchTimer);
+  const q = document.getElementById('catalog-search-input')?.value.trim();
+  const resultsEl = document.getElementById('catalog-search-results');
+  if (!q || q.length < 2) {
+    if (resultsEl) resultsEl.style.display = 'none';
+    return;
+  }
+  _catalogSearchTimer = setTimeout(() => runCatalogSearch(q), 300);
+}
+
+async function runCatalogSearch(q) {
+  if (!_supabaseReady()) return;
+  const resultsEl = document.getElementById('catalog-search-results');
+  if (!resultsEl) return;
+
+  resultsEl.style.display = 'block';
+  resultsEl.innerHTML = `<div style="padding:10px 12px;font-size:13px;color:var(--text-3)">Searching…</div>`;
+
+  // Escape % and _ so they are treated as literals in the ilike pattern
+  const safe = q.replace(/%/g, '\\%').replace(/_/g, '\\_');
+  const { data, error } = await _sb.from('catalog_items')
+    .select('id,brand,name,designation,manufacturer_weight_g,url')
+    .eq('status', 'approved')
+    .or(`brand.ilike.%${safe}%,name.ilike.%${safe}%,designation.ilike.%${safe}%`)
+    .limit(8);
+
+  if (error) { resultsEl.style.display = 'none'; return; }
+
+  _catalogResults = data || [];
+
+  if (!_catalogResults.length) {
+    resultsEl.innerHTML = `
+      <div style="padding:10px 12px;font-size:13px;color:var(--text-3)">
+        No matches —
+        <button type="button"
+          style="background:none;border:none;color:var(--primary);font-size:13px;cursor:pointer;padding:0;font-family:inherit"
+          onclick="dismissCatalogSearch()">add manually</button>
+      </div>`;
+    return;
+  }
+
+  resultsEl.innerHTML = _catalogResults.map((item, i) => {
+    const weight = item.manufacturer_weight_g ? wg(item.manufacturer_weight_g) : '';
+    const desig  = item.designation ? ` <span style="color:var(--text-3)">${esc(item.designation)}</span>` : '';
+    return `
+      <div class="catalog-result-row" onclick="selectCatalogResult(${i})">
+        <div style="font-size:13px;font-weight:500">${esc(item.brand)} ${esc(item.name)}${desig}</div>
+        ${weight ? `<div style="font-size:11px;color:var(--text-3);margin-top:1px">${weight}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function selectCatalogResult(idx) {
+  const item = _catalogResults[idx];
+  if (!item) return;
+
+  _catalogSelectedId = item.id;
+
+  // Fill form fields — designation maps to model (the specific variant name)
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  set('f-catalog-id', item.id);
+  set('f-brand', item.brand || '');
+  set('f-name',  item.name  || '');
+  set('f-model', item.designation || '');
+  if (item.manufacturer_weight_g) set('f-weight', gToDisplay(item.manufacturer_weight_g));
+  if (item.url) set('f-url', item.url);
+
+  // Hide results, update search input to show what was picked, show badge
+  const resultsEl = document.getElementById('catalog-search-results');
+  if (resultsEl) resultsEl.style.display = 'none';
+  const inputEl = document.getElementById('catalog-search-input');
+  if (inputEl) inputEl.value = [item.brand, item.name, item.designation].filter(Boolean).join(' ');
+  const badge = document.getElementById('catalog-selected-badge');
+  if (badge) badge.style.display = 'block';
+
+  // Focus name field so user can continue filling the form
+  document.getElementById('f-name')?.focus();
+}
+
+function clearCatalogSelection() {
+  _catalogSelectedId = null;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  set('f-catalog-id', '');
+  const inputEl = document.getElementById('catalog-search-input');
+  if (inputEl) { inputEl.value = ''; inputEl.focus(); }
+  const badge = document.getElementById('catalog-selected-badge');
+  if (badge) badge.style.display = 'none';
+  const resultsEl = document.getElementById('catalog-search-results');
+  if (resultsEl) resultsEl.style.display = 'none';
+}
+
+function dismissCatalogSearch() {
+  // User chose to add manually — collapse the search section
+  const wrap = document.getElementById('catalog-search-wrap');
+  if (wrap) wrap.style.display = 'none';
+}
+
+// ── Catalog submission prompt & form ────────────────────────
+
+function showCatalogSubmitPrompt() {
+  const item = _pendingCatalogSubmit;
+  if (!item) return;
+  sessionStorage.setItem('gn_catalog_prompted', '1');
+  openModal('Add to catalog?', `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
+      <strong>${esc(item.name)}</strong> isn't in our community catalog yet.
+      Submit it so other hikers can find it — it'll be reviewed before going live.
+    </p>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="closeModal();openCatalogSubmitModal()">Submit for review</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Not now</button>
+    </div>`);
+}
+
+function openCatalogSubmitModal() {
+  const item = _pendingCatalogSubmit || {};
+  const disciplines = ['hiking','backpacking','bikepacking','bike touring','fastpacking'];
+  const discBoxes = disciplines.map(d => `
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:3px 0">
+      <input type="checkbox" value="${d}" class="cs-disc"
+        style="width:15px;height:15px;accent-color:var(--primary);flex-shrink:0">
+      ${d.charAt(0).toUpperCase() + d.slice(1)}
+    </label>`).join('');
+
+  openModal('Submit to catalog', `
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
+      Help the community! Your submission will be reviewed before going live.
+    </p>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-label">Brand *</label>
+        <input class="input input-full" id="cs-brand" value="${esc(item.brand || '')}" placeholder="e.g. Big Agnes">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Name *</label>
+        <input class="input input-full" id="cs-name" value="${esc(item.name || '')}" placeholder="e.g. Copper Spur">
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Designation <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">model or variant — e.g. "HV UL2", "40L", "1+"</span></label>
+      <input class="input input-full" id="cs-designation" value="${esc(item.model || '')}" placeholder="e.g. HV UL2">
+    </div>
+    <div class="form-row" style="margin-bottom:.875rem">
+      <label class="form-label">Discipline</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px;margin-top:4px">${discBoxes}</div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-label">Manufacturer weight (grams)</label>
+        <input class="input input-full" id="cs-weight" type="number" min="0" step="0.1"
+          value="${item.weight_g ? Math.round(item.weight_g) : ''}">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Product URL</label>
+        <input class="input input-full" id="cs-url" value="${esc(item.product_url || '')}" placeholder="https://">
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Description</label>
+      <textarea class="input input-full" id="cs-desc" rows="2" style="height:56px"
+        placeholder="Brief description…"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="submitToCatalog()">Submit for review</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+
+async function submitToCatalog() {
+  if (!_supabaseReady() || !_user) { toast('Sign in to submit to the catalog.'); return; }
+
+  const brand = document.getElementById('cs-brand')?.value.trim();
+  const name  = document.getElementById('cs-name')?.value.trim();
+  if (!brand || !name) { alert('Brand and name are required.'); return; }
+
+  const discipline = [...document.querySelectorAll('.cs-disc:checked')].map(el => el.value);
+  const rawWeight  = document.getElementById('cs-weight')?.value.trim();
+  const mfgWeight  = rawWeight ? parseFloat(rawWeight) : null;
+
+  const { error } = await _sb.from('catalog_items').insert({
+    brand,
+    name,
+    designation:           document.getElementById('cs-designation')?.value.trim() || null,
+    discipline:            discipline.length ? discipline : null,
+    manufacturer_weight_g: isNaN(mfgWeight) ? null : mfgWeight,
+    url:                   document.getElementById('cs-url')?.value.trim() || null,
+    description:           document.getElementById('cs-desc')?.value.trim() || null,
+    status:                'pending',
+    submitted_by:          _user.id,
+  });
+
+  if (error) { toast('Submit failed: ' + error.message); return; }
+
+  closeModal();
+  _pendingCatalogSubmit = null;
+  toast('Submitted for review — thanks for contributing!');
 }
 
 function deleteItem(id) {
