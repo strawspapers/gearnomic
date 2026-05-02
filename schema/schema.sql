@@ -74,6 +74,31 @@ INSERT INTO gear_categories (user_id, name, sort_order, weight_target_g, is_syst
     (NULL, 'Food and Water',       120, NULL, true);
 
 -- =============================================================================
+-- COMMUNITY GEAR CATALOG
+-- Crowdsourced database of gear items. Users submit; admins approve via service key.
+-- =============================================================================
+
+CREATE TABLE catalog_items (
+    id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    brand                 TEXT        NOT NULL,
+    name                  TEXT        NOT NULL,
+    designation           TEXT,                            -- model/variant (e.g. "Southwest 40")
+    discipline            TEXT[],                          -- e.g. ARRAY['backpacking','bikepacking']
+    manufacturer_weight_g NUMERIC(8, 2),                  -- grams, as stated by manufacturer
+    url                   TEXT,
+    description           TEXT,
+    status                TEXT        NOT NULL DEFAULT 'pending'
+                            CHECK (status IN ('pending', 'approved', 'rejected')),
+    submitted_by          UUID        REFERENCES auth.users(id) ON DELETE SET NULL,
+    approved_by           UUID        REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_catalog_items_status ON catalog_items(status);
+CREATE INDEX idx_catalog_items_brand  ON catalog_items(brand);
+
+-- =============================================================================
 -- GEAR ITEMS  (your master "Gear list" sheet)
 -- Central table — every field from your spreadsheet is represented.
 -- =============================================================================
@@ -128,6 +153,9 @@ CREATE TABLE gear_items (
                             END
                         ) STORED,
 
+    -- Link to community catalog entry this item was sourced from (nullable)
+    catalog_item_id     UUID REFERENCES catalog_items(id) ON DELETE SET NULL,
+
     -- Soft delete
     archived            BOOLEAN NOT NULL DEFAULT false,
     archived_at         TIMESTAMPTZ,
@@ -139,6 +167,7 @@ CREATE TABLE gear_items (
 -- Fast text search on name + brand + model
 CREATE INDEX idx_gear_items_user        ON gear_items(user_id);
 CREATE INDEX idx_gear_items_category    ON gear_items(category_id);
+CREATE INDEX idx_gear_items_catalog     ON gear_items(catalog_item_id) WHERE catalog_item_id IS NOT NULL;
 CREATE INDEX idx_gear_items_search      ON gear_items USING gin(
     (name || ' ' || COALESCE(brand,'') || ' ' || COALESCE(model,'')) gin_trgm_ops
 );
@@ -698,6 +727,7 @@ EXECUTE FUNCTION set_archived_at();
 -- Each user can only see their own data; public trips are readable by all.
 -- =============================================================================
 
+ALTER TABLE catalog_items            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users                    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gear_items               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gear_usage_log           ENABLE ROW LEVEL SECURITY;
@@ -716,6 +746,11 @@ ALTER TABLE rei_purchases            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trip_shares              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trip_comments            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tags                     ENABLE ROW LEVEL SECURITY;
+
+-- Catalog: authenticated read of approved items; authenticated insert (own rows only);
+-- no UPDATE/DELETE policy — service role handles approval/rejection
+CREATE POLICY catalog_approved_read  ON catalog_items FOR SELECT USING (auth.uid() IS NOT NULL AND status = 'approved');
+CREATE POLICY catalog_submit         ON catalog_items FOR INSERT WITH CHECK (auth.uid() IS NOT NULL AND auth.uid() = submitted_by);
 
 -- Users see their own rows; authenticated users see public trips/recipes
 CREATE POLICY users_self           ON users             FOR ALL USING (id = auth.uid());
