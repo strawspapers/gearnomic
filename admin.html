@@ -91,6 +91,24 @@
     /* Impersonate banner (shown in Gearnomic when impersonating) */
     #impersonate-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#6a3db8;color:#fff;padding:8px 20px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:12px}
 
+    /* Catalog queue */
+    .queue-badge{display:inline-block;background:#c0392b;color:#fff;border-radius:99px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:6px;vertical-align:middle;line-height:1.6}
+    .catalog-item{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:1.25rem;margin-bottom:1rem}
+    .catalog-item.editing{border:2px solid #2A4032;box-shadow:0 2px 12px rgba(42,64,50,.12)}
+    .catalog-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;margin-bottom:1rem}
+    .catalog-field-key{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:2px}
+    .catalog-field-val{font-size:13px;color:#1a1a1a;word-break:break-word}
+    .catalog-field-val a{color:#1a5fa8;text-decoration:none}
+    .catalog-field-val a:hover{text-decoration:underline}
+    .catalog-field-val.muted{color:#aaa}
+    .catalog-desc{font-size:13px;color:#444;line-height:1.55;margin-bottom:1rem;padding-bottom:1rem;border-bottom:.5px solid #f0f0f0}
+    .catalog-submitter{font-size:11px;color:#aaa;margin-bottom:.875rem}
+    .catalog-edit-field{margin-bottom:.625rem}
+    .catalog-edit-field label{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:3px}
+    .catalog-edit-input{width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;font-family:inherit;outline:none;background:#fafafa}
+    .catalog-edit-input:focus{border-color:#2A4032;background:#fff}
+    .catalog-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+
     /* Audit log */
     .log-entry{font-size:12px;font-family:monospace;padding:6px 0;border-bottom:.5px solid #eee;color:#555}
     .log-entry:last-child{border-bottom:none}
@@ -150,6 +168,7 @@
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('users')">Users</button>
+      <button class="tab-btn" onclick="switchTab('catalog')">Catalog Queue<span id="catalog-badge" class="queue-badge" style="display:none">0</span></button>
       <button class="tab-btn" onclick="switchTab('audit')">Audit log</button>
     </div>
 
@@ -181,6 +200,17 @@
         </table>
         <div id="table-empty" class="loading" style="display:none">No users match your filter.</div>
       </div>
+    </div>
+
+    <!-- Catalog Queue tab -->
+    <div class="tab-pane" id="tab-catalog">
+      <div class="toolbar">
+        <span style="font-size:13px;color:#888" id="catalog-queue-meta"></span>
+        <button class="btn-ghost" onclick="loadCatalogQueue()" style="margin-left:auto">Refresh</button>
+      </div>
+      <div id="catalog-loading" class="loading" style="display:none">Loading queue…</div>
+      <div id="catalog-empty" class="loading" style="display:none">No pending submissions.</div>
+      <div id="catalog-list"></div>
     </div>
 
     <!-- Audit log tab -->
@@ -270,6 +300,9 @@ let _users = [];
 let _auditLog = [];
 let _inspectUser = null;
 let _inspectData = null;
+let _catalogItems    = [];
+let _editingCatalogId = null;
+let _adminUserId     = null;  // auth.users id of the signed-in admin
 
 // ── Auth ──────────────────────────────────────────────────
 async function doLogin() {
@@ -284,22 +317,34 @@ async function doLogin() {
     const { data, error } = await _sb.auth.admin.listUsers({ perPage: 1 });
     if (error) { showErr(err, 'Access denied: ' + error.message); _sb = null; return; }
     localStorage.setItem('gn_admin_url', url);
+    // Capture the admin's own user ID for approved_by on catalog actions
+    try {
+      const anonClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON,
+        { auth: { autoRefreshToken: false, persistSession: false } });
+      const { data: { session } } = await anonClient.auth.getSession();
+      _adminUserId = session?.user?.id || null;
+    } catch(e) { /* non-fatal — approved_by will be null */ }
     document.getElementById('login-screen').style.display  = 'none';
     document.getElementById('admin-screen').style.display  = 'block';
     document.getElementById('btn-logout').style.display    = '';
     audit('LOGIN', 'Admin session started');
     loadUsers();
+    loadCatalogBadge();
   } catch(e) { showErr(err, 'Could not connect. Check the URL and key.'); _sb = null; }
 }
 
 function logout() {
   audit('LOGOUT', 'Admin session ended');
-  _sb = null; _url = '';
+  _sb = null; _url = ''; _adminUserId = null;
+  _catalogItems = []; _editingCatalogId = null;
   document.getElementById('admin-screen').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('btn-logout').style.display   = 'none';
   document.getElementById('header-status').textContent  = '';
   document.getElementById('login-key').value = '';
+  document.getElementById('catalog-list').innerHTML = '';
+  document.getElementById('catalog-empty').style.display = 'none';
+  updateCatalogBadge(0);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -310,10 +355,14 @@ window.addEventListener('DOMContentLoaded', () => {
 // ── Tabs ──────────────────────────────────────────────────
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    b.classList.toggle('active', ['users','audit'][i] === name);
+    b.classList.toggle('active', ['users','catalog','audit'][i] === name);
   });
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'catalog' && !document.getElementById('catalog-list').children.length
+      && document.getElementById('catalog-empty').style.display === 'none') {
+    loadCatalogQueue();
+  }
 }
 
 // ── Load & render users ───────────────────────────────────
@@ -639,6 +688,248 @@ function audit(action, detail) {
 function clearAudit() {
   _auditLog = [];
   document.getElementById('audit-log').innerHTML = '<div style="color:#aaa;font-size:13px">Log cleared.</div>';
+}
+
+// ── Catalog Queue ─────────────────────────────────────────
+
+async function loadCatalogBadge() {
+  if (!_sb) return;
+  const { count } = await _sb.from('catalog_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending');
+  updateCatalogBadge(count || 0);
+}
+
+function updateCatalogBadge(n) {
+  const el = document.getElementById('catalog-badge');
+  if (!el) return;
+  el.textContent = n;
+  el.style.display = n > 0 ? 'inline-block' : 'none';
+}
+
+async function loadCatalogQueue() {
+  if (!_sb) return;
+  _editingCatalogId = null;
+  const loading = document.getElementById('catalog-loading');
+  const empty   = document.getElementById('catalog-empty');
+  const list    = document.getElementById('catalog-list');
+  loading.style.display = 'block';
+  empty.style.display   = 'none';
+  list.innerHTML        = '';
+
+  const { data, error } = await _sb.from('catalog_items')
+    .select('*')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true });
+
+  loading.style.display = 'none';
+
+  if (error) { toast('Failed to load queue: ' + error.message); return; }
+
+  _catalogItems = data || [];
+  updateCatalogBadge(_catalogItems.length);
+
+  const meta = document.getElementById('catalog-queue-meta');
+  meta.textContent = _catalogItems.length
+    ? `${_catalogItems.length} pending submission${_catalogItems.length !== 1 ? 's' : ''}`
+    : '';
+
+  if (!_catalogItems.length) { empty.style.display = 'block'; return; }
+
+  renderCatalogQueue();
+}
+
+function catalogUserEmail(uuid) {
+  if (!uuid) return '—';
+  const u = _users.find(u => u.id === uuid);
+  return u ? esc(u.email) : `<span style="font-family:monospace;font-size:11px">${esc(uuid.slice(0,8))}…</span>`;
+}
+
+function renderCatalogQueue() {
+  const list = document.getElementById('catalog-list');
+  list.innerHTML = _catalogItems.map(item => {
+    const isEditing = _editingCatalogId === item.id;
+    const wt = item.manufacturer_weight_g != null
+      ? item.manufacturer_weight_g + ' g'
+      : '—';
+    const disc = Array.isArray(item.discipline) && item.discipline.length
+      ? item.discipline.join(', ')
+      : (item.discipline || '—');
+
+    if (isEditing) {
+      return `
+      <div class="catalog-item editing" id="ci-${esc(item.id)}">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#2A4032;margin-bottom:.875rem">Editing — normalize fields before approving</div>
+        <div class="catalog-edit-grid">
+          <div class="catalog-edit-field">
+            <label>Brand</label>
+            <input class="catalog-edit-input" id="ce-brand-${esc(item.id)}" value="${esc(item.brand)}">
+          </div>
+          <div class="catalog-edit-field">
+            <label>Name</label>
+            <input class="catalog-edit-input" id="ce-name-${esc(item.id)}" value="${esc(item.name)}">
+          </div>
+          <div class="catalog-edit-field">
+            <label>Designation</label>
+            <input class="catalog-edit-input" id="ce-designation-${esc(item.id)}" value="${esc(item.designation || '')}">
+          </div>
+          <div class="catalog-edit-field">
+            <label>Discipline (comma-separated)</label>
+            <input class="catalog-edit-input" id="ce-discipline-${esc(item.id)}" value="${esc(disc === '—' ? '' : disc)}">
+          </div>
+          <div class="catalog-edit-field">
+            <label>Manufacturer weight (g)</label>
+            <input class="catalog-edit-input" id="ce-weight-${esc(item.id)}" type="number" min="0" step="0.1" value="${item.manufacturer_weight_g ?? ''}">
+          </div>
+          <div class="catalog-edit-field">
+            <label>URL</label>
+            <input class="catalog-edit-input" id="ce-url-${esc(item.id)}" value="${esc(item.url || '')}">
+          </div>
+        </div>
+        <div class="catalog-edit-field">
+          <label>Description</label>
+          <textarea class="catalog-edit-input" id="ce-desc-${esc(item.id)}" rows="3" style="resize:vertical">${esc(item.description || '')}</textarea>
+        </div>
+        <div class="actions" style="margin-top:.5rem">
+          <button class="btn-success" onclick="saveCatalogEdit('${esc(item.id)}')">Save</button>
+          <button class="btn-ghost" onclick="cancelCatalogEdit()">Cancel</button>
+        </div>
+      </div>`;
+    }
+
+    return `
+    <div class="catalog-item" id="ci-${esc(item.id)}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:.75rem">
+        <div>
+          <span style="font-size:16px;font-weight:600">${esc(item.brand)}</span>
+          <span style="font-size:16px;color:#555;margin-left:6px">${esc(item.name)}</span>
+          ${item.designation ? `<span style="font-size:13px;color:#888;margin-left:6px">${esc(item.designation)}</span>` : ''}
+        </div>
+        <span style="font-size:11px;color:#aaa;white-space:nowrap;flex-shrink:0">${fmtDate(item.created_at)}</span>
+      </div>
+      ${item.description ? `<div class="catalog-desc">${esc(item.description)}</div>` : ''}
+      <div class="catalog-fields">
+        <div>
+          <div class="catalog-field-key">Discipline</div>
+          <div class="catalog-field-val ${disc === '—' ? 'muted' : ''}">${esc(disc)}</div>
+        </div>
+        <div>
+          <div class="catalog-field-key">Mfr. weight</div>
+          <div class="catalog-field-val ${wt === '—' ? 'muted' : ''}">${esc(wt)}</div>
+        </div>
+        <div>
+          <div class="catalog-field-key">URL</div>
+          <div class="catalog-field-val">${item.url
+            ? `<a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.url.replace(/^https?:\/\//,'').slice(0,60))}${item.url.length>63?'…':''}</a>`
+            : '<span class="muted">—</span>'}</div>
+        </div>
+        <div>
+          <div class="catalog-field-key">Submitted by</div>
+          <div class="catalog-field-val">${catalogUserEmail(item.submitted_by)}</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn-success" onclick="approveCatalogItem('${esc(item.id)}')">Approve</button>
+        <button class="btn-danger"  onclick="rejectCatalogItem('${esc(item.id)}')">Reject</button>
+        <button class="btn-ghost"   onclick="startCatalogEdit('${esc(item.id)}')">Edit</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function startCatalogEdit(id) {
+  _editingCatalogId = id;
+  renderCatalogQueue();
+  document.getElementById('ci-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function cancelCatalogEdit() {
+  _editingCatalogId = null;
+  renderCatalogQueue();
+}
+
+async function saveCatalogEdit(id) {
+  const item = _catalogItems.find(i => i.id === id);
+  if (!item) return;
+
+  const rawDisc = document.getElementById('ce-discipline-' + id)?.value.trim();
+  const discipline = rawDisc
+    ? rawDisc.split(',').map(s => s.trim()).filter(Boolean)
+    : null;
+  const rawWeight = document.getElementById('ce-weight-' + id)?.value.trim();
+  const manufacturer_weight_g = rawWeight !== '' && rawWeight != null
+    ? parseFloat(rawWeight)
+    : null;
+
+  const patch = {
+    brand:                document.getElementById('ce-brand-' + id)?.value.trim() || item.brand,
+    name:                 document.getElementById('ce-name-' + id)?.value.trim()  || item.name,
+    designation:          document.getElementById('ce-designation-' + id)?.value.trim() || null,
+    discipline,
+    manufacturer_weight_g: isNaN(manufacturer_weight_g) ? null : manufacturer_weight_g,
+    url:                  document.getElementById('ce-url-' + id)?.value.trim()  || null,
+    description:          document.getElementById('ce-desc-' + id)?.value.trim() || null,
+  };
+
+  const { error } = await _sb.from('catalog_items').update(patch).eq('id', id);
+  if (error) { toast('Save failed: ' + error.message); return; }
+
+  // Update local copy
+  Object.assign(item, patch);
+  audit('CATALOG_EDIT', `Edited catalog item: ${item.brand} ${item.name}`);
+  _editingCatalogId = null;
+  renderCatalogQueue();
+  toast('Changes saved.');
+}
+
+async function approveCatalogItem(id) {
+  const item = _catalogItems.find(i => i.id === id);
+  if (!item) return;
+  if (!confirm(`Approve "${item.brand} ${item.name}"?`)) return;
+
+  const { error } = await _sb.from('catalog_items')
+    .update({ status: 'approved', approved_by: _adminUserId || null })
+    .eq('id', id);
+  if (error) { toast('Approve failed: ' + error.message); return; }
+
+  audit('CATALOG_APPROVE', `Approved: ${item.brand} ${item.name}`);
+  _catalogItems = _catalogItems.filter(i => i.id !== id);
+  updateCatalogBadge(_catalogItems.length);
+  document.getElementById('catalog-queue-meta').textContent = _catalogItems.length
+    ? `${_catalogItems.length} pending submission${_catalogItems.length !== 1 ? 's' : ''}`
+    : '';
+  if (!_catalogItems.length) {
+    document.getElementById('catalog-list').innerHTML = '';
+    document.getElementById('catalog-empty').style.display = 'block';
+  } else {
+    renderCatalogQueue();
+  }
+  toast(`Approved: ${item.brand} ${item.name}`);
+}
+
+async function rejectCatalogItem(id) {
+  const item = _catalogItems.find(i => i.id === id);
+  if (!item) return;
+  if (!confirm(`Reject "${item.brand} ${item.name}"? This cannot be undone.`)) return;
+
+  const { error } = await _sb.from('catalog_items')
+    .update({ status: 'rejected' })
+    .eq('id', id);
+  if (error) { toast('Reject failed: ' + error.message); return; }
+
+  audit('CATALOG_REJECT', `Rejected: ${item.brand} ${item.name}`);
+  _catalogItems = _catalogItems.filter(i => i.id !== id);
+  updateCatalogBadge(_catalogItems.length);
+  document.getElementById('catalog-queue-meta').textContent = _catalogItems.length
+    ? `${_catalogItems.length} pending submission${_catalogItems.length !== 1 ? 's' : ''}`
+    : '';
+  if (!_catalogItems.length) {
+    document.getElementById('catalog-list').innerHTML = '';
+    document.getElementById('catalog-empty').style.display = 'block';
+  } else {
+    renderCatalogQueue();
+  }
+  toast(`Rejected: ${item.brand} ${item.name}`);
 }
 
 // ── Helpers ───────────────────────────────────────────────
