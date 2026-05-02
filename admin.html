@@ -135,7 +135,7 @@
     <label>Service Role Key</label>
     <input class="full" type="password" id="login-key" placeholder="eyJhbGci…"
       onkeydown="if(event.key==='Enter')doLogin()">
-    <p class="hint">Supabase → Settings → API → service_role key.<br>Stored in memory only — never persisted.</p>
+    <p class="hint">Supabase → Settings → API → service_role key.<br>Kept in memory only — never written to localStorage or disk.</p>
     <div class="form-actions">
       <button class="btn-primary" style="flex:1;padding:10px" onclick="doLogin()">Sign in</button>
     </div>
@@ -231,18 +231,29 @@
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
 <script>
 // ── Auth gate — runs before anything else renders ─────────
+// Admin emails are read from ADMIN_EMAILS in js/config.js — keep that file
+// out of public source (gitignore or host-layer override) so the allowlist
+// is not committed to the repo.
 (async () => {
-  const ADMIN_EMAILS = ['straws@gmail.com'];
-  const SUPABASE_URL  = 'https://ecmispvfbhqzrnzstvyi.supabase.co';
-  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjbWlzcHZmYmhxenJuenN0dnlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMzM4NjEsImV4cCI6MjA5MDgwOTg2MX0.t2Rse_UxKFuGk9_zFrCQFAMELWhqCl_1FU-_t6UgEB4';
+  const allowList = (typeof ADMIN_EMAILS !== 'undefined' ? ADMIN_EMAILS : [])
+    .map(e => e.toLowerCase()).filter(Boolean);
+
+  if (!allowList.length) {
+    // No allowlist configured — block all access to fail safely.
+    document.body.style.display = '';
+    document.getElementById('auth-checking').innerHTML =
+      '<p style="color:#c00;font-family:sans-serif;padding:2rem">Admin access not configured. Set ADMIN_EMAILS in js/config.js.</p>';
+    return;
+  }
 
   const anonClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
   const { data: { session } } = await anonClient.auth.getSession();
   const email = session?.user?.email?.toLowerCase() ?? '';
 
-  if (!email || !ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email)) {
+  if (!email || !allowList.includes(email)) {
     window.location.replace('https://gearnomic.com');
     return;
   }
@@ -497,25 +508,29 @@ function doImpersonate() {
   audit('IMPERSONATE', `Opened impersonation session for ${u.email}`);
 
   // Use {} for users who have no user_data row yet — applyMigrations will seed defaults.
-  const payload = {
+  // adminKey is intentionally kept out of the localStorage payload — it's a service-role key
+  // that bypasses all RLS and must not be persisted to disk. It travels only via window.opener
+  // (in-memory, same-origin). The localStorage entry carries everything else needed to restore
+  // context if window.opener is unavailable, and index.html prompts for the key separately.
+  const payloadForStorage = {
     adminMode:   true,
     userId:      u.id,
     email:       u.email,
     data:        _inspectData || {},
     isSupporter: u.is_supporter,
     adminUrl:    _url,
-    adminKey:    document.getElementById('login-key').value.trim(),
     timestamp:   Date.now(),
   };
+  const payloadWithKey = { ...payloadForStorage, adminKey: document.getElementById('login-key').value.trim() };
 
-  // Expose payload on window — new tab reads it via window.opener.
-  // This is the most reliable channel for same-origin tabs (works for both
-  // file:// and https://; no COOP headers apply to file:// URLs).
-  window._pendingImpersonation = payload;
+  // Expose full payload (including key) on window — new tab reads it via window.opener.
+  // This is the most reliable channel for same-origin tabs and keeps the key in memory only.
+  window._pendingImpersonation = payloadWithKey;
 
-  // Also try localStorage as a secondary fallback (may not work on file://).
+  // localStorage fallback carries everything EXCEPT the key.
+  // index.html will prompt for the key when it detects a keyless impersonation payload.
   const token = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-  try { localStorage.setItem('gn_imp_' + token, JSON.stringify(payload)); } catch(e) {}
+  try { localStorage.setItem('gn_imp_' + token, JSON.stringify(payloadForStorage)); } catch(e) {}
 
   // Build URL from href so file:// URLs work (window.location.origin is "null" for file://).
   // Main app is always at the root — gearnomic.com/?imp=token

@@ -573,7 +573,7 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn btn-xs" onclick="logUsage('${item.id}','day')">+ Log day</button>
             ${item.category === 'Sleep' || item.category === 'Shelter' ? `<button class="btn btn-xs" onclick="logUsage('${item.id}','night')">+ Log night</button>` : ''}
-            ${item.product_url ? `<a href="${esc(item.product_url)}" target="_blank" class="btn btn-xs">View product â†—</a>` : ''}
+            ${item.product_url ? `<a href="${safeHref(item.product_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-xs">View product ↗</a>` : ''}
             <button class="btn btn-xs" onclick="openEditItem('${item.id}')">Edit</button>
             <button class="btn btn-xs btn-danger" onclick="deleteItem('${item.id}')">Delete</button>
           </div>

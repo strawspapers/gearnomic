@@ -66,7 +66,9 @@ function displayToG(v) { return _units === 'imperial' ? (parseFloat(v) || 0) * 2
 const dpg = (c, w) => c && w ? `$${(c / w).toFixed(3)}` : '—';
 const usd = v => v ? `$${Number(v).toFixed(2).replace(/\.00$/, '')}` : '—';
 const pct = (a, b) => b ? Math.min(100, Math.round(a / b * 100)) : 0;
-const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const esc     = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// Only allow http/https URLs as href values — blocks javascript: and data: URI injection.
+const safeHref = u => (typeof u === 'string' && /^https?:\/\//i.test(u.trim())) ? u.trim() : '#';
 
 const COND_BADGE = {
   '':        'badge-gray',
@@ -724,7 +726,7 @@ function renderWishlist() {
           <td style="font-size:12px">${vsOwned}</td>
           <td>
             <div style="display:flex;gap:4px">
-              ${w.product_url ? `<a href="${esc(w.product_url)}" target="_blank" class="btn btn-xs">↗</a>` : ''}
+              ${w.product_url ? `<a href="${safeHref(w.product_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-xs">↗</a>` : ''}
               <button class="btn btn-xs" style="border-color:var(--success);color:var(--success-text)" onclick="convertWishToGear('${w.id}')" title="Move to Gear Closet">→ Closet</button>
               <button class="btn btn-xs" onclick="openEditWish('${w.id}')">Edit</button>
               <button class="btn btn-xs btn-danger" onclick="deleteWish('${w.id}')">Remove</button>
@@ -1595,7 +1597,7 @@ function renderSharedView(overlay, data) {
           <div style="display:flex;gap:16px;font-size:12px;color:var(--text-2);flex-shrink:0;margin-left:12px;align-items:baseline">
             <span class="mono">${wg(item.weight_g)}</span>
             ${item.cost_usd ? `<span>${usd(item.cost_usd)}</span>` : ''}
-            ${item.product_url ? `<a href="${esc(item.product_url)}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:var(--primary);text-decoration:none">link ↗</a>` : ''}
+            ${item.product_url ? `<a href="${safeHref(item.product_url)}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:var(--primary);text-decoration:none">link ↗</a>` : ''}
           </div>
         </div>`;
       }).join('')}
@@ -1632,8 +1634,8 @@ function renderSharedView(overlay, data) {
             ${wornW ? `<span><span style="display:inline-block;width:8px;height:8px;background:var(--warning-text);border-radius:2px;margin-right:4px;vertical-align:middle"></span>Worn: <strong class="mono">${wg(wornW)}</strong></span>` : ''}
             ${consumW ? `<span><span style="display:inline-block;width:8px;height:8px;background:var(--info-text);border-radius:2px;margin-right:4px;vertical-align:middle"></span>Consumable: <strong class="mono">${wg(consumW)}</strong></span>` : ''}
             <span style="color:var(--text-3)">Total: <strong class="mono">${wg(tw)}</strong></span>
-            ${payload.miles  ? `<span> <strong>${payload.miles}</strong> mi</span>` : ''}
-            ${payload.start_date ? `<span> ${payload.start_date}</span>` : ''}
+            ${payload.miles  ? `<span><strong>${esc(String(payload.miles))}</strong> mi</span>` : ''}
+            ${payload.start_date ? `<span>${esc(String(payload.start_date))}</span>` : ''}
           </div>
         </div>
 
@@ -1643,7 +1645,7 @@ function renderSharedView(overlay, data) {
             <div style="font-weight:500;font-size:14px;margin-bottom:2px">Save to your Gearnomic account</div>
             <div style="font-size:12px;color:var(--text-2)">Saves as a loadout you can attach to any trip</div>
           </div>
-          <button class="btn btn-primary" onclick="saveSharedToProfile(${JSON.stringify(JSON.stringify(data)).slice(1,-1)})">
+          <button class="btn btn-primary" id="save-shared-btn">
             Save to my account
           </button>
         </div>
@@ -1689,7 +1691,7 @@ function renderSharedView(overlay, data) {
             <div class="card" style="margin-top:1.5rem">
               <div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.875rem">Meal plan</div>
               <div style="display:flex;gap:20px;font-size:13px;margin-bottom:1rem;flex-wrap:wrap">
-                <span><strong>${mp.name || 'Meal Plan'}</strong></span>
+                <span><strong>${esc(mp.name || 'Meal Plan')}</strong></span>
                 <span><strong>${dayCount}</strong> days</span>
                 <span>Total: <strong class="mono">${totalCal.toLocaleString()} cal</strong></span>
                 <span><strong class="mono">${wg(totalW)}</strong> food</span>
@@ -1703,6 +1705,9 @@ function renderSharedView(overlay, data) {
         </p>
       </div>
     </div>`;
+
+  // Wire save button via addEventListener — avoids embedding structured data in HTML attributes.
+  document.getElementById('save-shared-btn')?.addEventListener('click', () => saveSharedToProfile(data.id));
 }
 
 async function saveSharedToProfile(token) {
@@ -1863,9 +1868,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         applyMigrations();
         _isSupporter = payload.isSupporter || false;
 
-        // Service-role Supabase client for writing back to the impersonated user's row
-        if (payload.adminUrl && payload.adminKey && typeof supabase !== 'undefined') {
-          window._adminSb = supabase.createClient(payload.adminUrl, payload.adminKey,
+        // Service-role Supabase client for writing back to the impersonated user's row.
+        // adminKey is only present when the payload came via window.opener (in-memory).
+        // If it arrived via the localStorage fallback it will be absent — prompt for it.
+        let adminKey = payload.adminKey;
+        if (!adminKey && payload.adminUrl) {
+          adminKey = window.prompt('Admin session opened via fallback channel.\nEnter the service-role key to enable saves:') || '';
+        }
+        if (payload.adminUrl && adminKey && typeof supabase !== 'undefined') {
+          window._adminSb = supabase.createClient(payload.adminUrl, adminKey,
             { auth: { autoRefreshToken: false, persistSession: false } });
         }
 

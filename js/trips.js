@@ -186,7 +186,7 @@ function renderTripDetail(trip) {
       ${trip.start_date ? `<div class="info-pair"><div class="info-key">Dates</div><div class="info-val">${trip.start_date}${trip.end_date?' â†’ '+trip.end_date:''}</div></div>` : ''}
       ${nights != null  ? `<div class="info-pair"><div class="info-key">Nights</div><div class="info-val">${nights}</div></div>` : ''}
       ${trip.miles      ? `<div class="info-pair"><div class="info-key">Distance</div><div class="info-val">${trip.miles} mi${nights?` Â· ${(trip.miles/nights).toFixed(1)} mi/day`:''}</div></div>` : ''}
-      ${trip.route_url  ? `<div class="info-pair"><div class="info-key">Route</div><div class="info-val"><a href="${esc(trip.route_url)}" target="_blank" rel="noopener noreferrer" style="color:var(--primary);text-decoration:none">View route â†—</a></div></div>` : ''}
+      ${trip.route_url  ? `<div class="info-pair"><div class="info-key">Route</div><div class="info-val"><a href="${safeHref(trip.route_url)}" target="_blank" rel="noopener noreferrer" style="color:var(--primary);text-decoration:none">View route ↗</a></div></div>` : ''}
     </div>
     ${trip.notes ? `<p style="font-size:13px;color:var(--text-2);margin-bottom:.875rem;padding:.625rem .75rem;background:var(--surface-2);border-radius:var(--r-md)">${esc(trip.notes)}</p>` : ''}
 
