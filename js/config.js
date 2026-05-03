@@ -11,5 +11,11 @@
 const SUPABASE_URL  = 'https://ecmispvfbhqzrnzstvyi.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjbWlzcHZmYmhxenJuenN0dnlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMzM4NjEsImV4cCI6MjA5MDgwOTg2MX0.t2Rse_UxKFuGk9_zFrCQFAMELWhqCl_1FU-_t6UgEB4';
 
+<<<<<<< HEAD
 // Email addresses allowed to access admin.html (must match the Supabase auth account).
 const ADMIN_EMAILS = ['straws@gmail.com'];
+=======
+// Comma-separated list of Supabase email addresses allowed to access admin.html.
+// Keep this out of public source — override in a gitignored config or at the hosting layer.
+const ADMIN_EMAILS = [straws@gmail.com];
+>>>>>>> cf9512c5239d263b5934103d91e051558f980d1d
