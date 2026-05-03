@@ -1,4 +1,4 @@
-// Gearnomic � Gear Closet tab: table, CRUD, bulk actions, drag-and-drop, categories, and custom fields
+// Gearnomic — Gear Closet tab: table, CRUD, bulk actions, drag-and-drop, categories, and custom fields
 // ============================================================
 // GEAR CLOSET
 // ============================================================
@@ -700,13 +700,13 @@ function itemFormHtml(item) {
   item = item || {};
   const isNew = !item.id;
 
-  // Catalog search section � only shown when adding a new item and Supabase is available
+  // Catalog search section — only shown when adding a new item and Supabase is available
   const catalogSection = isNew && _supabaseReady() ? `
     <div id="catalog-search-wrap" style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:.5px solid var(--border-2)">
-      <label class="form-label">Search catalog <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">� find your item and pre-fill the form</span></label>
+      <label class="form-label">Search catalog <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">— find your item and pre-fill the form</span></label>
       <div style="position:relative">
         <input class="input input-full" id="catalog-search-input"
-          placeholder="e.g. Big Agnes � Copper Spur � sleeping bag�"
+          placeholder="e.g. Big Agnes · Copper Spur · sleeping bag…"
           oninput="catalogSearchDebounced()" autocomplete="off">
         <div id="catalog-search-results"
           style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);
@@ -912,7 +912,7 @@ async function runCatalogSearch(q) {
   if (!resultsEl) return;
 
   resultsEl.style.display = 'block';
-  resultsEl.innerHTML = `<div style="padding:10px 12px;font-size:13px;color:var(--text-3)">Searching�</div>`;
+  resultsEl.innerHTML = `<div style="padding:10px 12px;font-size:13px;color:var(--text-3)">Searching…</div>`;
 
   // Escape % and _ so they are treated as literals in the ilike pattern
   const safe = q.replace(/%/g, '\\%').replace(/_/g, '\\_');
@@ -929,7 +929,7 @@ async function runCatalogSearch(q) {
   if (!_catalogResults.length) {
     resultsEl.innerHTML = `
       <div style="padding:10px 12px;font-size:13px;color:var(--text-3)">
-        No matches �
+        No matches —
         <button type="button"
           style="background:none;border:none;color:var(--primary);font-size:13px;cursor:pointer;padding:0;font-family:inherit"
           onclick="dismissCatalogSearch()">add manually</button>
@@ -954,7 +954,7 @@ function selectCatalogResult(idx) {
 
   _catalogSelectedId = item.id;
 
-  // Fill form fields � designation maps to model (the specific variant name)
+  // Fill form fields — designation maps to model (the specific variant name)
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
   set('f-catalog-id', item.id);
   set('f-brand', item.brand || '');
@@ -988,7 +988,7 @@ function clearCatalogSelection() {
 }
 
 function dismissCatalogSearch() {
-  // User chose to add manually � collapse the search section
+  // User chose to add manually — collapse the search section
   const wrap = document.getElementById('catalog-search-wrap');
   if (wrap) wrap.style.display = 'none';
 }
@@ -1002,7 +1002,7 @@ function showCatalogSubmitPrompt() {
   openModal('Add to catalog?', `
     <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
       <strong>${esc(item.name)}</strong> isn't in our community catalog yet.
-      Submit it so other hikers can find it � it'll be reviewed before going live.
+      Submit it so other hikers can find it — it'll be reviewed before going live.
     </p>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="closeModal();openCatalogSubmitModal()">Submit for review</button>
@@ -1035,7 +1035,7 @@ function openCatalogSubmitModal() {
       </div>
     </div>
     <div class="form-row">
-      <label class="form-label">Designation <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">model or variant � e.g. "HV UL2", "40L", "1+"</span></label>
+      <label class="form-label">Designation <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">model or variant — e.g. "HV UL2", "40L", "1+"</span></label>
       <input class="input input-full" id="cs-designation" value="${esc(item.model || '')}" placeholder="e.g. HV UL2">
     </div>
     <div class="form-row" style="margin-bottom:.875rem">
@@ -1056,7 +1056,7 @@ function openCatalogSubmitModal() {
     <div class="form-row">
       <label class="form-label">Description</label>
       <textarea class="input input-full" id="cs-desc" rows="2" style="height:56px"
-        placeholder="Brief description�"></textarea>
+        placeholder="Brief description…"></textarea>
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="submitToCatalog()">Submit for review</button>
@@ -1102,7 +1102,7 @@ async function submitToCatalog() {
 
   closeModal();
   _pendingCatalogSubmit = null;
-  toast('Submitted for review � thanks for contributing!');
+  toast('Submitted for review — thanks for contributing!');
 }
 
 function deleteItem(id) {
