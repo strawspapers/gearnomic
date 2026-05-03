@@ -328,7 +328,7 @@ function onCategoryDrop(e, targetCat) {
   item.category = targetCat;
   saveState();
   renderGear();
-  toast(`Moved "${item.name}" â†’ ${targetCat}`);
+  toast(`Moved "${item.name}" â†' ${targetCat}`);
 }
 
 // â”€â”€ Quick-add gear â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -858,14 +858,14 @@ function saveItem(id) {
 
   if (isNew && !_user && state.items.length === 1) {
     clearDemoDataOnFirstItem();
-    // Show banner after a brief delay so the toast doesn’t compete
+    // Show banner after a brief delay so the toast doesn't compete
     setTimeout(showSavePromptBanner, 800);
   }
 
   // Offer catalog submission for new manually-added items (no catalog match),
   // once per session, only when signed in (catalog insert requires auth)
   if (isNew && !catalogId && _user && _supabaseReady()
-      && !sessionStorage.getItem(‘gn_catalog_prompted’)) {
+      && !sessionStorage.getItem('gn_catalog_prompted')) {
     _pendingCatalogSubmit = data;
     setTimeout(showCatalogSubmitPrompt, 700);
   }
@@ -1226,7 +1226,7 @@ function onRowDrop(e, mode) {
     item.category = catName;
     saveState();
     renderGear();
-    toast(`Moved "${item.name}" â†’ ${catName}`);
+    toast(`Moved "${item.name}" â†' ${catName}`);
   }
 }
 
@@ -1340,7 +1340,7 @@ function moveToCat(itemId, catName) {
   toast(`Moved to ${catName}`);
 }
 
-// Mobile: tap handle in custom sort â†’ pick position in list
+// Mobile: tap handle in custom sort â†' pick position in list
 function openReorderPickerMobile(itemId) {
   const item = state.items.find(i => i.id === itemId);
   if (!item) return;
@@ -1351,7 +1351,7 @@ function openReorderPickerMobile(itemId) {
     <div style="display:flex;flex-direction:column;gap:4px;max-height:55vh;overflow-y:auto">
       ${state.items.filter(i => i.id !== itemId).map(i => `
         <div style="display:flex;gap:5px">
-          <button class="btn btn-xs" style="flex:1" onclick="reorderItem('${itemId}','${i.id}','before')">â†‘ Before</button>
+          <button class="btn btn-xs" style="flex:1" onclick="reorderItem('${itemId}','${i.id}','before')">â†' Before</button>
           <span style="font-size:12px;padding:4px 8px;flex:3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(i.name)}</span>
           <button class="btn btn-xs" style="flex:1" onclick="reorderItem('${itemId}','${i.id}','after')">â†“ After</button>
         </div>`).join('')}
