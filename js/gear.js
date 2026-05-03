@@ -1,11 +1,11 @@
-// Gearnomic — Gear Closet tab: table, CRUD, bulk actions, drag-and-drop, categories, and custom fields
+// Gearnomic � Gear Closet tab: table, CRUD, bulk actions, drag-and-drop, categories, and custom fields
 // ============================================================
 // GEAR CLOSET
 // ============================================================
 let gearExpandedId = null;
 let showMiscCol    = false;
 
-// â”€â”€ Column visibility â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Column visibility ─────────────────────────────────────
 const DEFAULT_COLS = new Set(['name','category','weight','cost','dpg','condition','usage']);
 let _visibleCols = new Set(DEFAULT_COLS);
 
@@ -46,7 +46,7 @@ function resetCols() {
   renderGear();
 }
 
-// â”€â”€ Bulk actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Bulk actions ──────────────────────────────────────────
 let _bulkSelected = new Set();
 let _bulkMode = false;
 
@@ -186,7 +186,7 @@ function bulkAddItemsToLoadout(loadoutId) {
   toast(`Added to ${loadout.name}.`);
 }
 
-// â”€â”€ Mobile card rendering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Mobile card rendering ─────────────────────────────────
 function renderGearCards(filtered) {
   const cardsEl = document.getElementById('gear-cards');
   if (!cardsEl) return;
@@ -224,7 +224,7 @@ function renderGearCards(filtered) {
           ondragover="onCategoryDragOver(event,${catEsc})"
           ondragleave="onCategoryDragLeave(event)"
           ondrop="onCategoryDrop(event,${catEsc})">
-          <span class="gear-handle" style="margin-right:8px;cursor:grab;user-select:none" title="Drag to move items here">â ¿</span>
+          <span class="gear-handle" style="margin-right:8px;cursor:grab;user-select:none" title="Drag to move items here">⠿</span>
           <span style="font-weight:500;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2)">${esc(cat)}</span>
         </div>`;
 
@@ -242,7 +242,7 @@ function renderGearCards(filtered) {
           <div class="gear-card-main">
             <div style="flex:1;min-width:0">
               <div style="font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}${_replaceFlags[item.id] ? `<span class="replace-flag-dot" title="Flagged for replacement on: ${esc(_replaceFlags[item.id].join(', '))}"></span>` : ''}</div>
-              <div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(item.brand||'')}${item.brand ? ' Â· ' : ''}${item.model ? esc(item.model) + ' Â· ' : ''}${badge('badge-gray', item.category)}</div>
+              <div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(item.brand||'')}${item.brand ? ' · ' : ''}${item.model ? esc(item.model) + ' · ' : ''}${badge('badge-gray', item.category)}</div>
             </div>
             <div style="text-align:right;flex-shrink:0;margin-left:12px">
               <div class="mono" style="font-size:14px;font-weight:500">${wg(item.weight_g)}</div>
@@ -271,7 +271,7 @@ function renderGearCards(filtered) {
         <div class="gear-card-main">
           <div style="flex:1;min-width:0">
             <div style="font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}${_replaceFlags[item.id] ? `<span class="replace-flag-dot" title="Flagged for replacement on: ${esc(_replaceFlags[item.id].join(', '))}"></span>` : ''}</div>
-            <div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(item.brand||'')}${item.brand ? ' Â· ' : ''}${item.model ? esc(item.model) + ' Â· ' : ''}${badge('badge-gray', item.category)}</div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(item.brand||'')}${item.brand ? ' · ' : ''}${item.model ? esc(item.model) + ' · ' : ''}${badge('badge-gray', item.category)}</div>
           </div>
           <div style="text-align:right;flex-shrink:0;margin-left:12px">
             <div class="mono" style="font-size:14px;font-weight:500">${wg(item.weight_g)}</div>
@@ -328,10 +328,10 @@ function onCategoryDrop(e, targetCat) {
   item.category = targetCat;
   saveState();
   renderGear();
-  toast(`Moved "${item.name}" â†' ${targetCat}`);
+  toast(`Moved "${item.name}" → ${targetCat}`);
 }
 
-// â”€â”€ Quick-add gear â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Quick-add gear ─────────────────────────────────────────
 function openQuickAdd() {
   openModal('Quick-add gear', `
     <p style="font-size:13px;color:var(--text-2);margin-bottom:.875rem">Add an item to your Gear Closet in seconds. Fill in more details later by clicking the item.</p>
@@ -432,7 +432,7 @@ function renderGear() {
     if (sort === 'name')   return a.name.localeCompare(b.name);
     if (sort === 'usage')  return (b.usage_days || 0) - (a.usage_days || 0);
     if (sort === 'custom') return 0;
-    // "Group by category" â€” use state.categories order, not alphabetical
+    // "Group by category" — use state.categories order, not alphabetical
     const catOrd = categoryNames();
     const ai = catOrd.indexOf(a.category); const bi = catOrd.indexOf(b.category);
     const ao = ai === -1 ? 999 : ai;      const bo = bi === -1 ? 999 : bi;
@@ -440,7 +440,7 @@ function renderGear() {
     return a.name.localeCompare(b.name);
   });
 
-  // Full closet empty state â€” shown when there are no items at all
+  // Full closet empty state — shown when there are no items at all
   if (!state.items.length) {
     document.getElementById('gear-summary').innerHTML = '';
     const emptyHtml = `<div class="empty-state">
@@ -456,7 +456,7 @@ function renderGear() {
   const totalW = filtered.reduce((s, i) => s + (i.weight_g || 0), 0);
   const totalC = filtered.reduce((s, i) => s + (i.cost_usd || 0), 0);
   document.getElementById('gear-summary').innerHTML =
-    `<strong>${filtered.length}</strong> items &nbsp;Â·&nbsp; total: <strong>${wg(totalW)}</strong> &nbsp;Â·&nbsp; tracked value: <strong>${usd(totalC)}</strong>`;
+    `<strong>${filtered.length}</strong> items &nbsp;·&nbsp; total: <strong>${wg(totalW)}</strong> &nbsp;·&nbsp; tracked value: <strong>${usd(totalC)}</strong>`;
 
   const visibleCustomFields = (state.custom_fields || []).filter(f => f.show_column);
   const cols = 3 + (_visibleCols.has('category')?1:0) + (_visibleCols.has('cost')?1:0) +
@@ -499,7 +499,7 @@ function renderGear() {
             draggable="true"
             title="Drag to reorder this category"
             ondragstart="onCatHeaderDragStart(event,'${esc(item.category)}')"
-            ondragend="onCatHeaderDragEnd()">â ¿</span>
+            ondragend="onCatHeaderDragEnd()">⠿</span>
         </td>
         <td colspan="${cols - 1}">${esc(item.category)}</td>
       </tr>`;
@@ -516,7 +516,7 @@ function renderGear() {
 
 function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
   visibleCustomFields = visibleCustomFields || [];
-  // In bulk mode, never show drag handles â€” show checkboxes instead
+  // In bulk mode, never show drag handles — show checkboxes instead
   const showHandle = !_bulkMode && (inCatSort || inCustomSort);
   const isExpanded = gearExpandedId === item.id;
   const customVals = item.custom_values || {};
@@ -539,7 +539,7 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
     return `<td onclick="event.stopPropagation();startInlineEdit('${item.id}','${field.id}')"
       style="cursor:text;font-size:12px;color:${val!=null?'var(--text-1)':'var(--text-3)'}"
       title="Click to edit ${esc(field.name)}">
-      ${val != null ? esc(String(val)) : 'â€”'}
+      ${val != null ? esc(String(val)) : '—'}
     </td>`;
   }).join('');
 
@@ -554,7 +554,7 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
             <span style="font-size:11px;color:var(--text-3)">${esc(f.name)}${f.unit?' ('+esc(f.unit)+')':''}</span>
             <input type="${f.type==='number'?'number':'text'}"
               value="${esc(v!=null?v:'')}"
-              placeholder="â€”"
+              placeholder="—"
               style="width:60px;height:22px;font-size:12px;border:none;background:transparent;outline:none;color:var(--text-1);padding:0 2px"
               onchange="updateCustomValue('${item.id}','${f.id}',this.value)"
               onclick="event.stopPropagation()">
@@ -588,12 +588,12 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
     </tr>` : '';
 
   const miscCell = showMiscCol
-    ? `<td style="font-size:12px;color:var(--text-2);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(item.misc_stat || '')}">${esc(item.misc_stat || 'â€”')}</td>`
+    ? `<td style="font-size:12px;color:var(--text-2);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(item.misc_stat || '')}">${esc(item.misc_stat || '—')}</td>`
     : '';
 
   const dragMode    = inCustomSort ? 'reorder' : 'recategorize';
   const handleFn    = inCustomSort ? `openReorderPickerMobile('${item.id}')` : `openCategoryPickerMobile('${item.id}')`;
-  const handleTitle = inCustomSort ? 'Drag to reorder Â· Tap for options' : 'Drag to move category Â· Tap on mobile';
+  const handleTitle = inCustomSort ? 'Drag to reorder · Tap for options' : 'Drag to move category · Tap on mobile';
   const isBulkSel   = _bulkSelected.has(item.id);
 
   // First cell: drag handle, real checkbox (bulk mode), or empty
@@ -603,7 +603,7 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
           draggable="true"
           ondragstart="onItemDragStart(event,'${item.id}','${dragMode}')"
           ondragend="onItemDragEnd()"
-          onclick="event.stopPropagation();${handleFn}">â ¿</span>
+          onclick="event.stopPropagation();${handleFn}">⠿</span>
        </td>`
     : _bulkMode
     ? `<td style="width:36px;padding:4px;text-align:center" onclick="event.stopPropagation()">
@@ -647,7 +647,7 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
     ${_visibleCols.has('condition') ? editableCell(item, 'condition',
         badge(COND_BADGE[item.condition] || 'badge-gray', COND_LABEL[item.condition] || item.condition),
         cellSelect(item.id, 'condition', item.condition,
-          [['','â€” (no condition)'],['excellent','Excellent'],['good','Good'],['fair','Fair'],['poor','Poor']])) : ''}
+          [['','— (no condition)'],['excellent','Excellent'],['good','Good'],['fair','Fair'],['poor','Poor']])) : ''}
 
     ${_visibleCols.has('usage') ? `<td onclick="event.stopPropagation()" class="editable-cell" style="white-space:nowrap;font-size:11px">
       <span onclick="startCellEdit(event,'${item.id}','usage_days')" title="Click to edit days">
@@ -655,7 +655,7 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
           ? cellInput(item.id, 'usage_days', item.usage_days || 0, 'number', 'min="0" style="width:44px"')
           : `<span style="color:var(--text-2)">${item.usage_days || 0}d</span>`}
       </span>
-      ${item.usage_nights != null ? ` Â· <span onclick="startCellEdit(event,'${item.id}','usage_nights')" title="Click to edit nights">
+      ${item.usage_nights != null ? ` · <span onclick="startCellEdit(event,'${item.id}','usage_nights')" title="Click to edit nights">
         ${isEditing(item.id, 'usage_nights')
           ? cellInput(item.id, 'usage_nights', item.usage_nights || 0, 'number', 'min="0" style="width:44px"')
           : `<span style="color:var(--text-3)">${item.usage_nights}n</span>`}
@@ -663,13 +663,13 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
     </td>` : ''}
 
     ${showMiscCol ? editableCell(item, 'misc_stat',
-        `<span style="font-size:12px;color:var(--text-2);max-width:120px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(item.misc_stat || '')}">${esc(item.misc_stat || 'â€”')}</span>`,
-        cellInput(item.id, 'misc_stat', item.misc_stat || '', 'text', 'placeholder="notes, specsâ€¦"')) : ''}
+        `<span style="font-size:12px;color:var(--text-2);max-width:120px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(item.misc_stat || '')}">${esc(item.misc_stat || '—')}</span>`,
+        cellInput(item.id, 'misc_stat', item.misc_stat || '', 'text', 'placeholder="notes, specs…"')) : ''}
 
     ${customCells}
 
     <td class="gear-edit-col" onclick="event.stopPropagation()">
-      <button class="gear-edit-btn" title="Edit all fields" onclick="openEditItem('${item.id}')">âœŽ</button>
+      <button class="gear-edit-btn" title="Edit all fields" onclick="openEditItem('${item.id}')">✎</button>
     </td>
   </tr>${detailHtml}`;
 }
@@ -695,18 +695,18 @@ function logUsage(id, type) {
   toast(`${type === 'night' ? 'Night' : 'Day'} logged for ${item.name}`);
 }
 
-// â”€â”€ Gear CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Gear CRUD ──────────────────────────────────────────────
 function itemFormHtml(item) {
   item = item || {};
   const isNew = !item.id;
 
-  // Catalog search section — only shown when adding a new item and Supabase is available
+  // Catalog search section � only shown when adding a new item and Supabase is available
   const catalogSection = isNew && _supabaseReady() ? `
     <div id="catalog-search-wrap" style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:.5px solid var(--border-2)">
-      <label class="form-label">Search catalog <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">— find your item and pre-fill the form</span></label>
+      <label class="form-label">Search catalog <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">� find your item and pre-fill the form</span></label>
       <div style="position:relative">
         <input class="input input-full" id="catalog-search-input"
-          placeholder="e.g. Big Agnes · Copper Spur · sleeping bag…"
+          placeholder="e.g. Big Agnes � Copper Spur � sleeping bag�"
           oninput="catalogSearchDebounced()" autocomplete="off">
         <div id="catalog-search-results"
           style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);
@@ -739,7 +739,7 @@ function itemFormHtml(item) {
       <div class="form-row">
         <label class="form-label">Condition</label>
         <select class="select input-full" id="f-cond">
-          <option value=""      ${!item.condition ? 'selected' : ''}>â€” (no condition)</option>
+          <option value=""      ${!item.condition ? 'selected' : ''}>— (no condition)</option>
           <option value="excellent" ${item.condition === 'excellent' ? 'selected' : ''}>Excellent</option>
           <option value="good"      ${item.condition === 'good' ? 'selected' : ''}>Good</option>
           <option value="fair"      ${item.condition === 'fair' ? 'selected' : ''}>Fair</option>
@@ -752,7 +752,7 @@ function itemFormHtml(item) {
     <div class="form-row"><label class="form-label">Product URL</label><input class="input input-full" id="f-url" value="${esc(item.product_url || '')}" placeholder="https://"></div>
     <div class="form-row">
       <label class="form-label">Misc <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">(shown in optional Misc column on Gear Closet)</span></label>
-      <input class="input input-full" id="f-misc" value="${esc(item.misc_stat || '')}" placeholder="e.g. R-value 4.5 Â· 400 lumens Â· internal frame Â· 40L">
+      <input class="input input-full" id="f-misc" value="${esc(item.misc_stat || '')}" placeholder="e.g. R-value 4.5 · 400 lumens · internal frame · 40L">
     </div>
     <div class="form-grid">
       <div class="form-row"><label class="form-label">Days used</label><input class="input input-full" id="f-days" type="number" min="0" value="${item.usage_days || 0}"></div>
@@ -780,7 +780,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function showSavePromptBanner() {
-  if (_user) return; // signed in â€” no banner needed
+  if (_user) return; // signed in — no banner needed
   if (sessionStorage.getItem('gn_save_prompt_dismissed')) return;
   const banner = document.getElementById('save-prompt-banner');
   if (!banner || banner.dataset.shown) return;
@@ -816,7 +816,7 @@ function clearDemoDataOnFirstItem() {
   state.trips     = state.trips.filter(t => t.id !== DEMO_DATA.trip.id);
   state.templates = state.templates.filter(t => t.id !== DEMO_DATA.template.id);
   saveState();
-  toast('Demo data cleared â€” this is your account now.');
+  toast('Demo data cleared — this is your account now.');
 }
 
 function saveItem(id) {
@@ -912,7 +912,7 @@ async function runCatalogSearch(q) {
   if (!resultsEl) return;
 
   resultsEl.style.display = 'block';
-  resultsEl.innerHTML = `<div style="padding:10px 12px;font-size:13px;color:var(--text-3)">Searching…</div>`;
+  resultsEl.innerHTML = `<div style="padding:10px 12px;font-size:13px;color:var(--text-3)">Searching�</div>`;
 
   // Escape % and _ so they are treated as literals in the ilike pattern
   const safe = q.replace(/%/g, '\\%').replace(/_/g, '\\_');
@@ -929,7 +929,7 @@ async function runCatalogSearch(q) {
   if (!_catalogResults.length) {
     resultsEl.innerHTML = `
       <div style="padding:10px 12px;font-size:13px;color:var(--text-3)">
-        No matches —
+        No matches �
         <button type="button"
           style="background:none;border:none;color:var(--primary);font-size:13px;cursor:pointer;padding:0;font-family:inherit"
           onclick="dismissCatalogSearch()">add manually</button>
@@ -954,7 +954,7 @@ function selectCatalogResult(idx) {
 
   _catalogSelectedId = item.id;
 
-  // Fill form fields — designation maps to model (the specific variant name)
+  // Fill form fields � designation maps to model (the specific variant name)
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
   set('f-catalog-id', item.id);
   set('f-brand', item.brand || '');
@@ -988,7 +988,7 @@ function clearCatalogSelection() {
 }
 
 function dismissCatalogSearch() {
-  // User chose to add manually — collapse the search section
+  // User chose to add manually � collapse the search section
   const wrap = document.getElementById('catalog-search-wrap');
   if (wrap) wrap.style.display = 'none';
 }
@@ -1002,7 +1002,7 @@ function showCatalogSubmitPrompt() {
   openModal('Add to catalog?', `
     <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
       <strong>${esc(item.name)}</strong> isn't in our community catalog yet.
-      Submit it so other hikers can find it — it'll be reviewed before going live.
+      Submit it so other hikers can find it � it'll be reviewed before going live.
     </p>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="closeModal();openCatalogSubmitModal()">Submit for review</button>
@@ -1035,7 +1035,7 @@ function openCatalogSubmitModal() {
       </div>
     </div>
     <div class="form-row">
-      <label class="form-label">Designation <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">model or variant — e.g. "HV UL2", "40L", "1+"</span></label>
+      <label class="form-label">Designation <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">model or variant � e.g. "HV UL2", "40L", "1+"</span></label>
       <input class="input input-full" id="cs-designation" value="${esc(item.model || '')}" placeholder="e.g. HV UL2">
     </div>
     <div class="form-row" style="margin-bottom:.875rem">
@@ -1056,7 +1056,7 @@ function openCatalogSubmitModal() {
     <div class="form-row">
       <label class="form-label">Description</label>
       <textarea class="input input-full" id="cs-desc" rows="2" style="height:56px"
-        placeholder="Brief description…"></textarea>
+        placeholder="Brief description�"></textarea>
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="submitToCatalog()">Submit for review</button>
@@ -1102,7 +1102,7 @@ async function submitToCatalog() {
 
   closeModal();
   _pendingCatalogSubmit = null;
-  toast('Submitted for review — thanks for contributing!');
+  toast('Submitted for review � thanks for contributing!');
 }
 
 function deleteItem(id) {
@@ -1118,7 +1118,7 @@ function deleteItem(id) {
   toast('Item deleted.');
 }
 
-// â”€â”€ Populate category filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Populate category filter ────────────────────────────────
 function populateCatFilter(elId) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -1133,7 +1133,7 @@ function populateCatFilter(elId) {
 }
 
 // ============================================================
-// DRAG & DROP â€” handle-initiated, mode-aware (reorder or recategorize)
+// DRAG & DROP — handle-initiated, mode-aware (reorder or recategorize)
 // ============================================================
 let _dragItemId    = null;
 let _dragMode      = null;   // 'reorder' | 'recategorize'
@@ -1237,11 +1237,11 @@ function onRowDrop(e, mode) {
     item.category = catName;
     saveState();
     renderGear();
-    toast(`Moved "${item.name}" â†' ${catName}`);
+    toast(`Moved "${item.name}" → ${catName}`);
   }
 }
 
-// â”€â”€ Category header drag â€” reorder categories â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Category header drag — reorder categories ───────────────
 let _dragCatName     = null;
 let _dropCatTarget   = null;
 
@@ -1351,7 +1351,7 @@ function moveToCat(itemId, catName) {
   toast(`Moved to ${catName}`);
 }
 
-// Mobile: tap handle in custom sort â†' pick position in list
+// Mobile: tap handle in custom sort → pick position in list
 function openReorderPickerMobile(itemId) {
   const item = state.items.find(i => i.id === itemId);
   if (!item) return;
@@ -1362,9 +1362,9 @@ function openReorderPickerMobile(itemId) {
     <div style="display:flex;flex-direction:column;gap:4px;max-height:55vh;overflow-y:auto">
       ${state.items.filter(i => i.id !== itemId).map(i => `
         <div style="display:flex;gap:5px">
-          <button class="btn btn-xs" style="flex:1" onclick="reorderItem('${itemId}','${i.id}','before')">â†' Before</button>
+          <button class="btn btn-xs" style="flex:1" onclick="reorderItem('${itemId}','${i.id}','before')">→ Before</button>
           <span style="font-size:12px;padding:4px 8px;flex:3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(i.name)}</span>
-          <button class="btn btn-xs" style="flex:1" onclick="reorderItem('${itemId}','${i.id}','after')">â†“ After</button>
+          <button class="btn btn-xs" style="flex:1" onclick="reorderItem('${itemId}','${i.id}','after')">↓ After</button>
         </div>`).join('')}
     </div>
     <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`);
@@ -1382,7 +1382,7 @@ function reorderItem(draggedId, targetId, pos) {
   renderGear();
 }
 
-// â”€â”€ Shared category-grouped gear table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Shared category-grouped gear table ──────────────────────
 // Renders tbody rows (with category headers) for a list of item ids.
 // containerId / isTemplate are used only for carry type cycling.
 // cols = total column count including the handle column.
@@ -1432,10 +1432,10 @@ function catGroupedGearTable(ids, containerId, isTemplate, cols) {
         ondrop="onRowDrop(event)">
         <td class="gear-handle-cell"
           onclick="event.stopPropagation();openCategoryPickerMobile('${item.id}')"
-          title="Drag to move category Â· Tap on mobile">
-          <span class="gear-handle">â ¿</span>
+          title="Drag to move category · Tap on mobile">
+          <span class="gear-handle">⠿</span>
         </td>
-        <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand||'')}${item.brand ? ' Â· ' : ''}${item.model ? esc(item.model) + ' Â· ' : ''}${badge('badge-gray', item.category)}</div></td>
+        <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand||'')}${item.brand ? ' · ' : ''}${item.model ? esc(item.model) + ' · ' : ''}${badge('badge-gray', item.category)}</div></td>
         <td class="mono">${wg(effectiveW)}${ov!=null?` <span style="font-size:10px;color:var(--accent)">(override)</span>`:''}</td>
         ${container ? carryCell(containerId, id, isTemplate) : '<td></td>'}
         <td>${usd(item.cost_usd)}</td>
@@ -1462,7 +1462,7 @@ function openManageCategories() {
       ondragleave="onCatMgmtDragLeave(event,${idx})"
       ondrop="onCatMgmtDrop(event,${idx})"
       ondragend="onCatMgmtDragEnd()">
-      <span class="cat-mgmt-handle" title="Drag to reorder">â ¿</span>
+      <span class="cat-mgmt-handle" title="Drag to reorder">⠿</span>
       <span class="cat-color-dot" style="background:${cat.color}"
         onclick="openColorPicker(${idx})" title="Change color"></span>
       <span class="cat-mgmt-name" id="cat-lbl-${idx}"
@@ -1480,13 +1480,13 @@ function openManageCategories() {
 
   openModal('Manage categories', `
     <p style="font-size:12.5px;color:var(--text-2);margin-bottom:.875rem">
-      Drag â ¿ to reorder Â· Click a name to rename Â· Set a weight target per category
+      Drag ⠿ to reorder · Click a name to rename · Set a weight target per category
     </p>
     <div id="cat-mgmt-list">${rows}</div>
     <div style="margin-top:1rem;padding-top:.875rem;border-top:1px solid var(--border-2)">
       <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Add new category</div>
       <div style="display:flex;gap:8px">
-        <input class="input" id="new-cat-name" placeholder="Category nameâ€¦" style="flex:1"
+        <input class="input" id="new-cat-name" placeholder="Category name…" style="flex:1"
           onkeydown="if(event.key==='Enter')addCategory()">
         <button class="btn btn-sm btn-primary" onclick="addCategory()">Add</button>
       </div>
@@ -1500,7 +1500,7 @@ function openManageCategories() {
     </div>`);
 }
 
-// â”€â”€ Category reorder drag â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Category reorder drag ────────────────────────────────────
 function onCatMgmtDragStart(e, idx) {
   _catDragIdx = idx;
   e.dataTransfer.effectAllowed = 'move';
@@ -1531,7 +1531,7 @@ function onCatMgmtDragEnd() {
   document.querySelectorAll('.cat-drag-over').forEach(r => r.classList.remove('cat-drag-over'));
 }
 
-// â”€â”€ Rename â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Rename ──────────────────────────────────────────────────
 function startRenameCategory(idx) {
   const lbl = document.getElementById(`cat-lbl-${idx}`);
   if (!lbl) return;
@@ -1565,7 +1565,7 @@ function finishRenameCategory(idx) {
   toast(`Renamed to "${newName}"`);
 }
 
-// â”€â”€ Add / delete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Add / delete ────────────────────────────────────────────
 function addCategory() {
   const input = document.getElementById('new-cat-name');
   const name = input?.value.trim();
@@ -1599,7 +1599,7 @@ function updateCategoryTarget(idx, value) {
   if (cat) { cat.target_g = parseInt(value) || null; saveState(); }
 }
 
-// â”€â”€ Colour picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Colour picker ────────────────────────────────────────────
 let _colorPickerIdx = null;
 function openColorPicker(idx) {
   _colorPickerIdx = idx;
@@ -1621,7 +1621,7 @@ function pickColor(e, color) {
   if (currentTab === 'analytics') renderAnalytics();
 }
 
-// â”€â”€ Also expose "Add category" from gear form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Also expose "Add category" from gear form ────────────────
 function openManageCategoriesFromForm() {
   const prev = document.getElementById('f-cat')?.value;
   openManageCategories();
@@ -1632,9 +1632,9 @@ function openManageCategoriesFromForm() {
 // ============================================================
 // CUSTOM FIELDS
 // ============================================================
-let _editCell = null; // { itemId, field } â€” shared for both built-in and custom fields
+let _editCell = null; // { itemId, field } — shared for both built-in and custom fields
 
-// â”€â”€ Built-in cell editing helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Built-in cell editing helpers ──────────────────────────
 
 function startCellEdit(e, itemId, field) {
   e.stopPropagation();
@@ -1736,7 +1736,7 @@ function updateCustomValue(itemId, fieldId, value) {
   saveState();
 }
 
-// Column manager modal â€” toggle column visibility, add/delete fields
+// Column manager modal — toggle column visibility, add/delete fields
 function openColumnManager() {
   if (!requireSupporter('Custom gear fields')) return;
   const fields = state.custom_fields || [];
@@ -1771,7 +1771,7 @@ function openColumnManager() {
           </select></div>
       </div>
       <div class="form-row"><label class="form-label">Unit (optional)</label>
-        <input class="input" id="cf-unit" placeholder="e.g. Â°F, fps, nights, L" style="width:180px"></div>
+        <input class="input" id="cf-unit" placeholder="e.g. °F, fps, nights, L" style="width:180px"></div>
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="addCustomField()">Add field</button>
@@ -1836,7 +1836,7 @@ function openAddCustomField(itemId) {
     </div>
     <div class="form-grid">
       <div class="form-row"><label class="form-label">Unit (optional)</label>
-        <input class="input input-full" id="ncf-unit" placeholder="e.g. Â°F, fps, nights"></div>
+        <input class="input input-full" id="ncf-unit" placeholder="e.g. °F, fps, nights"></div>
       <div class="form-row"><label class="form-label">Value for this item</label>
         <input class="input input-full" id="ncf-val" placeholder="optional"></div>
     </div>
@@ -1855,7 +1855,7 @@ function saveNewCustomField(itemId) {
   const name = document.getElementById('ncf-name')?.value.trim();
   if (!name) { alert('Field name is required.'); return; }
   if ((state.custom_fields || []).find(f => f.name.toLowerCase() === name.toLowerCase())) {
-    // Field exists â€” just set the value for this item
+    // Field exists — just set the value for this item
     const existing = state.custom_fields.find(f => f.name.toLowerCase() === name.toLowerCase());
     const rawVal = document.getElementById('ncf-val')?.value.trim();
     if (rawVal) updateCustomValue(itemId, existing.id, rawVal);

@@ -1,6 +1,6 @@
-// Gearnomic — Free tier limits and gate checking
-// â”€â”€ Free tier limits â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// These are intentionally enforced client-side only â€” a soft nudge, not a hard gate.
+// Gearnomic � Free tier limits and gate checking
+// ── Free tier limits ─────────────────────────────────────────
+// These are intentionally enforced client-side only — a soft nudge, not a hard gate.
 // Pre-launch with no paying users; a Postgres trigger adds complexity we don't need yet.
 // Revisit post-launch if abuse becomes real.
 const FREE_LIMITS = {

@@ -1,4 +1,4 @@
-// Gearnomic — Food Planning tab: meal plans, recipe library, and shopping list
+// Gearnomic � Food Planning tab: meal plans, recipe library, and shopping list
 // ============================================================
 // FOOD PLANNING
 // ============================================================
@@ -39,7 +39,7 @@ function setFoodView(view) {
       banner.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--accent-l);border:1px solid var(--accent);border-radius:var(--r-lg);padding:.625rem 1rem;margin-bottom:1rem;font-size:13px';
       banner.innerHTML = `
         <span style="color:var(--text-1)">
-          <strong>Exploring meal planning</strong> â€” feel free to try it out. You'll need a Supporter account to save your plans.
+          <strong>Exploring meal planning</strong> — feel free to try it out. You'll need a Supporter account to save your plans.
         </span>
         <button class="btn btn-primary btn-sm" onclick="openUpgradeModal('Saving meal plans is a Supporter feature.')">Upgrade</button>`;
       const view = document.getElementById('food-plans-view');
@@ -58,7 +58,7 @@ function renderFood() {
   setFoodView(foodView);
 }
 
-// â”€â”€ Food plan grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Food plan grid ──────────────────────────────────────────
 function renderFoodPlanGrid() {
   const grid = document.getElementById('food-plans-grid');
   if (!grid) return;
@@ -81,7 +81,7 @@ function renderFoodPlanGrid() {
         <div class="trip-card-name">${esc(plan.name)}</div>
         <span class="badge badge-gray">${plan.days}d</span>
       </div>
-      <div class="trip-card-meta">${trip ? esc(trip.name) + ' Â· ' : ''}${plan.days} days Â· ${neededMealsSummary(plan)}</div>
+      <div class="trip-card-meta">${trip ? esc(trip.name) + ' · ' : ''}${plan.days} days · ${neededMealsSummary(plan)}</div>
       <div class="trip-card-stats">
         <span>${meals.length} items logged</span>
         <span class="mono" style="color:var(--${pct < 60 ? 'danger' : 'success'})">${totalCal.toLocaleString()} cal</span>
@@ -95,7 +95,7 @@ function renderFoodPlanGrid() {
 
 function neededMealsSummary(plan) {
   const d = plan.days, n = plan.nights ?? (plan.days - 1);
-  return `${d} Breakfast${d !== 1 ? 's' : ''} Â· ${d} Lunch${d !== 1 ? 'es' : ''} Â· ${d} Snack${d !== 1 ? 's' : ''} Â· ${n} Dinner${n !== 1 ? 's' : ''}`;
+  return `${d} Breakfast${d !== 1 ? 's' : ''} · ${d} Lunch${d !== 1 ? 'es' : ''} · ${d} Snack${d !== 1 ? 's' : ''} · ${n} Dinner${n !== 1 ? 's' : ''}`;
 }
 
 function openFoodPlan(id) {
@@ -139,7 +139,7 @@ function renderFoodPlanDetail(plan) {
         <span><strong>${plan.days}</strong> lunches</span>
         <span><strong>${nights}</strong> dinners</span>
       </div>
-      <div style="margin-top:.5rem;color:var(--text-3)">Target: ${plan.cal_target_per_day.toLocaleString()} cal/day Â· ${plan.weight_target_g_per_day}g (~${(plan.weight_target_g_per_day/453.6).toFixed(1)}lb) food/day</div>
+      <div style="margin-top:.5rem;color:var(--text-3)">Target: ${plan.cal_target_per_day.toLocaleString()} cal/day · ${plan.weight_target_g_per_day}g (~${(plan.weight_target_g_per_day/453.6).toFixed(1)}lb) food/day</div>
       <div style="margin-top:.375rem;display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--text-3)">
         ${MEAL_TIMES.map(mt => `<span>${MEAL_LABELS[mt]}: <strong>${mealCalTarget(plan, mt)}</strong> cal</span>`).join('')}
         <button class="btn btn-xs" style="margin-left:auto" onclick="openEditFoodPlan('${plan.id}')">Adjust splits</button>
@@ -154,7 +154,7 @@ function renderFoodPlanDetail(plan) {
       <div class="metric-card"><div class="metric-label">Total calories</div><div class="metric-val">${totalCal.toLocaleString()}</div><div class="metric-sub">${calPct}% of ${(targetCal/1000).toFixed(1)}k target</div></div>
       <div class="metric-card"><div class="metric-label">Cal / day</div><div class="metric-val">${avgCalPD.toLocaleString()}</div><div class="metric-sub">target ${plan.cal_target_per_day.toLocaleString()}</div></div>
       <div class="metric-card"><div class="metric-label">Total food weight</div><div class="metric-val">${wg(totalW)}</div><div class="metric-sub">${wPct}% of ${wg(targetW)} target</div></div>
-      <div class="metric-card"><div class="metric-label">Weight / day</div><div class="metric-val">${wg(avgWPD)}</div><div class="metric-sub">${(avgWPD/453.6).toFixed(1)} lb Â· target ${(plan.weight_target_g_per_day/453.6).toFixed(1)} lb</div></div>
+      <div class="metric-card"><div class="metric-label">Weight / day</div><div class="metric-val">${wg(avgWPD)}</div><div class="metric-sub">${(avgWPD/453.6).toFixed(1)} lb · target ${(plan.weight_target_g_per_day/453.6).toFixed(1)} lb</div></div>
     </div>`;
 
   // Day-by-day grid
@@ -182,7 +182,7 @@ function renderFoodPlanDetail(plan) {
       const ok = slotCal >= guideCal * 0.75;
 
       if (!enabled) {
-        // Slot is disabled â€” show a minimal "skipped" tile with re-enable option
+        // Slot is disabled — show a minimal "skipped" tile with re-enable option
         return `
           <div style="border:.5px dashed var(--border-2);border-radius:var(--r-md);padding:.5rem .75rem;min-height:60px;display:flex;flex-direction:column;justify-content:space-between;opacity:.55">
             <div style="display:flex;justify-content:space-between;align-items:center">
@@ -225,7 +225,7 @@ function renderFoodPlanDetail(plan) {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.375rem">
           <span style="font-weight:500;font-size:13px">Day ${day}${day===1?' (trail start)':day===plan.days?' (last day)':''}</span>
           <span style="font-size:12px;color:var(--${dayCal >= plan.cal_target_per_day*0.8?'success':'warning'})">
-            ${dayCal ? `${dayCal.toLocaleString()} cal Â· ${wg(dayW)}` : 'No meals logged yet'}
+            ${dayCal ? `${dayCal.toLocaleString()} cal · ${wg(dayW)}` : 'No meals logged yet'}
           </span>
         </div>
         <div class="meal-day-grid">${slots}</div>
@@ -236,7 +236,7 @@ function renderFoodPlanDetail(plan) {
     <div class="card-header" style="margin-bottom:.75rem">
       <div>
         <span class="card-title" style="font-size:17px;font-family:var(--font-disp)">${esc(plan.name)}</span>
-        ${trip ? `&nbsp;<span style="font-size:12px;color:var(--text-3)">Â· ${esc(trip.name)}</span>` : ''}
+        ${trip ? `&nbsp;<span style="font-size:12px;color:var(--text-3)">· ${esc(trip.name)}</span>` : ''}
       </div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-sm" onclick="openShoppingList('${plan.id}')">Shopping list</button>
@@ -250,7 +250,7 @@ function renderFoodPlanDetail(plan) {
     ${dayHtml}`;
 }
 
-// â”€â”€ Food plan CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Food plan CRUD ──────────────────────────────────────────
 function openNewFoodPlan() {
   setFoodView('plans');
   openModal('New meal plan', foodPlanFormHtml());
@@ -273,18 +273,18 @@ function foodPlanFormHtml(plan) {
         <input class="input input-full" id="fp-name" value="${esc(plan.name||'')}" placeholder="e.g. Lost Coast 3-Day Food"></div>
       <div class="form-row"><label class="form-label">Link to trip (optional)</label>
         <select class="select input-full" id="fp-trip">
-          <option value="">â€” No trip â€”</option>${tripOptions}
+          <option value="">— No trip —</option>${tripOptions}
         </select></div>
       <div class="form-row"><label class="form-label">Days out</label>
         <input class="input input-full" id="fp-days" type="number" min="1" max="30" value="${plan.days||3}">
-        <div class="form-hint">Dinners = days âˆ’ 1 (no dinner on last day)</div></div>
+        <div class="form-hint">Dinners = days − 1 (no dinner on last day)</div></div>
       <div class="form-row"><label class="form-label">Calorie target / day</label>
         <select class="select input-full" id="fp-cal" onchange="onFpCalChange()">
-          <option value="2500" ${plan.cal_target_per_day===2500?'selected':''}>2,500 â€” Easy/moderate day hikes</option>
-          <option value="3000" ${(!plan.cal_target_per_day||plan.cal_target_per_day===3000)?'selected':''}>3,000 â€” Standard backpacking (default)</option>
-          <option value="3500" ${plan.cal_target_per_day===3500?'selected':''}>3,500 â€” Big miles / elevation gain</option>
-          <option value="4000" ${plan.cal_target_per_day===4000?'selected':''}>4,000 â€” Ultra-long days / cold weather</option>
-          <option value="custom" ${![2500,3000,3500,4000].includes(plan.cal_target_per_day)&&plan.cal_target_per_day?'selected':''}>Customâ€¦</option>
+          <option value="2500" ${plan.cal_target_per_day===2500?'selected':''}>2,500 — Easy/moderate day hikes</option>
+          <option value="3000" ${(!plan.cal_target_per_day||plan.cal_target_per_day===3000)?'selected':''}>3,000 — Standard backpacking (default)</option>
+          <option value="3500" ${plan.cal_target_per_day===3500?'selected':''}>3,500 — Big miles / elevation gain</option>
+          <option value="4000" ${plan.cal_target_per_day===4000?'selected':''}>4,000 — Ultra-long days / cold weather</option>
+          <option value="custom" ${![2500,3000,3500,4000].includes(plan.cal_target_per_day)&&plan.cal_target_per_day?'selected':''}>Custom…</option>
         </select>
         <div id="fp-cal-custom-row" style="display:${![2500,3000,3500,4000].includes(plan.cal_target_per_day)&&plan.cal_target_per_day?'flex':'none'};gap:8px;align-items:center;margin-top:6px">
           <input class="input" id="fp-cal-custom" type="number" min="1000" max="8000" step="50"
@@ -294,11 +294,11 @@ function foodPlanFormHtml(plan) {
         </div></div>
       <div class="form-row"><label class="form-label">Food weight target / day</label>
         <select class="select input-full" id="fp-wt" onchange="onFpWtChange()">
-          <option value="680"  ${plan.weight_target_g_per_day===680?'selected':''}>680g (1.5 lb) â€” Ultralight</option>
-          <option value="800"  ${(!plan.weight_target_g_per_day||plan.weight_target_g_per_day===800)?'selected':''}>800g (1.75 lb) â€” Standard UL (default)</option>
-          <option value="907"  ${plan.weight_target_g_per_day===907?'selected':''}>907g (2.0 lb) â€” Traditional planning</option>
-          <option value="1100" ${plan.weight_target_g_per_day===1100?'selected':''}>1,100g (2.4 lb) â€” Cold/hard trips</option>
-          <option value="custom" ${![680,800,907,1100].includes(plan.weight_target_g_per_day)&&plan.weight_target_g_per_day?'selected':''}>Customâ€¦</option>
+          <option value="680"  ${plan.weight_target_g_per_day===680?'selected':''}>680g (1.5 lb) — Ultralight</option>
+          <option value="800"  ${(!plan.weight_target_g_per_day||plan.weight_target_g_per_day===800)?'selected':''}>800g (1.75 lb) — Standard UL (default)</option>
+          <option value="907"  ${plan.weight_target_g_per_day===907?'selected':''}>907g (2.0 lb) — Traditional planning</option>
+          <option value="1100" ${plan.weight_target_g_per_day===1100?'selected':''}>1,100g (2.4 lb) — Cold/hard trips</option>
+          <option value="custom" ${![680,800,907,1100].includes(plan.weight_target_g_per_day)&&plan.weight_target_g_per_day?'selected':''}>Custom…</option>
         </select>
         <div id="fp-wt-custom-row" style="display:${![680,800,907,1100].includes(plan.weight_target_g_per_day)&&plan.weight_target_g_per_day?'flex':'none'};gap:8px;align-items:center;margin-top:6px">
           <input class="input" id="fp-wt-custom" type="number" min="200" max="3000" step="10"
@@ -438,7 +438,7 @@ function deleteFoodPlan(id) {
   toast('Plan deleted.');
 }
 
-// â”€â”€ Meal items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Meal items ──────────────────────────────────────────────
 function openAddMeal(planId, day, mealTime) {
   const plan = state.food_plans.find(p => p.id === planId);
   if (!plan) return;
@@ -446,17 +446,17 @@ function openAddMeal(planId, day, mealTime) {
   const recs = state.recipes.filter(r => !r.meal_time || r.meal_time === mealTime || r.meal_time === 'snack');
 
   if (!_isSupporter) {
-    // Free users: recipe-only picker â€” no manual entry
+    // Free users: recipe-only picker — no manual entry
     if (!recs.length) {
       toast('No recipes available for this meal slot.');
       return;
     }
-    openModal(`Add ${MEAL_LABELS[mealTime]} â€” Day ${day}`, `
+    openModal(`Add ${MEAL_LABELS[mealTime]} — Day ${day}`, `
       <p style="font-size:13px;color:var(--text-2);margin-bottom:.75rem">Choose from the starter recipes:</p>
       <div class="form-row">
         <select class="select input-full" id="mi-recipe" onchange="fillFromRecipe()">
-          <option value="">â€” select a recipe â€”</option>
-          ${recs.map(r => `<option value="${r.id}" data-cal="${r.cal_per_serving}" data-w="${r.weight_g_per_serving}">${esc(r.name)} (${r.cal_per_serving} cal Â· ${r.weight_g_per_serving}g)</option>`).join('')}
+          <option value="">— select a recipe —</option>
+          ${recs.map(r => `<option value="${r.id}" data-cal="${r.cal_per_serving}" data-w="${r.weight_g_per_serving}">${esc(r.name)} (${r.cal_per_serving} cal · ${r.weight_g_per_serving}g)</option>`).join('')}
         </select>
       </div>
       <input type="hidden" id="mi-name" value="">
@@ -477,11 +477,11 @@ function openAddMeal(planId, day, mealTime) {
   const recOpts = recs.length
     ? `<div class="form-row"><label class="form-label">Quick-fill from recipe</label>
         <select class="select input-full" id="mi-recipe" onchange="fillFromRecipe()">
-          <option value="">â€” type manually â€”</option>
-          ${recs.map(r => `<option value="${r.id}" data-cal="${r.cal_per_serving}" data-w="${r.weight_g_per_serving}">${esc(r.name)} (${r.cal_per_serving} cal Â· ${r.weight_g_per_serving}g)</option>`).join('')}
+          <option value="">— type manually —</option>
+          ${recs.map(r => `<option value="${r.id}" data-cal="${r.cal_per_serving}" data-w="${r.weight_g_per_serving}">${esc(r.name)} (${r.cal_per_serving} cal · ${r.weight_g_per_serving}g)</option>`).join('')}
         </select></div>` : '';
 
-  openModal(`Add ${MEAL_LABELS[mealTime]} â€” Day ${day}`, `
+  openModal(`Add ${MEAL_LABELS[mealTime]} — Day ${day}`, `
     ${recOpts}
     <div class="form-row"><label class="form-label">Food / item name *</label>
       <input class="input input-full" id="mi-name" placeholder="e.g. Instant oats + protein powder"></div>
@@ -492,7 +492,7 @@ function openAddMeal(planId, day, mealTime) {
         <input class="input input-full" id="mi-wg" type="number" min="0" step="${weightStep()}" placeholder="${weightPlaceholder()}"></div>
     </div>
     <div class="form-row"><label class="form-label">Notes</label>
-      <input class="input input-full" id="mi-notes" placeholder="brand, prep notesâ€¦"></div>
+      <input class="input input-full" id="mi-notes" placeholder="brand, prep notes…"></div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="saveMealItem('${planId}',${day},'${mealTime}')">Add</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -589,7 +589,7 @@ function openShoppingList(planId) {
 
   // Group by ingredient name (case-insensitive)
   // Within each group, sub-group by unit suffix to enable numeric summing
-  const groups = {}; // key: lowercaseName â†’ { displayName, qtys: { suffixKey â†’ { num, suffix } | { raw, count } } }
+  const groups = {}; // key: lowercaseName → { displayName, qtys: { suffixKey → { num, suffix } | { raw, count } } }
 
   allIngredients.forEach(({ name, qty }) => {
     const key = name.toLowerCase();
@@ -626,8 +626,8 @@ function openShoppingList(planId) {
         const n = q.num % 1 === 0 ? String(q.num) : q.num.toFixed(1);
         return q.suffix ? `${n} ${q.suffix}` : n;
       }
-      if (q.raw === '') return q.count > 1 ? `Ã—${q.count}` : '';
-      return q.count > 1 ? `${q.raw} Ã—${q.count}` : q.raw;
+      if (q.raw === '') return q.count > 1 ? `×${q.count}` : '';
+      return q.count > 1 ? `${q.raw} ×${q.count}` : q.raw;
     }).filter(Boolean).join(', ');
   }
 
@@ -673,7 +673,7 @@ function openShoppingList(planId) {
           <button class="btn btn-sm btn-ghost" onclick="closeShoppingList()">Close</button>
         </div>
       </div>
-      <div style="font-size:12px;color:var(--text-3);margin-top:6px">${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} Â· ${plan.days} day${plan.days !== 1 ? 's' : ''}</div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:6px">${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} · ${plan.days} day${plan.days !== 1 ? 's' : ''}</div>
     </div>
     <div class="sl-body">${itemsHtml}</div>`;
 
@@ -721,11 +721,11 @@ function toggleMealSlot(planId, day, mealTime, enabled) {
   if (!plan.day_config[day]) plan.day_config[day] = {};
 
   if (enabled) {
-    // Re-enabling â€” just remove the explicit override so it falls back to default (enabled)
+    // Re-enabling — just remove the explicit override so it falls back to default (enabled)
     delete plan.day_config[day][mealTime];
     if (Object.keys(plan.day_config[day]).length === 0) delete plan.day_config[day];
   } else {
-    // Disabling â€” also remove any logged meals for this slot
+    // Disabling — also remove any logged meals for this slot
     plan.meals = (plan.meals || []).filter(m => !(m.day === day && m.meal_time === mealTime));
     plan.day_config[day][mealTime] = false;
   }
@@ -734,7 +734,7 @@ function toggleMealSlot(planId, day, mealTime, enabled) {
   renderFoodPlanDetail(plan);
 }
 
-// â”€â”€ Recipe library â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Recipe library ──────────────────────────────────────────
 function renderRecipeLibrary() {
   const grid = document.getElementById('recipes-grid');
   if (!grid) return;
@@ -750,7 +750,7 @@ function renderRecipeLibrary() {
             <div style="font-weight:500;font-size:14px">${esc(r.name)}</div>
             <div style="font-size:11px;color:var(--text-3);margin-top:2px">
               ${MEAL_LABELS[r.meal_time]||r.meal_time}
-              ${r.source ? ` Â· ${esc(r.source)}` : ''}
+              ${r.source ? ` · ${esc(r.source)}` : ''}
             </div>
           </div>
           <div style="display:flex;gap:5px">
@@ -783,7 +783,7 @@ function recipeFormHtml(r) {
     <div class="rf-ing-row" style="display:flex;gap:6px;margin-bottom:5px">
       <input class="input rf-ing-qty" style="width:90px;flex-shrink:0" placeholder="qty" value="${esc(i.qty||'')}">
       <input class="input rf-ing-name" style="flex:1;min-width:0" placeholder="ingredient" value="${esc(i.name||'')}">
-      <button type="button" class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:4px 8px" onclick="this.closest('.rf-ing-row').remove()">Ã—</button>
+      <button type="button" class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:4px 8px" onclick="this.closest('.rf-ing-row').remove()">×</button>
     </div>`;
   return `
     <div class="form-grid">
@@ -822,7 +822,7 @@ function rfAddIngredient() {
   row.innerHTML = `
     <input class="input rf-ing-qty" style="width:90px;flex-shrink:0" placeholder="qty" value="">
     <input class="input rf-ing-name" style="flex:1;min-width:0" placeholder="ingredient" value="">
-    <button type="button" class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:4px 8px" onclick="this.closest('.rf-ing-row').remove()">Ã—</button>`;
+    <button type="button" class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:4px 8px" onclick="this.closest('.rf-ing-row').remove()">×</button>`;
   list.appendChild(row);
   row.querySelector('.rf-ing-qty').focus();
 }

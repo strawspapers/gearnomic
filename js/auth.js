@@ -1,4 +1,4 @@
-// Gearnomic — Authentication UI: sign-in/up modal, session management, and password recovery
+// Gearnomic � Authentication UI: sign-in/up modal, session management, and password recovery
 // ============================================================
 // AUTHENTICATION & SYNC UI
 // ============================================================
@@ -23,11 +23,11 @@ function setSyncIndicator(status) {
   const el = document.getElementById('sync-indicator');
   if (!el) return;
   const states = {
-    saving:  'â†‘ Savingâ€¦',
+    saving:  '↑ Saving…',
     saved:   'Synced',
     error:   'Sync failed',
-    offline: 'â—‹ Local only',
-    nosync:  'â—‹ Local only',
+    offline: '○ Local only',
+    nosync:  '○ Local only',
   };
   el.textContent = states[status] || '';
   el.style.color = status === 'error'  ? 'var(--danger)'
@@ -56,12 +56,12 @@ function updateHeaderAuth() {
     if (_isSupporter) {
       setSyncIndicator('saved');
       if (nudgeEl) nudgeEl.style.display = 'none';
-      if (tierEl)  tierEl.innerHTML = `<span style="color:var(--success);font-weight:600"> Supporter</span> <span style="color:var(--text-3)">Â· Sync active</span>`;
+      if (tierEl)  tierEl.innerHTML = `<span style="color:var(--success);font-weight:600"> Supporter</span> <span style="color:var(--text-3)">· Sync active</span>`;
     } else {
       setSyncIndicator('nosync');
       if (nudgeEl) nudgeEl.style.display = 'flex';
-      if (tierEl)  tierEl.innerHTML = `<span style="color:var(--text-2)">Free plan</span> <span style="color:var(--text-3)">Â· Local only</span>
-        <button onclick="openUpgradeModal();toggleUserMenu()" style="display:block;margin-top:6px;width:100%;background:var(--primary);color:#fff;border:none;border-radius:var(--r-md);padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;text-align:center">Enable cloud sync â€” $3.99/mo</button>`;
+      if (tierEl)  tierEl.innerHTML = `<span style="color:var(--text-2)">Free plan</span> <span style="color:var(--text-3)">· Local only</span>
+        <button onclick="openUpgradeModal();toggleUserMenu()" style="display:block;margin-top:6px;width:100%;background:var(--primary);color:#fff;border:none;border-radius:var(--r-md);padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;text-align:center">Enable cloud sync — $3.99/mo</button>`;
     }
   } else {
     if (userInfo) userInfo.style.display = 'none';
@@ -118,7 +118,7 @@ function setAuthError(msg) {
 }
 
 async function diagnoseSupabase() {
-  // Helper â€” show in modal error div OR fall back to alert
+  // Helper — show in modal error div OR fall back to alert
   function show(html, color) {
     const el = document.getElementById('auth-error');
     if (el) {
@@ -127,44 +127,44 @@ async function diagnoseSupabase() {
       el.style.color      = color === 'green' ? '#1c5736' : color === 'blue' ? '#124471' : '#8c2020';
       el.innerHTML = html;
     } else {
-      // Modal not visible â€” use toast + console
+      // Modal not visible — use toast + console
       toast('Check browser console (F12) for Supabase diagnostics');
-      console.group('Gearnomic â€” Supabase Diagnostics');
+      console.group('Gearnomic — Supabase Diagnostics');
       console.log(html.replace(/<[^>]+>/g, ''));
       console.groupEnd();
     }
   }
 
-  // Step 1 â€” is config.js loaded at all?
+  // Step 1 — is config.js loaded at all?
   if (typeof SUPABASE_URL === 'undefined') {
     show('<strong>config.js not loaded.</strong> Make sure <code>js/config.js</code> is in your repo and listed in index.html before app.js.', 'red');
     return;
   }
 
-  // Step 2 â€” are placeholder values still in place?
+  // Step 2 — are placeholder values still in place?
   if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_PROJECT_URL') {
     show(`<strong>Project URL not set.</strong> The value currently being read from <code>config.js</code> is:<br>
 <code style="word-break:break-all;background:rgba(0,0,0,.06);padding:2px 5px;border-radius:3px">${SUPABASE_URL || '(empty)'}</code><br><br>
 If that doesn't match what you put in the file, GitHub Pages is serving a <strong>cached old version</strong> of config.js. Try:<br>
 1. Hard refresh: <strong>Ctrl+Shift+R</strong> (Windows) / <strong>Cmd+Shift+R</strong> (Mac)<br>
 2. Open an Incognito/Private window and try there<br>
-3. Wait 2â€“5 minutes for GitHub Pages CDN to clear, then retry`, 'red');
+3. Wait 2–5 minutes for GitHub Pages CDN to clear, then retry`, 'red');
     return;
   }
   if (!SUPABASE_ANON || SUPABASE_ANON === 'YOUR_ANON_PUBLIC_KEY') {
-    show('<strong>Anon key not set.</strong> Open <code>js/config.js</code> and replace <code>YOUR_ANON_PUBLIC_KEY</code> with your anon key from Supabase â†’ Settings â†’ API.', 'red');
+    show('<strong>Anon key not set.</strong> Open <code>js/config.js</code> and replace <code>YOUR_ANON_PUBLIC_KEY</code> with your anon key from Supabase → Settings → API.', 'red');
     return;
   }
 
-  // Step 3 â€” URL format check
+  // Step 3 — URL format check
   const cleanUrl = SUPABASE_URL.trim().replace(/\/$/, '');
   if (!cleanUrl.startsWith('https://') || !cleanUrl.includes('.supabase.co')) {
-    show(`<strong>URL format looks wrong.</strong><br>Expected: <code>https://abc123.supabase.co</code><br>Got: <code>${cleanUrl}</code><br>Copy it fresh from Supabase â†’ Settings â†’ API.`, 'red');
+    show(`<strong>URL format looks wrong.</strong><br>Expected: <code>https://abc123.supabase.co</code><br>Got: <code>${cleanUrl}</code><br>Copy it fresh from Supabase → Settings → API.`, 'red');
     return;
   }
 
-  // Step 4 â€” actually try to reach the project
-  show('Testing connectionâ€¦', 'blue');
+  // Step 4 — actually try to reach the project
+  show('Testing connection…', 'blue');
   try {
     const res = await fetch(`${cleanUrl}/auth/v1/settings`, {
       headers: { apikey: SUPABASE_ANON.trim() }
@@ -176,18 +176,18 @@ If that doesn't match what you put in the file, GitHub Pages is serving a <stron
       if (emailEnabled) {
         show('<strong>Connection OK and Email auth is enabled.</strong> If sign-in still fails, double-check your email/password, or try "Create account" first.', 'green');
       } else {
-        show('Connected, but <strong>Email auth is disabled</strong> in your Supabase project.<br>Go to Supabase â†’ Authentication â†’ Providers â†’ Email â†’ enable it.', 'red');
+        show('Connected, but <strong>Email auth is disabled</strong> in your Supabase project.<br>Go to Supabase → Authentication → Providers → Email → enable it.', 'red');
       }
     } else if (res.status === 401 || res.status === 403) {
-      show(`<strong>Anon key rejected (${res.status}).</strong> Your key may have extra spaces or be from a different project. Copy it fresh from Supabase â†’ Settings â†’ API â†’ anon public.`, 'red');
+      show(`<strong>Anon key rejected (${res.status}).</strong> Your key may have extra spaces or be from a different project. Copy it fresh from Supabase → Settings → API → anon public.`, 'red');
     } else {
-      show(`<strong>Unexpected response ${res.status}.</strong> Your project may be paused. <a href="${cleanUrl}" target="_blank" style="color:inherit">Open your Supabase dashboard</a> to check â€” free projects pause after 7 days idle.`, 'red');
+      show(`<strong>Unexpected response ${res.status}.</strong> Your project may be paused. <a href="${cleanUrl}" target="_blank" style="color:inherit">Open your Supabase dashboard</a> to check — free projects pause after 7 days idle.`, 'red');
     }
   } catch(err) {
     // True network failure
     show(`<strong>Cannot reach Supabase.</strong> Most likely causes:<br>
-1. <strong>Project is paused</strong> â€” free tier pauses after 7 days idle. <a href="https://supabase.com/dashboard" target="_blank" style="color:inherit">Open Supabase dashboard</a> and click "Restore".<br>
-2. <strong>URL has a typo</strong> â€” currently using: <code style="word-break:break-all">${cleanUrl}</code><br>
+1. <strong>Project is paused</strong> — free tier pauses after 7 days idle. <a href="https://supabase.com/dashboard" target="_blank" style="color:inherit">Open Supabase dashboard</a> and click "Restore".<br>
+2. <strong>URL has a typo</strong> — currently using: <code style="word-break:break-all">${cleanUrl}</code><br>
 3. <strong>Network/firewall</strong> blocking the request on this device.<br>
 <span style="font-size:11px;opacity:.7">Error: ${err.message}</span>`, 'red');
   }
@@ -207,7 +207,7 @@ async function submitAuth() {
     return;
   }
 
-  if (btn) { btn.textContent = isSignup ? 'Creating accountâ€¦' : 'Signing inâ€¦'; btn.disabled = true; }
+  if (btn) { btn.textContent = isSignup ? 'Creating account…' : 'Signing in…'; btn.disabled = true; }
 
   try {
     const { data, error } = isSignup
@@ -252,7 +252,7 @@ async function submitAuth() {
     } else if (msg.includes('Invalid login credentials')) {
       setAuthError('Wrong email or password. Try again, or use "Create account" to register.');
     } else if (msg.includes('Email not confirmed')) {
-      setAuthError('Check your inbox â€” you need to confirm your email before signing in.');
+      setAuthError('Check your inbox — you need to confirm your email before signing in.');
     } else if (msg.includes('User already registered')) {
       setAuthError('An account with this email exists. Switch to "Sign in" instead.');
     } else {
@@ -302,7 +302,7 @@ async function sendPasswordReset() {
   if (!_supabaseReady()) { setAuthError('Supabase not configured.'); return; }
 
   const btn = document.querySelector('#forgot-panel button');
-  if (btn) { btn.textContent = 'Sendingâ€¦'; btn.disabled = true; }
+  if (btn) { btn.textContent = 'Sending…'; btn.disabled = true; }
 
   const { error } = await _sb.auth.resetPasswordForEmail(email, {
     redirectTo: window.location.href.split('#')[0],
@@ -331,7 +331,7 @@ async function submitNewPassword() {
   if (!_supabaseReady()) return;
 
   const btn = document.querySelector('#recovery-panel button');
-  if (btn) { btn.textContent = 'Updatingâ€¦'; btn.disabled = true; }
+  if (btn) { btn.textContent = 'Updating…'; btn.disabled = true; }
 
   const { error } = await _sb.auth.updateUser({ password: pw });
 

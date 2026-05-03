@@ -1,5 +1,5 @@
-// Gearnomic — State persistence, cloud sync, migrations, and data import/export
-// â”€â”€ Persistence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Gearnomic � State persistence, cloud sync, migrations, and data import/export
+// ── Persistence ────────────────────────────────────────────
 function saveState() {
   state._savedAt = Date.now();
   try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
@@ -39,7 +39,7 @@ async function syncToCloud() {
   if (!_supabaseReady() || !_user || !_isSupporter) return;
   setSyncIndicator('saving');
   const MAX_ATTEMPTS = 4;
-  const BASE_DELAY   = 1500; // ms; doubles each retry: 1.5s â†’ 3s â†’ 6s â†’ give up
+  const BASE_DELAY   = 1500; // ms; doubles each retry: 1.5s → 3s → 6s → give up
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       const { error } = await _sb.from('user_data').upsert(
@@ -68,7 +68,7 @@ async function loadFromCloud() {
     if (error || !data?.data) return false;
     _isSupporter = !!data.is_supporter;
     // Compare local _savedAt against the DB's updated_at (set by a server trigger on
-    // every write â€” trustworthy, clock-skew-safe, and not affected by stale localStorage).
+    // every write — trustworthy, clock-skew-safe, and not affected by stale localStorage).
     // If local is newer the user edited before the debounce flushed; push local up.
     const localTs  = state._savedAt || 0;
     const cloudTs  = data.updated_at ? new Date(data.updated_at).getTime() : 0;
@@ -99,13 +99,13 @@ async function loadSupporterStatus() {
 const SCHEMA_VERSION = 1;
 
 function applyMigrations() {
-  // â”€â”€ Field-existence guards (always run â€” cheap, idempotent) â”€â”€â”€â”€â”€
+  // ── Field-existence guards (always run — cheap, idempotent) ─────
   if (!state.items)         state.items         = [];
   if (!state.trips)         state.trips         = [];
   if (!state.wishlist)      state.wishlist      = [];
   if (!state.templates)     state.templates     = [];
   if (!state.trip_types)    state.trip_types    = JSON.parse(JSON.stringify(SEED_DATA.trip_types));
-  // Always ensure all built-in system types exist â€” they may have been lost
+  // Always ensure all built-in system types exist — they may have been lost
   // if trip_types was saved as an empty array or before the system types were added
   SEED_DATA.trip_types.forEach(sys => {
     if (!state.trip_types.find(t => t.value === sys.value)) {
@@ -130,11 +130,11 @@ function applyMigrations() {
     syncUnitBtns();
   }
 
-  // â”€â”€ Numbered structural migrations (skip if already applied) â”€â”€â”€
+  // ── Numbered structural migrations (skip if already applied) ───
   const sv = state._schemaVersion || 0;
 
   if (sv < 1) {
-    // Migration 1: trip.gear_ids â†’ loadout_ids
+    // Migration 1: trip.gear_ids → loadout_ids
     // Any trip that still has gear_ids (old model) gets an auto-created
     // loadout so no gear is lost. The trip then references it via loadout_ids.
     state.trips.forEach(t => {
@@ -146,7 +146,7 @@ function applyMigrations() {
       if (t.gear_ids && t.gear_ids.length && !t.loadout_ids) {
         const autoLoadout = {
           id:           uid('tmpl'),
-          name:         t.name + ' â€” Gear',
+          name:         t.name + ' — Gear',
           description:  'Automatically created from trip gear list.',
           trip_type:    t.trip_type || 'backpacking',
           gear_ids:     [...t.gear_ids],
@@ -179,7 +179,7 @@ function loadState() {
       return;
     }
   } catch(e) {}
-  // First visit â€” start with demo trips/loadout so new users can explore,
+  // First visit — start with demo trips/loadout so new users can explore,
   // but keep the gear closet empty so the empty state is shown.
   const demoTrip  = JSON.parse(JSON.stringify(DEMO_DATA.trip));
   const demoTmpl  = JSON.parse(JSON.stringify(DEMO_DATA.template));
@@ -215,10 +215,10 @@ function confirmLoadSampleGear() {
     </p>
     <ul style="font-size:13px;color:var(--text-2);margin:.5rem 0 1rem;padding-left:1.25rem">
       <li>${DEMO_DATA.items.length} generic gear items (duplicates skipped)</li>
-      <li>1 loadout â€” <strong>${DEMO_DATA.template.name}</strong></li>
-      <li>1 trip â€” <strong>${DEMO_DATA.trip.name}</strong></li>
+      <li>1 loadout — <strong>${DEMO_DATA.template.name}</strong></li>
+      <li>1 trip — <strong>${DEMO_DATA.trip.name}</strong></li>
     </ul>
-    ${hasTrip ? `<p style="font-size:12px;color:var(--warning);margin-bottom:1rem">A trip named "${DEMO_DATA.trip.name}" already exists â€” it will be skipped.</p>` : ''}
+    ${hasTrip ? `<p style="font-size:12px;color:var(--warning);margin-bottom:1rem">A trip named "${DEMO_DATA.trip.name}" already exists — it will be skipped.</p>` : ''}
     <div class="form-actions">
       <button class="btn btn-primary" onclick="loadSampleGear()">Load sample data</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -226,7 +226,7 @@ function confirmLoadSampleGear() {
 }
 
 function loadSampleGear() {
-  // 1. Add demo items, building an oldId â†’ newId map for remapping references
+  // 1. Add demo items, building an oldId → newId map for remapping references
   const existingKeys = new Set(state.items.map(i => `${i.name}|${i.brand}`));
   const idMap = {};
   let itemsAdded = 0;

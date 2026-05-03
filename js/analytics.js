@@ -1,8 +1,8 @@
-// Gearnomic — Analytics tab: adventure stats, gear performance, and weight/cost charts
+// Gearnomic � Analytics tab: adventure stats, gear performance, and weight/cost charts
 // ============================================================
 // ANALYTICS
 // ============================================================
-// â”€â”€ Adventure stats year state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Adventure stats year state ─────────────────────────────
 let _adventureYear = 'all'; // 'all' | 'year' | number (e.g. 2024)
 
 function setAdventureYear(mode, year) {
@@ -66,10 +66,10 @@ function renderAdventureStats(completedTrips) {
   const btnYear = document.getElementById('adv-btn-year');
   const pickerBtn = document.getElementById('adv-year-picker');
   if (yearsWithTrips.length > 1 && btnYear) {
-    // Show "pick year" option â€” make the year button open the picker
+    // Show "pick year" option — make the year button open the picker
     btnYear.title = 'Filter by year';
     if (yearsWithTrips.length > 2 && pickerBtn) {
-      // More than 2 years â€” show dropdown when not on "all time"
+      // More than 2 years — show dropdown when not on "all time"
       if (_adventureYear !== 'all' && _adventureYear !== curYear) {
         pickerBtn.style.display = '';
       }
@@ -143,7 +143,7 @@ function renderAdventureStats(completedTrips) {
       const parts = [];
       if (nightsDiff !== 0) parts.push(`${nightsDiff > 0 ? '+' : ''}${nightsDiff} nights vs ${_adventureYear - 1}`);
       if (milesDiff  !== 0 && (totalHikedMiles || totalBikedMiles)) parts.push(`${milesDiff > 0 ? '+' : ''}${fmt(milesDiff)} miles vs ${_adventureYear - 1}`);
-      if (parts.length) comparisonNote = parts.join(' Â· ');
+      if (parts.length) comparisonNote = parts.join(' · ');
     }
   }
 
@@ -180,7 +180,7 @@ function renderAnalytics() {
     return;
   }
 
-  // â”€â”€ Aggregate data (always needed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Aggregate data (always needed) ────────────────────────
   const allW   = state.items.reduce((s, i) => s + (i.weight_g || 0), 0);
   const totalC = state.items.reduce((s, i) => s + (i.cost_usd || 0), 0);
   const priced = state.items.filter(i => i.cost_usd > 0 && i.weight_g > 0);
@@ -193,12 +193,12 @@ function renderAnalytics() {
   const sortedC = Object.entries(cc).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
   const completedTrips = state.trips.filter(t => t.status === 'completed');
 
-  // â”€â”€ Adventure stats (all users) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Adventure stats (all users) ───────────────────────────
   renderAdventureStats(completedTrips);
 
-  // â”€â”€ Free tier: real metrics where possible, blurred for Supporter-only â”€
+  // ── Free tier: real metrics where possible, blurred for Supporter-only ─
   if (!_isSupporter) {
-    // Reusable blur overlay wrapper â€” title stays outside, only content is blurred
+    // Reusable blur overlay wrapper — title stays outside, only content is blurred
     const blurWrap = (content) => `
       <div style="position:relative;border-radius:var(--r-md);overflow:hidden">
         <div style="filter:blur(5px);pointer-events:none;user-select:none">${content}</div>
@@ -223,7 +223,7 @@ function renderAnalytics() {
         <div class="metric-label">Avg cost efficiency</div>
         <div style="filter:blur(5px);pointer-events:none;user-select:none">
           <div class="metric-val">$1.84</div>
-          <div class="metric-sub">per gram Â· 24 items</div>
+          <div class="metric-sub">per gram · 24 items</div>
         </div>
         <div style="position:absolute;bottom:0;left:0;right:0;top:36px;display:flex;align-items:center;justify-content:center">
           <button class="btn btn-xs btn-primary" onclick="openUpgradeModal()">Upgrade</button>
@@ -240,7 +240,7 @@ function renderAnalytics() {
         </div>
       </div>`;
 
-    // Weight by category â€” visible for free
+    // Weight by category — visible for free
     if (chartWeight) chartWeight.destroy();
     const ctxW = document.getElementById('chart-weight')?.getContext('2d');
     if (ctxW) chartWeight = new Chart(ctxW, {
@@ -256,7 +256,7 @@ function renderAnalytics() {
       }
     });
 
-    // Cost distribution â€” title stays, canvas blurred
+    // Cost distribution — title stays, canvas blurred
     const ctxC = document.getElementById('chart-cost');
     if (ctxC) {
       const parent = ctxC.parentElement;
@@ -271,7 +271,7 @@ function renderAnalytics() {
       parent.appendChild(overlay);
     }
 
-    // Weight targets â€” visible for free
+    // Weight targets — visible for free
     const targetsHtml = state.categories.filter(cat => cat.target_g).map(cat => {
       const w = cw[cat.name] || 0;
       const p = pct(w, cat.target_g);
@@ -283,7 +283,7 @@ function renderAnalytics() {
     }).join('');
     document.getElementById('analytics-targets').innerHTML = targetsHtml || `<div class="empty-state"><p>No category weight targets set.</p></div>`;
 
-    // Trip weight history â€” title visible in HTML, content blurred
+    // Trip weight history — title visible in HTML, content blurred
     const tripWrap  = document.getElementById('analytics-trips-chart-wrap');
     const tripEmpty = document.getElementById('analytics-trips-empty');
     if (tripWrap) tripWrap.innerHTML = blurWrap(`
@@ -292,20 +292,20 @@ function renderAnalytics() {
       </div>`);
     if (tripEmpty) tripEmpty.style.display = 'none';
 
-    // Value analysis â€” title visible in HTML, content blurred
+    // Value analysis — title visible in HTML, content blurred
     document.getElementById('analytics-value').innerHTML = blurWrap(`
       ${['Titanium Spork','Wind Shirt','Cuben Stuff Sack','Sleeping Pad Liner'].map((n,i) =>
         `<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border-2)">
           <span>${n}</span><span style="color:var(--${i<2?'success':'danger'})">${i<2?'$0.00'+ (i===0?'2':'8'):'$1.'+i+'0'}/g</span>
         </div>`).join('')}`);
 
-    // Gear never used â€” title visible in HTML, content blurred
+    // Gear never used — title visible in HTML, content blurred
     document.getElementById('analytics-unused').innerHTML = blurWrap(`
       ${['Rain Jacket','Bivy Cover','Ice Axe','Crampons','Gaiters'].map(n =>
         `<div style="padding:6px 0;border-bottom:1px solid var(--border-2);font-size:13px;color:var(--text-2)">${n}</div>`
       ).join('')}`);
 
-    // Most used table â€” title visible in HTML, rows blurred
+    // Most used table — title visible in HTML, rows blurred
     document.getElementById('analytics-usage').innerHTML = `
       <tr><td colspan="5" style="padding:0">
         ${blurWrap(`
@@ -316,28 +316,28 @@ function renderAnalytics() {
           </table>`)}
       </td></tr>`;
 
-    // Field performance â€” blurred for free users
+    // Field performance — blurred for free users
     document.getElementById('analytics-field-performance').innerHTML = blurWrap(`
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
         <div>
           <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--success);margin-bottom:.375rem">Consistently praised</div>
           ${['Trail Runners','Sleeping Bag','Rain Jacket'].map(n =>
             `<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:.5px solid var(--border-2)">
-              <span style="font-weight:500">${n}</span><span style="color:var(--success)">3Ã—</span>
+              <span style="font-weight:500">${n}</span><span style="color:var(--success)">3×</span>
             </div>`).join('')}
         </div>
         <div>
           <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--warning);margin-bottom:.375rem">Flagged for replacement</div>
           ${['Trekking Poles','Bivy Cover'].map(n =>
             `<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:.5px solid var(--border-2)">
-              <span style="font-weight:500">${n}</span><span style="color:var(--warning)">2Ã—</span>
+              <span style="font-weight:500">${n}</span><span style="color:var(--warning)">2×</span>
             </div>`).join('')}
         </div>
       </div>`);
     return;
   }
 
-  // â”€â”€ Supporter tier: full analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Supporter tier: full analytics ────────────────────────
   const avgDpg = priced.length
     ? priced.reduce((s,i) => s + i.cost_usd/i.weight_g, 0) / priced.length : 0;
   const neverUsed = state.items.filter(i => !i.usage_days || i.usage_days === 0).length;
@@ -355,7 +355,7 @@ function renderAnalytics() {
     </div>
     <div class="metric-card">
       <div class="metric-label">Avg cost efficiency</div>
-      <div class="metric-val">${avgDpg > 0 ? '$' + avgDpg.toFixed(2) : 'â€”'}</div>
+      <div class="metric-val">${avgDpg > 0 ? '$' + avgDpg.toFixed(2) : '—'}</div>
       <div class="metric-sub">per gram across ${priced.length} priced items</div>
     </div>
     <div class="metric-card">
@@ -480,8 +480,8 @@ function renderAnalytics() {
         <td><div class="item-name">${esc(i.name)}</div><div class="item-sub">${esc(i.brand||'')}</div></td>
         <td>${badge('badge-gray', i.category)}</td>
         <td class="mono">${i.usage_days}</td>
-        <td class="mono">${i.usage_nights || 'â€”'}</td>
-        <td>${badge(COND_BADGE[i.condition]||'badge-gray', COND_LABEL[i.condition]||'â€”')}</td>
+        <td class="mono">${i.usage_nights || '—'}</td>
+        <td>${badge(COND_BADGE[i.condition]||'badge-gray', COND_LABEL[i.condition]||'—')}</td>
       </tr>`).join('');
 
   // Field performance
@@ -500,7 +500,7 @@ function renderAnalytics() {
     `<div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;padding:5px 0;border-bottom:.5px solid var(--border-2)">
       <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">${esc(x.item.name)}</span>
       <span style="color:var(--text-3);font-size:11px;margin-left:6px;flex-shrink:0">${esc(x.item.category)}</span>
-      <span style="color:${color};font-weight:600;margin-left:10px;flex-shrink:0">${x.n}Ã—</span>
+      <span style="color:${color};font-weight:600;margin-left:10px;flex-shrink:0">${x.n}×</span>
     </div>`;
   document.getElementById('analytics-field-performance').innerHTML =
     (!topWorked.length && !topReplace.length)

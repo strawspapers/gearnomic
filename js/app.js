@@ -1,6 +1,6 @@
-// Gearnomic — Core: globals, utilities, navigation, dashboard, wishlist, settings, sharing, and boot
+// Gearnomic � Core: globals, utilities, navigation, dashboard, wishlist, settings, sharing, and boot
 // ============================================================
-// Gearnomic — Application Logic
+// Gearnomic � Application Logic
 // ============================================================
 
 // ── Supabase ────────────────────────────────────────────────
@@ -31,7 +31,7 @@ function uid(prefix) {
 let _units = 'metric'; // 'metric' | 'imperial'
 
 function wg(g) {
-  if (!g) return '—';
+  if (!g) return '�';
   if (_units === 'imperial') {
     const oz = g / 28.3495;
     return oz >= 16 ? `${(oz / 16).toFixed(2)} lb` : `${oz.toFixed(1)} oz`;
@@ -63,11 +63,11 @@ function weightStep() { return _units === 'imperial' ? '0.01' : '0.1'; }
 function gToDisplay(g) { return !g ? '' : _units === 'imperial' ? (g / 28.3495).toFixed(2) : g; }
 // Convert display value → grams for storage
 function displayToG(v) { return _units === 'imperial' ? (parseFloat(v) || 0) * 28.3495 : (parseFloat(v) || 0); }
-const dpg = (c, w) => c && w ? `$${(c / w).toFixed(3)}` : '—';
-const usd = v => v ? `$${Number(v).toFixed(2).replace(/\.00$/, '')}` : '—';
+const dpg = (c, w) => c && w ? `$${(c / w).toFixed(3)}` : '�';
+const usd = v => v ? `$${Number(v).toFixed(2).replace(/\.00$/, '')}` : '�';
 const pct = (a, b) => b ? Math.min(100, Math.round(a / b * 100)) : 0;
 const esc     = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-// Only allow http/https URLs as href values — blocks javascript: and data: URI injection.
+// Only allow http/https URLs as href values � blocks javascript: and data: URI injection.
 const safeHref = u => (typeof u === 'string' && /^https?:\/\//i.test(u.trim())) ? u.trim() : '#';
 
 const COND_BADGE = {
@@ -77,7 +77,7 @@ const COND_BADGE = {
   fair:      'badge-amber',
   poor:      'badge-red'
 };
-const COND_LABEL = { '': '—', excellent: 'Excellent', good: 'Good', fair: 'Fair', poor: 'Poor' };
+const COND_LABEL = { '': '�', excellent: 'Excellent', good: 'Good', fair: 'Fair', poor: 'Poor' };
 // Carry type lives on trips/templates, not on items
 // Cycle order: packed (default) → worn → consumable → packed
 const CARRY_CYCLE  = { packed: 'worn', worn: 'consumable', consumable: 'packed' };
@@ -106,7 +106,7 @@ function carryCell(containerId, itemId, isTemplate) {
     (isTemplate ? state.templates : state.trips).find(t => t.id === containerId) || {},
     itemId
   );
-  const labels = { packed: '—', worn: 'Worn', consumable: 'Consumable' };
+  const labels = { packed: '�', worn: 'Worn', consumable: 'Consumable' };
   const styles  = {
     packed:     'color:var(--text-3);font-size:11px',
     worn:       'display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;background:var(--warning-bg);color:var(--warning-text)',
@@ -166,7 +166,7 @@ function setTripItemQty(tripId, itemId, qty) {
   if (!trip.item_quantities) trip.item_quantities = {};
   const n = Math.max(0, parseInt(qty) || 1);
   if (n === 1) {
-    delete trip.item_quantities[itemId]; // clean up — 1 is the default
+    delete trip.item_quantities[itemId]; // clean up � 1 is the default
   } else {
     trip.item_quantities[itemId] = n;
   }
@@ -267,14 +267,14 @@ function syncUnitBtns() {
 }
 
 // ============================================================
-// TRIP TYPES  — dynamic, user-extensible
+// TRIP TYPES  � dynamic, user-extensible
 // ============================================================
 
 function tripTypeOptions(selected) {
   const opts = state.trip_types.map(t =>
     `<option value="${esc(t.value)}" ${t.value === selected ? 'selected' : ''}>${esc(t.label)}</option>`
   ).join('');
-  return opts + `<option value="__new__" style="color:var(--accent)">＋ Add new type…</option>`;
+  return opts + `<option value="__new__" style="color:var(--accent)">＋ Add new type�</option>`;
 }
 
 function handleTripTypeChange(prefix) {
@@ -359,7 +359,7 @@ function openManageTripTypes() {
     <div style="border-top:.5px solid var(--border-2);padding-top:.875rem">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">Add a new type</div>
       <div style="display:flex;gap:6px;align-items:center">
-        <input class="input" id="mtt-new-input" placeholder="e.g. Ski touring, Trail running…"
+        <input class="input" id="mtt-new-input" placeholder="e.g. Ski touring, Trail running�"
           style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addTripTypeFromManager();}">
         <button class="btn btn-primary btn-sm" onclick="addTripTypeFromManager()">Add</button>
       </div>
@@ -498,7 +498,7 @@ function renderDashboard() {
     ? Math.ceil((new Date(nextTrip.start_date) - new Date()) / 86400000)
     : null;
 
-  // Metrics — current snapshot
+  // Metrics � current snapshot
   document.getElementById('dash-metrics').innerHTML = `
     <div class="metric-card">
       <div class="metric-label">Items in closet</div>
@@ -517,7 +517,7 @@ function renderDashboard() {
     </div>
     <div class="metric-card">
       <div class="metric-label">Next trip in</div>
-      <div class="metric-val">${daysToNext != null ? (daysToNext <= 0 ? 'Today!' : daysToNext + 'd') : '—'}</div>
+      <div class="metric-val">${daysToNext != null ? (daysToNext <= 0 ? 'Today!' : daysToNext + 'd') : '�'}</div>
       <div class="metric-sub">${nextTrip ? esc(nextTrip.name) : 'No upcoming trips'}</div>
     </div>`;
 
@@ -534,11 +534,11 @@ function renderDashboard() {
             ${badge(STATUS_BADGE[t.status] || 'badge-gray', STATUS_LABEL[t.status] || t.status)}
           </div>
           <div class="dash-trip-meta">
-            ${esc(t.location || 'Location TBD')}${nights != null ? ` · ${nights} nights` : ''}${t.miles ? ` · ${t.miles} mi` : ''}
+            ${esc(t.location || 'Location TBD')}${nights != null ? ` � ${nights} nights` : ''}${t.miles ? ` � ${t.miles} mi` : ''}
           </div>
           ${t.weight_target_g ? `${prog(tw, t.weight_target_g)}
             <div style="font-size:11px;color:var(--text-3);margin-top:3px">${wg(tw)} / ${wg(t.weight_target_g)} target</div>` : `
-            <div style="font-size:12px;color:var(--text-3);margin-top:4px">${(t.loadout_ids||[]).length} loadout${(t.loadout_ids||[]).length!==1?'s':''} · ${wg(tw)}</div>`}
+            <div style="font-size:12px;color:var(--text-3);margin-top:4px">${(t.loadout_ids||[]).length} loadout${(t.loadout_ids||[]).length!==1?'s':''} � ${wg(tw)}</div>`}
         </div>`;
       }).join('');
 
@@ -547,7 +547,7 @@ function renderDashboard() {
   const nextNameEl = document.getElementById('dash-next-trip-name');
   const nextItems  = nextTrip ? tripUniqueItems(nextTrip) : [];
   if (!nextTrip || !nextItems.length) {
-    if (nextNameEl) nextNameEl.textContent = '—';
+    if (nextNameEl) nextNameEl.textContent = '�';
     nextEl.innerHTML = `<div class="empty-state"><p>No loadouts attached to next trip yet.</p></div>`;
   } else {
     if (nextNameEl) nextNameEl.textContent = nextTrip.name;
@@ -564,8 +564,8 @@ function renderDashboard() {
     nextEl.innerHTML = `
       <div style="font-size:12px;color:var(--text-3);margin-bottom:.75rem">
         Total: <strong class="mono">${wg(tw)}</strong>
-        · Base: <strong class="mono">${wg(tw-wornW)}</strong>
-        · Worn: <strong class="mono">${wg(wornW)}</strong>
+        � Base: <strong class="mono">${wg(tw-wornW)}</strong>
+        � Worn: <strong class="mono">${wg(wornW)}</strong>
       </div>
       ${sortedCW.map(([cat, w]) => `
         <div class="cat-bar-row">
@@ -638,7 +638,7 @@ function renderSparkline() {
   const xLabels = completed.map((t, i) => {
     if (completed.length > 6 && i % 2 !== 0) return '';
     const x = pad.l + (i / (weights.length - 1)) * iW;
-    const name = t.name.length > 12 ? t.name.slice(0, 11) + '…' : t.name;
+    const name = t.name.length > 12 ? t.name.slice(0, 11) + '�' : t.name;
     return `<text x="${x.toFixed(1)}" y="${H - 4}" text-anchor="middle" font-size="9" fill="var(--text-3)">${esc(name)}</text>`;
   }).join('');
 
@@ -714,15 +714,15 @@ function renderWishlist() {
         const diff = ownedW && w.weight_g ? ownedW - w.weight_g : null;
         const vsOwned = diff != null
           ? `<span style="color:var(--${diff > 0 ? 'success' : 'danger'})">${diff > 0 ? '↓ saves ' + wg(diff) : '↑ ' + wg(Math.abs(diff)) + ' heavier'}</span>`
-          : '—';
+          : '�';
 
         return `<tr>
           <td><div class="item-name">${esc(w.name)}</div>${w.notes ? `<div class="item-sub">${esc(w.notes)}</div>` : ''}</td>
-          <td><div class="item-name">${esc(w.brand || '—')}</div><div class="item-sub">${esc(w.model || '')}</div></td>
+          <td><div class="item-name">${esc(w.brand || '�')}</div><div class="item-sub">${esc(w.model || '')}</div></td>
           <td class="mono">${wg(w.weight_g)}<br><span style="font-size:10px;color:var(--text-3)">${woz(w.weight_g)}</span></td>
           <td>${usd(w.cost_usd)}</td>
           <td class="mono">${dpg(w.cost_usd, w.weight_g)}</td>
-          <td class="mono">${w.volume_liters ? w.volume_liters + 'L' : '—'}</td>
+          <td class="mono">${w.volume_liters ? w.volume_liters + 'L' : '�'}</td>
           <td style="font-size:12px">${vsOwned}</td>
           <td>
             <div style="display:flex;gap:4px">
@@ -838,7 +838,7 @@ function convertWishToGear(id) {
 // USER SETTINGS & PROFILE
 // ============================================================
 
-// ── Stripe price IDs — replace with your real IDs from Stripe Dashboard ──
+// ── Stripe price IDs � replace with your real IDs from Stripe Dashboard ──
 // Products → your product → Prices → copy the price_live_... ID
 const STRIPE_MONTHLY_URL = 'https://buy.stripe.com/00w5kCeTg0vBcNF0zi0oM00';
 const STRIPE_ANNUAL_URL  = 'https://buy.stripe.com/aFa9AS9yWbaf8xp6XG0oM01';
@@ -872,7 +872,7 @@ function openUpgradeModal(reason) {
         <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:10px;font-weight:600;padding:2px 10px;border-radius:99px;white-space:nowrap">BEST VALUE</div>
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.375rem">Annual</div>
         <div style="font-size:26px;font-weight:600;font-family:var(--font-disp)">$29</div>
-        <div style="font-size:12px;color:var(--text-3);margin-bottom:.875rem">per year · $2.42/mo</div>
+        <div style="font-size:12px;color:var(--text-3);margin-bottom:.875rem">per year � $2.42/mo</div>
         <a href="${STRIPE_ANNUAL_URL}?prefilled_email=${encodeURIComponent(_user?.email||'')}&client_reference_id=${encodeURIComponent(_user?.id||'')}"
           target="_blank" class="btn btn-primary btn-sm" style="display:block;text-align:center">
           Subscribe annually
@@ -886,10 +886,10 @@ function openUpgradeModal(reason) {
       ${[
         'Unlimited gear items, trips & templates',
         'Save meal plans & attach them to trips',
-        'Full analytics — value, usage & trip history',
+        'Full analytics � value, usage & trip history',
         'Custom gear fields',
         'Cloud sync across all devices',
-        'Automatic backup — never lose your list',
+        'Automatic backup � never lose your list',
         'Priority support & early feature access',
       ].map(f => `<div style="font-size:13px;color:var(--text-1);padding:3px 0">v ${f}</div>`).join('')}
     </div>
@@ -919,7 +919,7 @@ function openSettings() {
               <a href="https://billing.stripe.com/p/login/00w5kCeTg0vBcNF0zi0oM00" target="_blank" class="btn btn-sm btn-ghost">Manage subscription</a>
             </div>`
           : `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <span style="font-size:13px;color:var(--text-2)">Free plan — data saved locally on this device only.</span>
+              <span style="font-size:13px;color:var(--text-2)">Free plan � data saved locally on this device only.</span>
               <button class="btn btn-sm btn-primary" onclick="closeModal();openUpgradeModal()">Upgrade for sync </button>
             </div>`
         }
@@ -1055,9 +1055,9 @@ function openFeedbackModal(type) {
   const isBug = type !== 'feature';
   const title = isBug ? 'Report a bug' : 'Request a feature';
   const placeholder = isBug
-    ? 'Describe what happened, what you expected to happen, and the steps to reproduce it…'
-    : 'Describe the feature you\'d like to see and how it would help your workflow…';
-  const subject = isBug ? 'Bug report — Gearnomic' : 'Feature request — Gearnomic';
+    ? 'Describe what happened, what you expected to happen, and the steps to reproduce it�'
+    : 'Describe the feature you\'d like to see and how it would help your workflow�';
+  const subject = isBug ? 'Bug report � Gearnomic' : 'Feature request � Gearnomic';
   const currentTab = document.querySelector('.nav-tab.active')?.dataset?.tab || '';
   const context = isBug
     ? `\n\n---\nPage: ${currentTab || 'unknown'}\nUser: ${_user?.email || 'not signed in'}`
@@ -1076,7 +1076,7 @@ function openFeedbackModal(type) {
         style="height:120px;resize:vertical"></textarea>
     </div>
     <div class="form-row">
-      <label class="form-label">Your email <span style="color:var(--text-3);font-weight:400">(optional — for follow-up)</span></label>
+      <label class="form-label">Your email <span style="color:var(--text-3);font-weight:400">(optional � for follow-up)</span></label>
       <input class="input input-full" id="fb-email" type="email"
         value="${_user?.email || ''}" placeholder="you@example.com">
     </div>
@@ -1111,7 +1111,7 @@ function submitFeedback(type, encodedSubject) {
   window.location.href = mailto;
 
   closeModal();
-  toast('Opening your email client…');
+  toast('Opening your email client�');
 }
 
 function openPrivacyPolicy() {
@@ -1144,8 +1144,8 @@ function openPrivacyPolicy() {
 const CHANGELOG = [
   { id: 'cl005', date: 'April 10, 2026', text: 'Added empty states to all blank sections so the app feels less bare when you\'re just getting started.' },
   { id: 'cl004', date: 'April 10, 2026', text: 'Load sample gear now also loads a demo trip and demo loadout so you can explore the full app right away.' },
-  { id: 'cl003', date: 'April 9, 2026', text: 'Shared trip URLs now include the meal plan — shared gear lists also show carry status (worn/consumable) and a weight breakdown.' },
-  { id: 'cl002', date: 'April 9, 2026', text: 'Added "Copy as markdown" export for trips and loadouts — easy sharing on Reddit, Discord, and forums.' },
+  { id: 'cl003', date: 'April 9, 2026', text: 'Shared trip URLs now include the meal plan � shared gear lists also show carry status (worn/consumable) and a weight breakdown.' },
+  { id: 'cl002', date: 'April 9, 2026', text: 'Added "Copy as markdown" export for trips and loadouts � easy sharing on Reddit, Discord, and forums.' },
   { id: 'cl001', date: 'April 8, 2026', text: 'Item details (brand, model, weight, cost) now shown consistently across gear closet, loadouts, and shared views.' },
 ];
 
@@ -1198,10 +1198,10 @@ function openTerms() {
       You own your data. We don't claim any rights to the gear lists, trips, or other content you create. You can export or delete it at any time.</p>
 
       <p style="margin-bottom:.875rem"><strong>Service availability</strong><br>
-      Gearnomic is provided free of charge. We reserve the right to modify or discontinue the service at any time. Data sync requires an active Supabase backend — offline/local mode always works without it.</p>
+      Gearnomic is provided free of charge. We reserve the right to modify or discontinue the service at any time. Data sync requires an active Supabase backend � offline/local mode always works without it.</p>
 
       <p style="margin-bottom:.875rem"><strong>Acceptable use</strong><br>
-      Don't use Gearnomic to store illegal content or attempt to access other users' data. Shared links are public — don't include sensitive personal information in trip names or notes you intend to share.</p>
+      Don't use Gearnomic to store illegal content or attempt to access other users' data. Shared links are public � don't include sensitive personal information in trip names or notes you intend to share.</p>
 
       <p style="margin-bottom:.875rem"><strong>Contact</strong><br>
       Questions? Email <a href="mailto:hello@gearnomic.com">hello@gearnomic.com</a>.</p>
@@ -1411,7 +1411,7 @@ async function shareItem(id, kind) {
   if (!_user) {
     openModal('Sign in to share', `
       <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
-        Sharing requires a Gearnomic account. Sign in or create a free account — sharing is free for everyone.
+        Sharing requires a Gearnomic account. Sign in or create a free account � sharing is free for everyone.
       </p>
       <div class="form-actions">
         <button class="btn btn-primary" onclick="closeModal();showAuthModal()">Sign in</button>
@@ -1425,7 +1425,7 @@ async function shareItem(id, kind) {
     : state.templates.find(t => t.id === id);
   if (!obj) { toast('Could not find item to share.'); return; }
 
-  toast('Creating share link…');
+  toast('Creating share link�');
 
   try {
     console.log('[share] step 1: starting, kind=', kind, 'id=', id);
@@ -1458,7 +1458,7 @@ async function shareItem(id, kind) {
       console.error('Share insert error:', insertResult.error);
       openModal('Share failed', `
         <p style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">
-          ${isTimeout ? 'The request timed out — Supabase did not respond in time.' : 'Could not create share link.'}
+          ${isTimeout ? 'The request timed out � Supabase did not respond in time.' : 'Could not create share link.'}
         </p>
         <p style="font-size:12px;color:var(--danger);margin-bottom:1rem;font-family:monospace">
           ${isTimeout
@@ -1502,7 +1502,7 @@ async function handleShareHash(token) {
   const overlay = document.createElement('div');
   overlay.id = 'share-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:400;overflow-y:auto;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1rem';
-  overlay.innerHTML = `<div style="font-family:var(--font-disp);font-size:22px;color:var(--text-1)">Loading shared list…</div>`;
+  overlay.innerHTML = `<div style="font-family:var(--font-disp);font-size:22px;color:var(--text-1)">Loading shared list�</div>`;
   document.body.appendChild(overlay);
 
   try {
@@ -1678,11 +1678,11 @@ function renderSharedView(overlay, data) {
               <div style="margin-bottom:.75rem;padding:.75rem;background:var(--surface-2);border-radius:var(--r-md)">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.375rem">
                   <span style="font-weight:500;font-size:13px">Day ${day}</span>
-                  <span style="font-size:12px;color:var(--text-3)">${dayCal ? dayCal.toLocaleString() + ' cal · ' + wg(dayW) : 'No meals'}</span>
+                  <span style="font-size:12px;color:var(--text-3)">${dayCal ? dayCal.toLocaleString() + ' cal � ' + wg(dayW) : 'No meals'}</span>
                 </div>
                 ${dayMeals.length > 0 ? `
                   <div style="font-size:12px;color:var(--text-2);display:flex;flex-direction:column;gap:3px">
-                    ${dayMeals.map(m => `<div>• ${esc(m.name || m.recipe_name || 'Meal')}</div>`).join('')}
+                    ${dayMeals.map(m => `<div>� ${esc(m.name || m.recipe_name || 'Meal')}</div>`).join('')}
                   </div>` : ''}
               </div>`;
           }).join('');
@@ -1706,7 +1706,7 @@ function renderSharedView(overlay, data) {
       </div>
     </div>`;
 
-  // Wire save button via addEventListener — avoids embedding structured data in HTML attributes.
+  // Wire save button via addEventListener � avoids embedding structured data in HTML attributes.
   document.getElementById('save-shared-btn')?.addEventListener('click', () => saveSharedToProfile(data.id));
 }
 
@@ -1749,7 +1749,7 @@ async function _doSaveShared(token) {
     addedIds[srcItem.id] = targetId;
   });
 
-  // Build template from shared trip/template — remap gear IDs
+  // Build template from shared trip/template � remap gear IDs
   const tmpl = {
     id:           uid('tmpl'),
     name:         payload.name || data.title,
@@ -1832,14 +1832,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const hash = window.location.hash;
   // ── Admin impersonation mode ─────────────────────────────
   // Triggered by ?imp=TOKEN in the URL (set by admin.html's doImpersonate()).
-  // The token is the localStorage key holding the payload — URL-carried token
+  // The token is the localStorage key holding the payload � URL-carried token
   // avoids all window.opener cross-origin-policy and sessionStorage tab-scoping issues.
   const _impToken = new URLSearchParams(window.location.search).get('imp');
   if (_impToken) {
     const _storageKey = 'gn_imp_' + _impToken;
     let _impPayload = null;
     try {
-      // Primary: window.opener — direct memory reference, works for file:// and
+      // Primary: window.opener � direct memory reference, works for file:// and
       // hosted URLs without Cross-Origin-Opener-Policy headers.
       if (window.opener && window.opener._pendingImpersonation) {
         _impPayload = window.opener._pendingImpersonation;
@@ -1858,7 +1858,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }
       }
-      if (!_impPayload) console.warn('[imp] no payload found — opener:', window.opener, 'ls key:', _storageKey);
+      if (!_impPayload) console.warn('[imp] no payload found � opener:', window.opener, 'ls key:', _storageKey);
     } catch(e) { console.warn('[imp] error reading payload:', e); }
 
     if (_impPayload) {
@@ -1870,7 +1870,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Service-role Supabase client for writing back to the impersonated user's row.
         // adminKey is only present when the payload came via window.opener (in-memory).
-        // If it arrived via the localStorage fallback it will be absent — prompt for it.
+        // If it arrived via the localStorage fallback it will be absent � prompt for it.
         let adminKey = payload.adminKey;
         if (!adminKey && payload.adminUrl) {
           adminKey = window.prompt('Admin session opened via fallback channel.\nEnter the service-role key to enable saves:') || '';
@@ -1905,7 +1905,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return; // ← skip ALL normal auth flow below
       } catch(e) {
         console.error('Admin impersonation setup failed:', e);
-        alert('Impersonation error — ' + (e.message || e) + '\n\nCheck the browser console for details.');
+        alert('Impersonation error � ' + (e.message || e) + '\n\nCheck the browser console for details.');
       }
     } else {
       alert('Impersonation failed: could not read account data.\n\nMake sure popups are allowed and try again.');
@@ -1913,14 +1913,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // On failure fall through to normal Gearnomic auth flow
   }
 
-  // Check for shared list link FIRST — before loading normal app state
+  // Check for shared list link FIRST � before loading normal app state
   const shareToken = hash.startsWith('#share=') ? hash.slice(7) : null;
 
   // Load local data so the app is ready in the background
   loadState();
   syncUnitBtns();
 
-  // Render gear closet immediately with local data — no waiting for auth
+  // Render gear closet immediately with local data � no waiting for auth
   renderGear();
 
   setupListeners();
@@ -1975,7 +1975,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       hideSavePromptBanner();
       const cloudLoaded = await loadFromCloud(); // also sets _isSupporter
       if (!cloudLoaded) {
-        // Brand new user — no cloud data yet.
+        // Brand new user � no cloud data yet.
         // Reset to a clean empty state (don't keep the demo data).
         state = {
           items:         [],

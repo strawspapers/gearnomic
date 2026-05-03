@@ -1,4 +1,4 @@
-// Gearnomic — Trips and Loadouts tabs: trip list/detail/CRUD, loadout library, and apply-to-trip workflow
+// Gearnomic � Trips and Loadouts tabs: trip list/detail/CRUD, loadout library, and apply-to-trip workflow
 // ============================================================
 // TRIPS
 // ============================================================
@@ -10,7 +10,7 @@ function renderTrips() {
   const past      = state.trips.filter(t => t.status === 'completed' || t.status === 'cancelled');
 
   document.getElementById('trips-summary').textContent =
-    `${state.trips.length} trip${state.trips.length !== 1 ? 's' : ''} Â· ${planning.length} planning Â· ${confirmed.length} confirmed`;
+    `${state.trips.length} trip${state.trips.length !== 1 ? 's' : ''} · ${planning.length} planning · ${confirmed.length} confirmed`;
 
   function section(label, badgeCls, trips) {
     if (!trips.length) return '';
@@ -57,7 +57,7 @@ function tripCard(t) {
         ${badge(STATUS_BADGE[t.status] || 'badge-gray', STATUS_LABEL[t.status] || t.status)}
       </div>
       <div style="font-size:11.5px;color:var(--text-3)">
-        ${t.location ? esc(t.location) + ' Â· ' : ''}${t.start_date || 'No date'}${nights != null ? ` Â· ${nights}n` : ''}
+        ${t.location ? esc(t.location) + ' · ' : ''}${t.start_date || 'No date'}${nights != null ? ` · ${nights}n` : ''}
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
@@ -66,7 +66,7 @@ function tripCard(t) {
         <div style="font-size:11px;color:var(--text-3)">${loadoutCount} loadout${loadoutCount !== 1 ? 's' : ''}</div>
       </div>
       <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();copyGearMarkdown('${t.id}','trip')" title="Copy as markdown">Copy as markdown</button>
-      <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();shareItem('${t.id}','trip')" title="Share trip">Share â†—</button>
+      <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();shareItem('${t.id}','trip')" title="Share trip">Share ↗</button>
     </div>
   </div>`;
 }
@@ -86,7 +86,7 @@ function closeTripDetail() {
   renderTrips();
 }
 
-// Returns map of itemId â†’ [tripName, â€¦] for 'replace' flags on completed trips
+// Returns map of itemId → [tripName, …] for 'replace' flags on completed trips
 function getReplaceFlagTrips() {
   const map = {};
   state.trips.filter(t => t.status === 'completed').forEach(trip => {
@@ -145,10 +145,10 @@ function renderTripDetail(trip) {
     ? `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0">
         <div>
           <span style="font-size:13px;font-weight:500">${esc(mealPlan.name)}</span>
-          <span style="font-size:11px;color:var(--text-3);margin-left:8px">${mealPlan.days} days Â· ${mealPlan.cal_target_per_day?.toLocaleString()} cal/day</span>
+          <span style="font-size:11px;color:var(--text-3);margin-left:8px">${mealPlan.days} days · ${mealPlan.cal_target_per_day?.toLocaleString()} cal/day</span>
         </div>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-xs" onclick="showTab('food');openFoodPlan('${mealPlan.id}')">Open â†—</button>
+          <button class="btn btn-xs" onclick="showTab('food');openFoodPlan('${mealPlan.id}')">Open ↗</button>
           <button class="btn btn-xs btn-danger" onclick="detachMealPlan('${trip.id}')">Remove</button>
         </div>
       </div>`
@@ -174,7 +174,7 @@ function renderTripDetail(trip) {
         <button class="btn btn-sm" onclick="openEditTrip('${trip.id}')">Edit</button>
         <button class="btn btn-sm" onclick="saveAsTemplate('${trip.id}')" title="Save merged gear as a new loadout">Save as loadout</button>
         <button class="btn btn-sm" onclick="copyGearMarkdown('${trip.id}','trip')" title="Copy as markdown for Reddit">Copy as markdown</button>
-        <button class="btn btn-sm" onclick="shareItem('${trip.id}','trip')">Share â†—</button>
+        <button class="btn btn-sm" onclick="shareItem('${trip.id}','trip')">Share ↗</button>
         <button class="btn btn-sm btn-danger" onclick="deleteTrip('${trip.id}')">Delete</button>
         <button class="btn btn-sm btn-ghost" onclick="closeTripDetail()">Close</button>
       </div>
@@ -183,9 +183,9 @@ function renderTripDetail(trip) {
     <!-- INFO ROW -->
     <div class="info-grid" style="margin-bottom:.875rem">
       ${trip.location   ? `<div class="info-pair"><div class="info-key">Location</div><div class="info-val">${esc(trip.location)}</div></div>` : ''}
-      ${trip.start_date ? `<div class="info-pair"><div class="info-key">Dates</div><div class="info-val">${trip.start_date}${trip.end_date?' â†’ '+trip.end_date:''}</div></div>` : ''}
+      ${trip.start_date ? `<div class="info-pair"><div class="info-key">Dates</div><div class="info-val">${trip.start_date}${trip.end_date?' → '+trip.end_date:''}</div></div>` : ''}
       ${nights != null  ? `<div class="info-pair"><div class="info-key">Nights</div><div class="info-val">${nights}</div></div>` : ''}
-      ${trip.miles      ? `<div class="info-pair"><div class="info-key">Distance</div><div class="info-val">${trip.miles} mi${nights?` Â· ${(trip.miles/nights).toFixed(1)} mi/day`:''}</div></div>` : ''}
+      ${trip.miles      ? `<div class="info-pair"><div class="info-key">Distance</div><div class="info-val">${trip.miles} mi${nights?` · ${(trip.miles/nights).toFixed(1)} mi/day`:''}</div></div>` : ''}
       ${trip.route_url  ? `<div class="info-pair"><div class="info-key">Route</div><div class="info-val"><a href="${safeHref(trip.route_url)}" target="_blank" rel="noopener noreferrer" style="color:var(--primary);text-decoration:none">View route ↗</a></div></div>` : ''}
     </div>
     ${trip.notes ? `<p style="font-size:13px;color:var(--text-2);margin-bottom:.875rem;padding:.625rem .75rem;background:var(--surface-2);border-radius:var(--r-md)">${esc(trip.notes)}</p>` : ''}
@@ -197,7 +197,7 @@ function renderTripDetail(trip) {
         ${wornW ? `<span>Worn: <strong class="mono">${wg(wornW)}</strong></span>` : ''}
         ${consW ? `<span>Consumable: <strong class="mono">${wg(consW)}</strong></span>` : ''}
         <span>Total: <strong class="mono">${wg(tw)}</strong></span>
-        ${trip.weight_target_g ? `<span style="color:var(--${over?'danger':'success'})">${over?'â†‘ '+wg(tw-trip.weight_target_g)+' over':'â†“ '+wg(trip.weight_target_g-tw)+' under'} ${wg(trip.weight_target_g)} target</span>` : ''}
+        ${trip.weight_target_g ? `<span style="color:var(--${over?'danger':'success'})">${over?'↑ '+wg(tw-trip.weight_target_g)+' over':'↓ '+wg(trip.weight_target_g-tw)+' under'} ${wg(trip.weight_target_g)} target</span>` : ''}
       </div>
       ${trip.weight_target_g ? prog(tw, trip.weight_target_g) : ''}
     </div>
@@ -207,7 +207,7 @@ function renderTripDetail(trip) {
       <div class="card" style="padding:.875rem">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
           <span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3)">Loadouts</span>
-          <span style="font-size:11px;color:var(--text-3)">${allGearIds.length} items total Â· ${wg(tw)}</span>
+          <span style="font-size:11px;color:var(--text-3)">${allGearIds.length} items total · ${wg(tw)}</span>
         </div>
         ${loadoutRows || '<div style="font-size:13px;color:var(--text-3);padding:8px 0">No loadouts attached yet.</div>'}
         <div style="padding-top:8px;display:flex;gap:6px;flex-wrap:wrap">
@@ -225,7 +225,7 @@ function renderTripDetail(trip) {
     <!-- FULL GEAR LIST (collapsed, open by default for completed trips) -->
     <details style="margin-top:.25rem" ${trip.status === 'completed' ? 'open' : ''}>
       <summary style="font-size:13px;font-weight:500;cursor:pointer;padding:6px 0;user-select:none">
-        Full gear list (${allGearIds.length} items across all loadouts)${trip.status === 'completed' ? ' â€” rate each item below' : ''}
+        Full gear list (${allGearIds.length} items across all loadouts)${trip.status === 'completed' ? ' — rate each item below' : ''}
       </summary>
       <div class="table-wrap" style="margin-top:.5rem">
         <table class="data-table">
@@ -274,7 +274,7 @@ function saveTripNotes(tripId) {
   delete _tripNotesTimeouts[tripId];
 }
 
-// â”€â”€ Item feedback (completed trips) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Item feedback (completed trips) ───────────────────────
 function setItemFeedback(tripId, itemId, flag) {
   const trip = state.trips.find(t => t.id === tripId);
   if (!trip) return;
@@ -334,7 +334,7 @@ function saveItemFeedbackNote(tripId, itemId) {
   delete _feedbackNoteTimers[`${tripId}__${itemId}`];
 }
 
-// â”€â”€ Loadout attach / detach â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Loadout attach / detach ────────────────────────────────
 function openAttachLoadout(tripId) {
   const trip = state.trips.find(t => t.id === tripId);
   if (!trip) return;
@@ -387,7 +387,7 @@ function detachLoadout(tripId, loadoutId) {
   toast('Loadout detached.');
 }
 
-// â”€â”€ Meal plan attach / detach â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Meal plan attach / detach ───────────────────────────────
 function openAttachMealPlan(tripId) {
   const trip = state.trips.find(t => t.id === tripId);
   if (!trip) return;
@@ -407,7 +407,7 @@ function openAttachMealPlan(tripId) {
         <button class="btn ${trip.meal_plan_id === p.id ? 'btn-primary' : ''}"
           style="justify-content:space-between;text-align:left"
           onclick="attachMealPlan('${tripId}','${p.id}')">
-          <span>${esc(p.name)} <span style="font-size:11px;opacity:.7">(${p.days} days Â· ${p.cal_target_per_day?.toLocaleString()} cal/day)</span></span>
+          <span>${esc(p.name)} <span style="font-size:11px;opacity:.7">(${p.days} days · ${p.cal_target_per_day?.toLocaleString()} cal/day)</span></span>
           ${trip.meal_plan_id === p.id ? '<span style="font-size:11px">current</span>' : ''}
         </button>`).join('')}
     </div>
@@ -490,13 +490,13 @@ function catGroupedGearTableFromIds(gearIds, trip) {
         <td style="width:28px"></td>
         <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand||'')}</div></td>
         <td class="mono" style="font-size:12px">
-          ${qty > 1 ? `${wg(totalW)} <span style="color:var(--text-3);font-size:11px">(${qty}Ã—${wg(item.weight_g)})</span>` : wg(item.weight_g)}
+          ${qty > 1 ? `${wg(totalW)} <span style="color:var(--text-3);font-size:11px">(${qty}×${wg(item.weight_g)})</span>` : wg(item.weight_g)}
         </td>
         <td>${ctLabel}</td>
         <td>
           <div style="display:flex;align-items:center;gap:4px">
             <button class="btn btn-xs btn-ghost" style="padding:2px 6px;min-width:22px"
-              onclick="setTripItemQty('${trip.id}','${item.id}',${qty-1})">âˆ’</button>
+              onclick="setTripItemQty('${trip.id}','${item.id}',${qty-1})">−</button>
             <span style="font-size:12px;min-width:16px;text-align:center">${qty}</span>
             <button class="btn btn-xs btn-ghost" style="padding:2px 6px;min-width:22px"
               onclick="setTripItemQty('${trip.id}','${item.id}',${qty+1})">+</button>
@@ -509,7 +509,7 @@ function catGroupedGearTableFromIds(gearIds, trip) {
   }).join('');
 }
 
-// â”€â”€ Trip CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Trip CRUD ──────────────────────────────────────────────
 function tripFormHtml(trip) {
   trip = trip || {};
   return `
@@ -533,7 +533,7 @@ function tripFormHtml(trip) {
           ${tripTypeOptions(trip.trip_type || 'backpacking')}
         </select>
         <div id="tf-new-type-row" style="display:none;margin-top:6px;gap:6px;align-items:center">
-          <input class="input" id="tf-new-type-input" placeholder="e.g. Ski touring, Trail runningâ€¦"
+          <input class="input" id="tf-new-type-input" placeholder="e.g. Ski touring, Trail running…"
             style="flex:1" onkeydown="newTripTypeKeydown(event,'tf')">
           <button type="button" class="btn btn-sm btn-primary" onclick="confirmNewTripType('tf')">Add</button>
           <button type="button" class="btn btn-sm" onclick="cancelNewTripType('tf')">Cancel</button>
@@ -608,7 +608,7 @@ function deleteTrip(id) {
 // ============================================================
 let activeTemplateId = null;
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Helpers ────────────────────────────────────────────────
 function templateWeight(tmpl) {
   return (tmpl.gear_ids || []).reduce((s, id) => {
     const item = state.items.find(i => i.id === id);
@@ -625,10 +625,10 @@ function templateCategorySummary(tmpl) {
   return cats;
 }
 
-// â”€â”€ Render grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Render grid ────────────────────────────────────────────
 function renderTemplates() {
   document.getElementById('templates-summary').textContent =
-    `${state.templates.length} loadout${state.templates.length !== 1 ? 's' : ''} â€” attach one or more to any trip`;
+    `${state.templates.length} loadout${state.templates.length !== 1 ? 's' : ''} — attach one or more to any trip`;
 
   const grid = document.getElementById('templates-grid');
   if (!state.templates.length) {
@@ -666,14 +666,14 @@ function templateCard(tmpl) {
     </div>
     ${sourceTrip ? `<div style="font-size:11px;color:var(--text-3);margin-top:6px;padding-left:4px">Saved from: ${esc(sourceTrip.name)}</div>` : ''}
     <div class="template-card-actions" onclick="event.stopPropagation()">
-      <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Attach to tripâ€¦</button>
+      <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Attach to trip…</button>
       <button class="btn btn-sm" onclick="copyGearMarkdown('${tmpl.id}','template')" title="Copy as markdown for Reddit">Copy as markdown</button>
-      <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template')" title="Share via link">Share â†—</button>
+      <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template')" title="Share via link">Share ↗</button>
     </div>
   </div>`;
 }
 
-// â”€â”€ Detail view â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Detail view ────────────────────────────────────────────
 function openTemplateDetail(id) {
   activeTemplateId = id;
   const tmpl = state.templates.find(t => t.id === id);
@@ -723,9 +723,9 @@ function renderTemplateDetail(tmpl) {
         <span class="card-title" style="font-size:17px;font-family:var(--font-disp)">${esc(tmpl.name)}</span>
       </div>
       <div style="display:flex;gap:6px">
-        <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Attach to tripâ€¦</button>
+        <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Attach to trip…</button>
         <button class="btn btn-sm" onclick="copyGearMarkdown('${tmpl.id}','template')" title="Copy as markdown for Reddit">Copy as markdown</button>
-        <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template')" title="Share via link">Share â†—</button>
+        <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template')" title="Share via link">Share ↗</button>
         <button class="btn btn-sm" onclick="openTemplateForm('${tmpl.id}')">Edit</button>
         <button class="btn btn-sm btn-danger" onclick="deleteTemplate('${tmpl.id}')">Delete</button>
         <button class="btn btn-sm btn-ghost" onclick="closeTemplateDetail()">Close</button>
@@ -745,8 +745,8 @@ function renderTemplateDetail(tmpl) {
 
     <div class="cat-pills" style="margin-bottom:1.25rem">${catPills}</div>
     <p style="font-size:11px;color:var(--text-3);margin-bottom:.75rem">
-      Drag â ¿ to move category Â· Tap â ¿ on mobile Â· Click carry badge to cycle: blank = packed Â·
-      <span style="background:var(--warning-bg);color:var(--warning-text);padding:1px 5px;border-radius:10px;font-weight:500">W</span> worn Â·
+      Drag ⠿ to move category · Tap ⠿ on mobile · Click carry badge to cycle: blank = packed ·
+      <span style="background:var(--warning-bg);color:var(--warning-text);padding:1px 5px;border-radius:10px;font-weight:500">W</span> worn ·
       <span style="background:var(--info-bg);color:var(--info-text);padding:1px 5px;border-radius:10px;font-weight:500">C</span> consumable
     </p>
     <div class="table-wrap">
@@ -760,7 +760,7 @@ function renderTemplateDetail(tmpl) {
     </div>`;
 }
 
-// â”€â”€ Template form (create / edit) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Template form (create / edit) ──────────────────────────
 function openTemplateForm(id) {
   if (!id && !checkLimit('templates')) return;
   const tmpl = id ? state.templates.find(t => t.id === id) : null;
@@ -895,7 +895,7 @@ function deleteTemplate(id) {
   toast('Loadout deleted.');
 }
 
-// â”€â”€ Save trip â†’ template â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Save trip → template ────────────────────────────────────
 function saveAsTemplate(tripId) {
   const trip = state.trips.find(t => t.id === tripId);
   if (!trip) return;
@@ -921,8 +921,8 @@ function saveAsTemplate(tripId) {
   setTimeout(updateTemplateCount, 50);
 }
 
-// â”€â”€ Attach loadout from loadout library to a trip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Called from loadout card / detail "Attach to tripâ€¦" button
+// ── Attach loadout from loadout library to a trip ────────────
+// Called from loadout card / detail "Attach to trip…" button
 function openApplyTemplateFromLib(loadoutId) {
   if (!state.trips.length) {
     toast('No trips yet. Create a trip first.');
@@ -958,7 +958,7 @@ function applyTemplatePicker(tripId, trip) {
         <div class="apply-option-title">${esc(tmpl.name)}</div>
         <span class="mono" style="font-size:12px;color:var(--text-3)">${wg(tw)}</span>
       </div>
-      <div class="apply-option-desc">${esc(tmpl.description || '')} &nbsp;Â· ${(tmpl.gear_ids||[]).length} items</div>
+      <div class="apply-option-desc">${esc(tmpl.description || '')} &nbsp;· ${(tmpl.gear_ids||[]).length} items</div>
     </div>`;
   }).join('');
 
@@ -991,7 +991,7 @@ function applyTemplateTripPicker(templateId, tmpl) {
         <div class="apply-option-title">${esc(trip.name)}</div>
         ${badge(STATUS_BADGE[trip.status]||'badge-gray', STATUS_LABEL[trip.status]||trip.status)}
       </div>
-      <div class="apply-option-desc">${esc(trip.location||'')} Â· ${(trip.loadout_ids||[]).length} loadout${(trip.loadout_ids||[]).length!==1?'s':''} Â· ${wg(tw)}</div>
+      <div class="apply-option-desc">${esc(trip.location||'')} · ${(trip.loadout_ids||[]).length} loadout${(trip.loadout_ids||[]).length!==1?'s':''} · ${wg(tw)}</div>
     </div>`;
   }).join('');
 
