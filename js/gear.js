@@ -1012,13 +1012,6 @@ function showCatalogSubmitPrompt() {
 
 function openCatalogSubmitModal() {
   const item = _pendingCatalogSubmit || {};
-  const disciplines = ['hiking','backpacking','bikepacking','bike touring','fastpacking'];
-  const discBoxes = disciplines.map(d => `
-    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:3px 0">
-      <input type="checkbox" value="${d}" class="cs-disc"
-        style="width:15px;height:15px;accent-color:var(--primary);flex-shrink:0">
-      ${d.charAt(0).toUpperCase() + d.slice(1)}
-    </label>`).join('');
 
   openModal('Submit to catalog', `
     <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
@@ -1027,20 +1020,16 @@ function openCatalogSubmitModal() {
     <div class="form-grid">
       <div class="form-row">
         <label class="form-label">Brand *</label>
-        <input class="input input-full" id="cs-brand" value="${esc(item.brand || '')}" placeholder="e.g. Big Agnes">
+        <input class="input input-full" id="cs-brand" value="${esc(item.brand || '')}" placeholder="e.g. Toaks">
       </div>
       <div class="form-row">
-        <label class="form-label">Name *</label>
-        <input class="input input-full" id="cs-name" value="${esc(item.name || '')}" placeholder="e.g. Copper Spur">
+        <label class="form-label">Item * <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">generic type — e.g. "Pot", "Tent", "Sleeping bag"</span></label>
+        <input class="input input-full" id="cs-name" value="${esc(item.name || '')}" placeholder="e.g. Pot">
       </div>
     </div>
     <div class="form-row">
-      <label class="form-label">Designation <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">model or variant — e.g. "HV UL2", "40L", "1+"</span></label>
-      <input class="input input-full" id="cs-designation" value="${esc(item.model || '')}" placeholder="e.g. HV UL2">
-    </div>
-    <div class="form-row" style="margin-bottom:.875rem">
-      <label class="form-label">Discipline</label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px;margin-top:4px">${discBoxes}</div>
+      <label class="form-label">Model <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">specific variant — e.g. "Titanium 750ml", "HV UL2", "1+"</span></label>
+      <input class="input input-full" id="cs-designation" value="${esc(item.model || '')}" placeholder="e.g. Titanium 750ml Pot">
     </div>
     <div class="form-grid">
       <div class="form-row">
@@ -1053,10 +1042,15 @@ function openCatalogSubmitModal() {
         <input class="input input-full" id="cs-url" value="${esc(item.product_url || '')}" placeholder="https://">
       </div>
     </div>
-    <div class="form-row">
-      <label class="form-label">Description</label>
-      <textarea class="input input-full" id="cs-desc" rows="2" style="height:56px"
-        placeholder="Brief description…"></textarea>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-label">Category</label>
+        <select class="select input-full" id="cs-category">${catOptions(item.category || '')}</select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Misc <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">specs, volume, R-value, etc.</span></label>
+        <input class="input input-full" id="cs-misc" value="${esc(item.misc_stat || '')}" placeholder="e.g. 750ml · titanium · 0.9mm wall">
+      </div>
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="submitToCatalog()">Submit for review</button>
@@ -1074,20 +1068,19 @@ async function submitToCatalog() {
 
   const brand = val('cs-brand');
   const name  = val('cs-name');
-  if (!brand || !name) { alert('Brand and name are required.'); return; }
+  if (!brand || !name) { alert('Brand and item name are required.'); return; }
 
-  const discipline = [...document.querySelectorAll('.cs-disc:checked')].map(el => el.value);
-  const rawWeight  = val('cs-weight');
-  const mfgWeight  = rawWeight ? parseFloat(rawWeight) : null;
+  const rawWeight = val('cs-weight');
+  const mfgWeight = rawWeight ? parseFloat(rawWeight) : null;
 
   const payload = {
     brand,
     name,
     designation:           val('cs-designation') || null,
-    discipline:            discipline.length ? discipline : null,
+    category:              val('cs-category')    || null,
+    misc:                  val('cs-misc')        || null,
     manufacturer_weight_g: rawWeight && !isNaN(mfgWeight) ? mfgWeight : null,
     url:                   val('cs-url') || null,
-    description:           val('cs-desc') || null,
     status:                'pending',
     submitted_by:          _user.id,
   };

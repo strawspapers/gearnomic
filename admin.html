@@ -739,10 +739,6 @@ function renderCatalogQueue() {
     const wt = item.manufacturer_weight_g != null
       ? item.manufacturer_weight_g + ' g'
       : '—';
-    const disc = Array.isArray(item.discipline) && item.discipline.length
-      ? item.discipline.join(', ')
-      : (item.discipline || '—');
-
     if (isEditing) {
       return `
       <div class="catalog-item editing" id="ci-${esc(item.id)}">
@@ -753,16 +749,16 @@ function renderCatalogQueue() {
             <input class="catalog-edit-input" id="ce-brand-${esc(item.id)}" value="${esc(item.brand)}">
           </div>
           <div class="catalog-edit-field">
-            <label>Name</label>
+            <label>Item</label>
             <input class="catalog-edit-input" id="ce-name-${esc(item.id)}" value="${esc(item.name)}">
           </div>
           <div class="catalog-edit-field">
-            <label>Designation</label>
+            <label>Model</label>
             <input class="catalog-edit-input" id="ce-designation-${esc(item.id)}" value="${esc(item.designation || '')}">
           </div>
           <div class="catalog-edit-field">
-            <label>Discipline (comma-separated)</label>
-            <input class="catalog-edit-input" id="ce-discipline-${esc(item.id)}" value="${esc(disc === '—' ? '' : disc)}">
+            <label>Category</label>
+            <input class="catalog-edit-input" id="ce-category-${esc(item.id)}" value="${esc(item.category || '')}">
           </div>
           <div class="catalog-edit-field">
             <label>Manufacturer weight (g)</label>
@@ -774,8 +770,8 @@ function renderCatalogQueue() {
           </div>
         </div>
         <div class="catalog-edit-field">
-          <label>Description</label>
-          <textarea class="catalog-edit-input" id="ce-desc-${esc(item.id)}" rows="3" style="resize:vertical">${esc(item.description || '')}</textarea>
+          <label>Misc</label>
+          <input class="catalog-edit-input" id="ce-misc-${esc(item.id)}" value="${esc(item.misc || '')}">
         </div>
         <div class="actions" style="margin-top:.5rem">
           <button class="btn-success" onclick="saveCatalogEdit('${esc(item.id)}')">Save</button>
@@ -791,15 +787,12 @@ function renderCatalogQueue() {
           <span style="font-size:16px;font-weight:600">${esc(item.brand)}</span>
           <span style="font-size:16px;color:#555;margin-left:6px">${esc(item.name)}</span>
           ${item.designation ? `<span style="font-size:13px;color:#888;margin-left:6px">${esc(item.designation)}</span>` : ''}
+          ${item.category   ? `<span style="background:#f0f0f0;color:#666;font-size:10px;padding:1px 6px;border-radius:99px;margin-left:6px">${esc(item.category)}</span>` : ''}
         </div>
         <span style="font-size:11px;color:#aaa;white-space:nowrap;flex-shrink:0">${fmtDate(item.created_at)}</span>
       </div>
-      ${item.description ? `<div class="catalog-desc">${esc(item.description)}</div>` : ''}
+      ${item.misc ? `<div style="font-size:12px;color:#666;margin-bottom:.75rem">${esc(item.misc)}</div>` : ''}
       <div class="catalog-fields">
-        <div>
-          <div class="catalog-field-key">Discipline</div>
-          <div class="catalog-field-val ${disc === '—' ? 'muted' : ''}">${esc(disc)}</div>
-        </div>
         <div>
           <div class="catalog-field-key">Mfr. weight</div>
           <div class="catalog-field-val ${wt === '—' ? 'muted' : ''}">${esc(wt)}</div>
@@ -839,10 +832,6 @@ async function saveCatalogEdit(id) {
   const item = _catalogItems.find(i => i.id === id);
   if (!item) return;
 
-  const rawDisc = document.getElementById('ce-discipline-' + id)?.value.trim();
-  const discipline = rawDisc
-    ? rawDisc.split(',').map(s => s.trim()).filter(Boolean)
-    : null;
   const rawWeight = document.getElementById('ce-weight-' + id)?.value.trim();
   const manufacturer_weight_g = rawWeight !== '' && rawWeight != null
     ? parseFloat(rawWeight)
@@ -852,10 +841,10 @@ async function saveCatalogEdit(id) {
     brand:                document.getElementById('ce-brand-' + id)?.value.trim() || item.brand,
     name:                 document.getElementById('ce-name-' + id)?.value.trim()  || item.name,
     designation:          document.getElementById('ce-designation-' + id)?.value.trim() || null,
-    discipline,
+    category:             document.getElementById('ce-category-' + id)?.value.trim() || null,
+    misc:                 document.getElementById('ce-misc-' + id)?.value.trim() || null,
     manufacturer_weight_g: isNaN(manufacturer_weight_g) ? null : manufacturer_weight_g,
     url:                  document.getElementById('ce-url-' + id)?.value.trim()  || null,
-    description:          document.getElementById('ce-desc-' + id)?.value.trim() || null,
   };
 
   const { error } = await _sb.from('catalog_items').update(patch).eq('id', id);
