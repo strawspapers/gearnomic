@@ -1065,29 +1065,40 @@ function openCatalogSubmitModal() {
 }
 
 async function submitToCatalog() {
-  if (!_supabaseReady() || !_user) { toast('Sign in to submit to the catalog.'); return; }
+  if (!_supabaseReady() || !_user) {
+    alert('You need to be signed in to submit to the catalog.');
+    return;
+  }
 
-  const brand = document.getElementById('cs-brand')?.value.trim();
-  const name  = document.getElementById('cs-name')?.value.trim();
+  const val = id => document.getElementById(id)?.value?.trim() || '';
+
+  const brand = val('cs-brand');
+  const name  = val('cs-name');
   if (!brand || !name) { alert('Brand and name are required.'); return; }
 
   const discipline = [...document.querySelectorAll('.cs-disc:checked')].map(el => el.value);
-  const rawWeight  = document.getElementById('cs-weight')?.value.trim();
+  const rawWeight  = val('cs-weight');
   const mfgWeight  = rawWeight ? parseFloat(rawWeight) : null;
 
-  const { error } = await _sb.from('catalog_items').insert({
+  const payload = {
     brand,
     name,
-    designation:           document.getElementById('cs-designation')?.value.trim() || null,
+    designation:           val('cs-designation') || null,
     discipline:            discipline.length ? discipline : null,
-    manufacturer_weight_g: isNaN(mfgWeight) ? null : mfgWeight,
-    url:                   document.getElementById('cs-url')?.value.trim() || null,
-    description:           document.getElementById('cs-desc')?.value.trim() || null,
+    manufacturer_weight_g: rawWeight && !isNaN(mfgWeight) ? mfgWeight : null,
+    url:                   val('cs-url') || null,
+    description:           val('cs-desc') || null,
     status:                'pending',
     submitted_by:          _user.id,
-  });
+  };
 
-  if (error) { toast('Submit failed: ' + error.message); return; }
+  try {
+    const { error } = await _sb.from('catalog_items').insert(payload);
+    if (error) { alert('Submit failed: ' + error.message); return; }
+  } catch(e) {
+    alert('Submit failed: ' + (e.message || 'Unknown error'));
+    return;
+  }
 
   closeModal();
   _pendingCatalogSubmit = null;
