@@ -264,31 +264,18 @@
 <script src="js/config.js"></script>
 <script>
 // ── Auth gate — runs before anything else renders ─────────
-// Admin emails are read from ADMIN_EMAILS in js/config.js — keep that file
-// out of public source (gitignore or host-layer override) so the allowlist
-// is not committed to the repo.
 (async () => {
-  const allowList = (typeof ADMIN_EMAILS !== 'undefined' ? ADMIN_EMAILS : [])
-    .map(e => e.toLowerCase()).filter(Boolean);
-
-  if (!allowList.length) {
-    // No allowlist configured — block all access to fail safely.
-    document.body.style.display = '';
-    document.getElementById('auth-checking').innerHTML =
-      '<p style="color:#c00;font-family:sans-serif;padding:2rem">Admin access not configured. Set ADMIN_EMAILS in js/config.js.</p>';
-    return;
-  }
+  const ADMIN_EMAILS = ['straws@gmail.com'];
 
   const anonClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
   const { data: { session } } = await anonClient.auth.getSession();
   const email = session?.user?.email?.toLowerCase() ?? '';
 
-  if (!email || !allowList.includes(email)) {
+  if (!email || !ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email)) {
     window.location.replace('https://gearnomic.com');
     return;
   }
 
-  // Access granted — show page
   document.getElementById('auth-checking').style.display = 'none';
   document.body.style.display = '';
 })();
