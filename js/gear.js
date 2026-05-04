@@ -700,31 +700,32 @@ function itemFormHtml(item) {
   item = item || {};
   const isNew = !item.id;
 
-  // Catalog search section — only shown when adding a new item and Supabase is available
-  const catalogSection = isNew && _supabaseReady() ? `
-    <div id="catalog-search-wrap" style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:.5px solid var(--border-2)">
-      <label class="form-label">Search catalog <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">— find your item and pre-fill the form</span></label>
+  // Name field with inline catalog autocomplete for new items
+  const nameField = isNew && _supabaseReady() ? `
+    <div class="form-row" style="grid-column:1/-1">
+      <label class="form-label">Item *</label>
       <div style="position:relative">
-        <input class="input input-full" id="catalog-search-input"
-          placeholder="e.g. Big Agnes · Copper Spur · sleeping bag…"
-          oninput="catalogSearchDebounced()" autocomplete="off">
-        <div id="catalog-search-results"
+        <input class="input input-full" id="f-name" value="${esc(item.name || '')}"
+          placeholder="e.g. Sleeping bag" required autocomplete="off"
+          oninput="catalogSearchDebounced()"
+          onblur="setTimeout(()=>{const r=document.getElementById('f-name-results');if(r)r.style.display='none'},150)">
+        <div id="f-name-results"
           style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);
                  background:var(--surface);border:1px solid var(--border);
-                 border-radius:var(--r-lg);box-shadow:var(--shadow-md);z-index:50;overflow:hidden;max-height:280px;overflow-y:auto">
-        </div>
+                 border-radius:var(--r-lg);box-shadow:var(--shadow-md);z-index:50;
+                 overflow:hidden;max-height:280px;overflow-y:auto"></div>
       </div>
-      <div id="catalog-selected-badge" style="display:none;margin-top:6px;font-size:12px;color:var(--primary)">
+      <div id="catalog-selected-badge" style="display:none;margin-top:4px;font-size:12px;color:var(--primary)">
         ✓ Pre-filled from catalog.
         <button type="button" style="background:none;border:none;color:var(--text-3);font-size:12px;cursor:pointer;padding:0 0 0 4px;text-decoration:underline;font-family:inherit" onclick="clearCatalogSelection()">Clear</button>
       </div>
-    </div>` : '';
+    </div>` :
+    `<div class="form-row"><label class="form-label">Item *</label><input class="input input-full" id="f-name" value="${esc(item.name || '')}" placeholder="e.g. Sleeping bag" required></div>`;
 
   return `
-    ${catalogSection}
     <input type="hidden" id="f-catalog-id" value="${esc(item.catalog_item_id || '')}">
     <div class="form-grid">
-      <div class="form-row"><label class="form-label">Item *</label><input class="input input-full" id="f-name" value="${esc(item.name || '')}" placeholder="e.g. Sleeping bag" required></div>
+      ${nameField}
       <div class="form-row"><label class="form-label">Brand</label><input class="input input-full" id="f-brand" value="${esc(item.brand || '')}" placeholder="e.g. Big Agnes"></div>
       <div class="form-row"><label class="form-label">Model</label><input class="input input-full" id="f-model" value="${esc(item.model || '')}" placeholder="e.g. Copper Spur HV UL2"></div>
       <div class="form-row">
@@ -907,8 +908,8 @@ function openAddItemModal() {
 
 function catalogSearchDebounced() {
   clearTimeout(_catalogSearchTimer);
-  const q = document.getElementById('catalog-search-input')?.value.trim();
-  const resultsEl = document.getElementById('catalog-search-results');
+  const q = document.getElementById('f-name')?.value.trim();
+  const resultsEl = document.getElementById('f-name-results');
   if (!q || q.length < 2) {
     if (resultsEl) resultsEl.style.display = 'none';
     return;
@@ -918,7 +919,7 @@ function catalogSearchDebounced() {
 
 async function runCatalogSearch(q) {
   if (!_supabaseReady()) return;
-  const resultsEl = document.getElementById('catalog-search-results');
+  const resultsEl = document.getElementById('f-name-results');
   if (!resultsEl) return;
 
   resultsEl.style.display = 'block';
@@ -932,20 +933,9 @@ async function runCatalogSearch(q) {
     .or(`brand.ilike.%${safe}%,name.ilike.%${safe}%,designation.ilike.%${safe}%`)
     .limit(8);
 
-  if (error) { resultsEl.style.display = 'none'; return; }
+  if (error || !data?.length) { resultsEl.style.display = 'none'; return; }
 
-  _catalogResults = data || [];
-
-  if (!_catalogResults.length) {
-    resultsEl.innerHTML = `
-      <div style="padding:10px 12px;font-size:13px;color:var(--text-3)">
-        No matches —
-        <button type="button"
-          style="background:none;border:none;color:var(--primary);font-size:13px;cursor:pointer;padding:0;font-family:inherit"
-          onclick="dismissCatalogSearch()">add manually</button>
-      </div>`;
-    return;
-  }
+  _catalogResults = data;
 
   resultsEl.innerHTML = _catalogResults.map((item, i) => {
     const weight = item.manufacturer_weight_g ? wg(item.manufacturer_weight_g) : '';
@@ -973,11 +963,9 @@ function selectCatalogResult(idx) {
   if (item.manufacturer_weight_g) set('f-weight', gToDisplay(item.manufacturer_weight_g));
   if (item.url) set('f-url', item.url);
 
-  // Hide results, update search input to show what was picked, show badge
-  const resultsEl = document.getElementById('catalog-search-results');
+  // Hide results, show badge
+  const resultsEl = document.getElementById('f-name-results');
   if (resultsEl) resultsEl.style.display = 'none';
-  const inputEl = document.getElementById('catalog-search-input');
-  if (inputEl) inputEl.value = [item.brand, item.name, item.designation].filter(Boolean).join(' ');
   const badge = document.getElementById('catalog-selected-badge');
   if (badge) badge.style.display = 'block';
 
@@ -985,28 +973,20 @@ function selectCatalogResult(idx) {
   const contributeWrap = document.getElementById('f-contribute-wrap');
   if (contributeWrap) contributeWrap.style.display = 'none';
 
-  // Focus name field so user can continue filling the form
-  document.getElementById('f-name')?.focus();
+  // Move focus to brand so the user can continue filling in remaining fields
+  document.getElementById('f-brand')?.focus();
 }
 
 function clearCatalogSelection() {
   _catalogSelectedId = null;
-  const contributeWrap = document.getElementById('f-contribute-wrap');
-  if (contributeWrap) contributeWrap.style.display = '';
-  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-  set('f-catalog-id', '');
-  const inputEl = document.getElementById('catalog-search-input');
-  if (inputEl) { inputEl.value = ''; inputEl.focus(); }
+  document.getElementById('f-catalog-id').value = '';
   const badge = document.getElementById('catalog-selected-badge');
   if (badge) badge.style.display = 'none';
-  const resultsEl = document.getElementById('catalog-search-results');
+  const resultsEl = document.getElementById('f-name-results');
   if (resultsEl) resultsEl.style.display = 'none';
-}
-
-function dismissCatalogSearch() {
-  // User chose to add manually — collapse the search section
-  const wrap = document.getElementById('catalog-search-wrap');
-  if (wrap) wrap.style.display = 'none';
+  const contributeWrap = document.getElementById('f-contribute-wrap');
+  if (contributeWrap) contributeWrap.style.display = '';
+  document.getElementById('f-name')?.focus();
 }
 
 // ── Catalog submission form ──────────────────────────────────
