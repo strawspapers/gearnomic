@@ -759,6 +759,17 @@ function itemFormHtml(item) {
       <div class="form-row"><label class="form-label">Nights (for sleep/shelter)</label><input class="input input-full" id="f-nights" type="number" min="0" value="${item.usage_nights || 0}"></div>
     </div>
     <div class="form-row"><label class="form-label">Notes</label><textarea class="input input-full" id="f-notes" rows="2" style="height:60px">${esc(item.notes || '')}</textarea></div>
+    ${isNew && _supabaseReady() && _user ? `
+    <div id="f-contribute-wrap" style="margin-top:1.25rem;padding-top:1rem;border-top:.5px solid var(--border-2)">
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;user-select:none">
+        <input type="checkbox" id="f-contribute"
+          style="width:15px;height:15px;accent-color:var(--primary);flex-shrink:0;margin-top:2px">
+        <div>
+          <div style="font-size:13px;font-weight:500;color:var(--text-1)">Contribute to the Gearnomic catalog</div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:2px">Help other hikers find this gear by adding it to the shared catalog.</div>
+        </div>
+      </label>
+    </div>` : ''}
     <div class="form-actions">
       <button class="btn btn-primary" onclick="saveItem('${item.id || ''}')">Save item</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -862,12 +873,11 @@ function saveItem(id) {
     setTimeout(showSavePromptBanner, 800);
   }
 
-  // Offer catalog submission for new manually-added items (no catalog match),
-  // once per session, only when signed in (catalog insert requires auth)
+  // If the user checked "Contribute to catalog", open the submission form
   if (isNew && !catalogId && _user && _supabaseReady()
-      && !sessionStorage.getItem('gn_catalog_prompted')) {
+      && document.getElementById('f-contribute')?.checked) {
     _pendingCatalogSubmit = data;
-    setTimeout(showCatalogSubmitPrompt, 700);
+    setTimeout(openCatalogSubmitModal, 80);
   }
 
   // Reset catalog selection state for the next add
@@ -971,12 +981,18 @@ function selectCatalogResult(idx) {
   const badge = document.getElementById('catalog-selected-badge');
   if (badge) badge.style.display = 'block';
 
+  // Hide contribute checkbox — item came from catalog, not manually entered
+  const contributeWrap = document.getElementById('f-contribute-wrap');
+  if (contributeWrap) contributeWrap.style.display = 'none';
+
   // Focus name field so user can continue filling the form
   document.getElementById('f-name')?.focus();
 }
 
 function clearCatalogSelection() {
   _catalogSelectedId = null;
+  const contributeWrap = document.getElementById('f-contribute-wrap');
+  if (contributeWrap) contributeWrap.style.display = '';
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
   set('f-catalog-id', '');
   const inputEl = document.getElementById('catalog-search-input');
@@ -993,22 +1009,7 @@ function dismissCatalogSearch() {
   if (wrap) wrap.style.display = 'none';
 }
 
-// ── Catalog submission prompt & form ────────────────────────
-
-function showCatalogSubmitPrompt() {
-  const item = _pendingCatalogSubmit;
-  if (!item) return;
-  sessionStorage.setItem('gn_catalog_prompted', '1');
-  openModal('Add to catalog?', `
-    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
-      <strong>${esc(item.name)}</strong> isn't in our community catalog yet.
-      Submit it so other hikers can find it — it'll be reviewed before going live.
-    </p>
-    <div class="form-actions">
-      <button class="btn btn-primary" onclick="closeModal();openCatalogSubmitModal()">Submit for review</button>
-      <button class="btn btn-ghost" onclick="closeModal()">Not now</button>
-    </div>`);
-}
+// ── Catalog submission form ──────────────────────────────────
 
 function openCatalogSubmitModal() {
   const item = _pendingCatalogSubmit || {};
