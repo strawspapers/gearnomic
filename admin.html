@@ -169,6 +169,7 @@
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('users')">Users</button>
       <button class="tab-btn" onclick="switchTab('catalog')">Catalog Queue<span id="catalog-badge" class="queue-badge" style="display:none">0</span></button>
+      <button class="tab-btn" onclick="switchTab('database')">Gear Database</button>
       <button class="tab-btn" onclick="switchTab('audit')">Audit log</button>
     </div>
 
@@ -211,6 +212,34 @@
       <div id="catalog-loading" class="loading" style="display:none">Loading queue…</div>
       <div id="catalog-empty" class="loading" style="display:none">No pending submissions.</div>
       <div id="catalog-list"></div>
+    </div>
+
+    <!-- Gear Database tab -->
+    <div class="tab-pane" id="tab-database">
+      <div class="toolbar">
+        <input type="text" id="db-search" placeholder="Search brand or item…" oninput="filterGearDatabase()">
+        <select id="db-filter-status" onchange="filterGearDatabase()">
+          <option value="">All statuses</option>
+          <option value="approved">Approved</option>
+          <option value="pending">Pending</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <select id="db-filter-cat" onchange="filterGearDatabase()">
+          <option value="">All categories</option>
+        </select>
+        <span id="db-meta" style="font-size:13px;color:#888;margin-left:4px"></span>
+        <button class="btn-ghost" onclick="loadGearDatabase()" style="margin-left:auto">Refresh</button>
+      </div>
+      <div id="db-loading" class="loading" style="display:none">Loading…</div>
+      <div id="db-empty"   class="loading" style="display:none">No items match your filter.</div>
+      <div class="card">
+        <table id="db-table" style="display:none">
+          <thead><tr>
+            <th>Brand</th><th>Item</th><th>Model</th><th>Category</th><th>Weight</th><th>Status</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="db-tbody"></tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Audit log tab -->
@@ -324,6 +353,7 @@ function logout() {
   audit('LOGOUT', 'Admin session ended');
   _sb = null; _url = ''; _adminUserId = null;
   _catalogItems = []; _editingCatalogId = null;
+  _dbItems = []; _dbEditing = null;
   document.getElementById('admin-screen').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('btn-logout').style.display   = 'none';
@@ -342,13 +372,16 @@ window.addEventListener('DOMContentLoaded', () => {
 // ── Tabs ──────────────────────────────────────────────────
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    b.classList.toggle('active', ['users','catalog','audit'][i] === name);
+    b.classList.toggle('active', ['users','catalog','database','audit'][i] === name);
   });
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'catalog' && !document.getElementById('catalog-list').children.length
       && document.getElementById('catalog-empty').style.display === 'none') {
     loadCatalogQueue();
+  }
+  if (name === 'database' && !document.getElementById('db-table').style.display.includes('table')) {
+    loadGearDatabase();
   }
 }
 
@@ -675,6 +708,165 @@ function audit(action, detail) {
 function clearAudit() {
   _auditLog = [];
   document.getElementById('audit-log').innerHTML = '<div style="color:#aaa;font-size:13px">Log cleared.</div>';
+}
+
+// ── Gear Database ─────────────────────────────────────────
+
+let _dbItems  = [];      // all catalog_items rows
+let _dbEditing = null;   // id of row being inline-edited
+
+const STATUS_BADGE_DB = { approved: 'badge-supporter', pending: 'badge-unconfirmed', rejected: 'badge-free' };
+
+async function loadGearDatabase() {
+  if (!_sb) return;
+  _dbEditing = null;
+  const loading = document.getElementById('db-loading');
+  const empty   = document.getElementById('db-empty');
+  const table   = document.getElementById('db-table');
+  loading.style.display = 'block';
+  empty.style.display   = 'none';
+  table.style.display   = 'none';
+
+  const { data, error } = await _sb.from('catalog_items')
+    .select('*')
+    .order('brand', { ascending: true });
+
+  loading.style.display = 'none';
+  if (error) { toast('Failed to load database: ' + error.message); return; }
+
+  _dbItems = data || [];
+
+  // Populate category filter
+  const cats = [...new Set(_dbItems.map(i => i.category).filter(Boolean))].sort();
+  const catSel = document.getElementById('db-filter-cat');
+  catSel.innerHTML = '<option value="">All categories</option>' +
+    cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
+  filterGearDatabase();
+}
+
+function filterGearDatabase() {
+  const q      = (document.getElementById('db-search')?.value || '').toLowerCase();
+  const status = document.getElementById('db-filter-status')?.value || '';
+  const cat    = document.getElementById('db-filter-cat')?.value    || '';
+
+  const filtered = _dbItems.filter(i => {
+    if (status && i.status !== status) return false;
+    if (cat    && i.category !== cat)  return false;
+    if (q && !`${i.brand} ${i.name} ${i.designation || ''}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const empty = document.getElementById('db-empty');
+  const table = document.getElementById('db-table');
+  const meta  = document.getElementById('db-meta');
+  meta.textContent = `${filtered.length} of ${_dbItems.length} items`;
+
+  if (!filtered.length) { empty.style.display = 'block'; table.style.display = 'none'; return; }
+  empty.style.display = 'none';
+  table.style.display = '';
+
+  document.getElementById('db-tbody').innerHTML = filtered.map(item => {
+    const wt = item.manufacturer_weight_g != null ? item.manufacturer_weight_g + ' g' : '—';
+    if (_dbEditing === item.id) {
+      return `
+        <tr id="dbr-${esc(item.id)}" style="background:#f7fff9">
+          <td><input class="full" id="dbe-brand-${esc(item.id)}" value="${esc(item.brand)}" style="margin:0;padding:5px 8px;font-size:13px"></td>
+          <td><input class="full" id="dbe-name-${esc(item.id)}"  value="${esc(item.name)}"  style="margin:0;padding:5px 8px;font-size:13px"></td>
+          <td><input class="full" id="dbe-desig-${esc(item.id)}" value="${esc(item.designation || '')}" style="margin:0;padding:5px 8px;font-size:13px"></td>
+          <td><input class="full" id="dbe-cat-${esc(item.id)}"   value="${esc(item.category || '')}"   style="margin:0;padding:5px 8px;font-size:13px"></td>
+          <td><input class="full" id="dbe-wt-${esc(item.id)}"    value="${item.manufacturer_weight_g ?? ''}" type="number" min="0" step="0.1" style="margin:0;padding:5px 8px;font-size:13px;width:90px"></td>
+          <td>
+            <select id="dbe-status-${esc(item.id)}" style="font-size:12px;padding:4px 6px;border:1px solid #ddd;border-radius:6px">
+              <option value="approved" ${item.status==='approved'?'selected':''}>Approved</option>
+              <option value="pending"  ${item.status==='pending' ?'selected':''}>Pending</option>
+              <option value="rejected" ${item.status==='rejected'?'selected':''}>Rejected</option>
+            </select>
+          </td>
+          <td>
+            <div class="actions">
+              <button class="btn-success" onclick="saveDbEdit('${esc(item.id)}')">Save</button>
+              <button class="btn-ghost"   onclick="cancelDbEdit()">Cancel</button>
+            </div>
+          </td>
+        </tr>`;
+    }
+    return `
+      <tr id="dbr-${esc(item.id)}">
+        <td><div class="email">${esc(item.brand)}</div></td>
+        <td>${esc(item.name)}</td>
+        <td><div class="sub">${esc(item.designation || '—')}</div></td>
+        <td><div class="sub">${esc(item.category || '—')}</div></td>
+        <td><div class="sub" style="font-family:monospace">${wt}</div></td>
+        <td><span class="badge ${STATUS_BADGE_DB[item.status] || 'badge-free'}">${item.status}</span></td>
+        <td>
+          <div class="actions">
+            <button class="btn-info"    onclick="startDbEdit('${esc(item.id)}')">Edit</button>
+            <button class="btn-danger"  onclick="deleteDbItem('${esc(item.id)}')">Delete</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function startDbEdit(id) {
+  _dbEditing = id;
+  filterGearDatabase();
+  document.getElementById('dbr-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function cancelDbEdit() {
+  _dbEditing = null;
+  filterGearDatabase();
+}
+
+async function saveDbEdit(id) {
+  const item = _dbItems.find(i => i.id === id);
+  if (!item) return;
+
+  const g = s => document.getElementById(s)?.value?.trim() ?? '';
+  const rawWt = g('dbe-wt-' + id);
+  const mfgWt = rawWt ? parseFloat(rawWt) : null;
+
+  const patch = {
+    brand:                g('dbe-brand-' + id)  || item.brand,
+    name:                 g('dbe-name-' + id)   || item.name,
+    designation:          g('dbe-desig-' + id)  || null,
+    category:             g('dbe-cat-' + id)    || null,
+    manufacturer_weight_g: isNaN(mfgWt) ? null : mfgWt,
+    status:               document.getElementById('dbe-status-' + id)?.value || item.status,
+  };
+
+  // If approving, record the admin as approved_by
+  if (patch.status === 'approved' && item.status !== 'approved') {
+    patch.approved_by = _adminUserId || null;
+  }
+
+  const { error } = await _sb.from('catalog_items').update(patch).eq('id', id);
+  if (error) { toast('Save failed: ' + error.message); return; }
+
+  Object.assign(item, patch);
+  audit('DB_EDIT', `Edited catalog item: ${item.brand} ${item.name} → ${patch.status}`);
+  _dbEditing = null;
+  filterGearDatabase();
+  // Keep badge in sync if status changed
+  loadCatalogBadge();
+  toast('Saved.');
+}
+
+async function deleteDbItem(id) {
+  const item = _dbItems.find(i => i.id === id);
+  if (!item) return;
+  if (!confirm(`Permanently delete "${item.brand} ${item.name}"? This cannot be undone.`)) return;
+
+  const { error } = await _sb.from('catalog_items').delete().eq('id', id);
+  if (error) { toast('Delete failed: ' + error.message); return; }
+
+  audit('DB_DELETE', `Deleted catalog item: ${item.brand} ${item.name}`);
+  _dbItems = _dbItems.filter(i => i.id !== id);
+  loadCatalogBadge();
+  filterGearDatabase();
+  toast(`Deleted: ${item.brand} ${item.name}`);
 }
 
 // ── Catalog Queue ─────────────────────────────────────────

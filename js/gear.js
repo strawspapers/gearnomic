@@ -724,7 +724,7 @@ function itemFormHtml(item) {
     ${catalogSection}
     <input type="hidden" id="f-catalog-id" value="${esc(item.catalog_item_id || '')}">
     <div class="form-grid">
-      <div class="form-row"><label class="form-label">Name *</label><input class="input input-full" id="f-name" value="${esc(item.name || '')}" placeholder="e.g. Sleeping bag" required></div>
+      <div class="form-row"><label class="form-label">Item *</label><input class="input input-full" id="f-name" value="${esc(item.name || '')}" placeholder="e.g. Sleeping bag" required></div>
       <div class="form-row"><label class="form-label">Brand</label><input class="input input-full" id="f-brand" value="${esc(item.brand || '')}" placeholder="e.g. Big Agnes"></div>
       <div class="form-row"><label class="form-label">Model</label><input class="input input-full" id="f-model" value="${esc(item.model || '')}" placeholder="e.g. Copper Spur HV UL2"></div>
       <div class="form-row">
@@ -821,7 +821,7 @@ function clearDemoDataOnFirstItem() {
 
 function saveItem(id) {
   const name = document.getElementById('f-name').value.trim();
-  if (!name) { alert('Name is required.'); return; }
+  if (!name) { alert('Item name is required.'); return; }
 
   const catalogId = document.getElementById('f-catalog-id')?.value.trim() || null;
 
