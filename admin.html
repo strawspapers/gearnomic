@@ -773,12 +773,26 @@ function renderCatalogQueue() {
           <label>Misc</label>
           <input class="catalog-edit-input" id="ce-misc-${esc(item.id)}" value="${esc(item.misc || '')}">
         </div>
+        <div class="catalog-edit-field">
+          <label>Attributes <span style="font-size:11px;font-weight:400;color:#aaa">key → value rows for structured specs</span></label>
+          <div id="ce-attrs-${esc(item.id)}">
+            ${Object.entries(item.attributes || {}).map(([k,v]) => `
+              <div class="ce-attr-row" style="display:flex;gap:6px;margin-bottom:5px">
+                <input class="catalog-edit-input ce-attr-key" style="flex:1" value="${esc(k)}" placeholder="key">
+                <input class="catalog-edit-input ce-attr-val" style="flex:1" value="${esc(String(v))}" placeholder="value">
+                <button type="button" class="btn-ghost" style="padding:4px 10px;border-radius:6px" onclick="this.closest('.ce-attr-row').remove()">×</button>
+              </div>`).join('')}
+          </div>
+          <button type="button" class="btn-ghost" style="font-size:12px;padding:4px 12px;border-radius:6px;margin-top:2px" onclick="ceAddAttr('${esc(item.id)}')">+ Add</button>
+        </div>
         <div class="actions" style="margin-top:.5rem">
           <button class="btn-success" onclick="saveCatalogEdit('${esc(item.id)}')">Save</button>
           <button class="btn-ghost" onclick="cancelCatalogEdit()">Cancel</button>
         </div>
       </div>`;
     }
+
+    const attrEntries = Object.entries(item.attributes || {});
 
     return `
     <div class="catalog-item" id="ci-${esc(item.id)}">
@@ -792,6 +806,10 @@ function renderCatalogQueue() {
         <span style="font-size:11px;color:#aaa;white-space:nowrap;flex-shrink:0">${fmtDate(item.created_at)}</span>
       </div>
       ${item.misc ? `<div style="font-size:12px;color:#666;margin-bottom:.75rem">${esc(item.misc)}</div>` : ''}
+      ${attrEntries.length ? `
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.75rem">
+          ${attrEntries.map(([k,v]) => `<span style="background:#f7f3ed;border-radius:6px;padding:2px 8px;font-size:12px;font-family:monospace"><span style="color:#888">${esc(k)}:</span> ${esc(String(v))}</span>`).join('')}
+        </div>` : ''}
       <div class="catalog-fields">
         <div>
           <div class="catalog-field-key">Mfr. weight</div>
@@ -828,6 +846,20 @@ function cancelCatalogEdit() {
   renderCatalogQueue();
 }
 
+function ceAddAttr(id) {
+  const list = document.getElementById('ce-attrs-' + id);
+  if (!list) return;
+  const row = document.createElement('div');
+  row.className = 'ce-attr-row';
+  row.style.cssText = 'display:flex;gap:6px;margin-bottom:5px';
+  row.innerHTML = `
+    <input class="catalog-edit-input ce-attr-key" style="flex:1" placeholder="key (e.g. r_value)">
+    <input class="catalog-edit-input ce-attr-val" style="flex:1" placeholder="value (e.g. 6.5)">
+    <button type="button" class="btn-ghost" style="padding:4px 10px;border-radius:6px" onclick="this.closest('.ce-attr-row').remove()">×</button>`;
+  list.appendChild(row);
+  row.querySelector('.ce-attr-key').focus();
+}
+
 async function saveCatalogEdit(id) {
   const item = _catalogItems.find(i => i.id === id);
   if (!item) return;
@@ -837,6 +869,13 @@ async function saveCatalogEdit(id) {
     ? parseFloat(rawWeight)
     : null;
 
+  const attrs = {};
+  document.querySelectorAll('#ce-attrs-' + id + ' .ce-attr-row').forEach(row => {
+    const k = (row.querySelector('.ce-attr-key')?.value || '').trim().toLowerCase().replace(/\s+/g, '_');
+    const v = (row.querySelector('.ce-attr-val')?.value || '').trim();
+    if (k && v) attrs[k] = v;
+  });
+
   const patch = {
     brand:                document.getElementById('ce-brand-' + id)?.value.trim() || item.brand,
     name:                 document.getElementById('ce-name-' + id)?.value.trim()  || item.name,
@@ -845,6 +884,7 @@ async function saveCatalogEdit(id) {
     misc:                 document.getElementById('ce-misc-' + id)?.value.trim() || null,
     manufacturer_weight_g: isNaN(manufacturer_weight_g) ? null : manufacturer_weight_g,
     url:                  document.getElementById('ce-url-' + id)?.value.trim()  || null,
+    attributes:           Object.keys(attrs).length ? attrs : null,
   };
 
   const { error } = await _sb.from('catalog_items').update(patch).eq('id', id);
