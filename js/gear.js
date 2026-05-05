@@ -1004,58 +1004,29 @@ function openCatalogSubmitModal() {
         <input class="input input-full" id="cs-brand" value="${esc(item.brand || '')}" placeholder="e.g. Toaks">
       </div>
       <div class="form-row">
-        <label class="form-label">Item * <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">generic type — e.g. "Pot", "Tent", "Sleeping bag"</span></label>
+        <label class="form-label">Item type * <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">e.g. "Pot", "Tent", "Sleeping bag"</span></label>
         <input class="input input-full" id="cs-name" value="${esc(item.name || '')}" placeholder="e.g. Pot">
       </div>
     </div>
     <div class="form-row">
-      <label class="form-label">Model <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">specific variant — e.g. "Titanium 750ml", "HV UL2", "1+"</span></label>
+      <label class="form-label">Model name * <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">e.g. "Titanium 750ml", "Copper Spur HV UL2", "Cat's Meow"</span></label>
       <input class="input input-full" id="cs-designation" value="${esc(item.model || '')}" placeholder="e.g. Titanium 750ml Pot">
     </div>
-    <div class="form-grid">
+    <div class="form-grid" style="margin-top:.125rem">
       <div class="form-row">
-        <label class="form-label">Manufacturer weight (grams)</label>
+        <label class="form-label">Weight (grams) <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">optional</span></label>
         <input class="input input-full" id="cs-weight" type="number" min="0" step="0.1"
           value="${item.weight_g ? Math.round(item.weight_g) : ''}">
       </div>
       <div class="form-row">
-        <label class="form-label">Product URL</label>
-        <input class="input input-full" id="cs-url" value="${esc(item.product_url || '')}" placeholder="https://">
+        <label class="form-label">Misc <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">optional — volume, R-value, etc.</span></label>
+        <input class="input input-full" id="cs-misc" value="${esc(item.misc_stat || '')}" placeholder="e.g. 750ml · titanium">
       </div>
-    </div>
-    <div class="form-grid">
-      <div class="form-row">
-        <label class="form-label">Category</label>
-        <select class="select input-full" id="cs-category">${catOptions(item.category || '')}</select>
-      </div>
-      <div class="form-row">
-        <label class="form-label">Misc <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">specs, volume, R-value, etc.</span></label>
-        <input class="input input-full" id="cs-misc" value="${esc(item.misc_stat || '')}" placeholder="e.g. 750ml · titanium · 0.9mm wall">
-      </div>
-    </div>
-    <div class="form-row">
-      <label class="form-label">Attributes <span style="font-size:10px;font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0">structured specs for analytics — R-value, volume, fill power, temp rating, etc.</span></label>
-      <div id="cs-attrs"></div>
-      <button type="button" class="btn btn-xs btn-ghost" style="margin-top:4px" onclick="csAddAttr()">+ Add attribute</button>
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="submitToCatalog()">Submit for review</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     </div>`);
-}
-
-function csAddAttr() {
-  const list = document.getElementById('cs-attrs');
-  if (!list) return;
-  const row = document.createElement('div');
-  row.className = 'cs-attr-row';
-  row.style.cssText = 'display:flex;gap:6px;margin-bottom:5px';
-  row.innerHTML = `
-    <input class="input cs-attr-key" style="flex:1;min-width:0" placeholder="key (e.g. r_value)">
-    <input class="input cs-attr-val" style="flex:1;min-width:0" placeholder="value (e.g. 6.5)">
-    <button type="button" class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:4px 8px" onclick="this.closest('.cs-attr-row').remove()">×</button>`;
-  list.appendChild(row);
-  row.querySelector('.cs-attr-key').focus();
 }
 
 async function submitToCatalog() {
@@ -1066,29 +1037,23 @@ async function submitToCatalog() {
 
   const val = id => document.getElementById(id)?.value?.trim() || '';
 
-  const brand = val('cs-brand');
-  const name  = val('cs-name');
-  if (!brand || !name) { alert('Brand and item name are required.'); return; }
+  const brand       = val('cs-brand');
+  const name        = val('cs-name');
+  const designation = val('cs-designation');
+  if (!brand || !name || !designation) {
+    alert('Brand, item type, and model name are all required.');
+    return;
+  }
 
   const rawWeight = val('cs-weight');
   const mfgWeight = rawWeight ? parseFloat(rawWeight) : null;
 
-  const attrs = {};
-  document.querySelectorAll('.cs-attr-row').forEach(row => {
-    const k = (row.querySelector('.cs-attr-key')?.value || '').trim().toLowerCase().replace(/\s+/g, '_');
-    const v = (row.querySelector('.cs-attr-val')?.value || '').trim();
-    if (k && v) attrs[k] = v;
-  });
-
   const payload = {
     brand,
     name,
-    designation:           val('cs-designation') || null,
-    category:              val('cs-category')    || null,
-    misc:                  val('cs-misc')        || null,
+    designation,
+    misc:                  val('cs-misc') || null,
     manufacturer_weight_g: rawWeight && !isNaN(mfgWeight) ? mfgWeight : null,
-    url:                   val('cs-url') || null,
-    attributes:            Object.keys(attrs).length ? attrs : null,
     status:                'pending',
     submitted_by:          _user.id,
   };
