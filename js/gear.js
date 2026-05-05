@@ -700,14 +700,22 @@ function itemFormHtml(item) {
   item = item || {};
   const isNew = !item.id;
 
-  // Name field with inline catalog autocomplete for new items
+  // Name field — catalog search is opt-in via a subdued link next to the label
   const nameField = isNew && _supabaseReady() ? `
     <div class="form-row" style="grid-column:1/-1">
-      <label class="form-label">Item *</label>
-      <div style="position:relative">
-        <input class="input input-full" id="f-name" value="${esc(item.name || '')}"
-          placeholder="e.g. Sleeping bag" required autocomplete="off"
-          oninput="catalogSearchDebounced()"
+      <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
+        Item *
+        <button type="button" id="catalog-search-link" onclick="openCatalogSearchPanel()"
+          style="background:none;border:none;font-size:11px;color:var(--text-3);cursor:pointer;
+                 padding:0;font-family:inherit;font-weight:400;text-transform:none;letter-spacing:0;
+                 text-decoration:underline dotted">
+          Find in Gearnomic catalog →
+        </button>
+      </label>
+      <div id="catalog-search-panel" style="display:none;position:relative;margin-bottom:6px">
+        <input class="input input-full" id="catalog-panel-input"
+          placeholder="Search brand or product name…"
+          oninput="catalogSearchDebounced()" autocomplete="off"
           onblur="setTimeout(()=>{const r=document.getElementById('f-name-results');if(r)r.style.display='none'},150)">
         <div id="f-name-results"
           style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);
@@ -715,6 +723,8 @@ function itemFormHtml(item) {
                  border-radius:var(--r-lg);box-shadow:var(--shadow-md);z-index:50;
                  overflow:hidden;max-height:280px;overflow-y:auto"></div>
       </div>
+      <input class="input input-full" id="f-name" value="${esc(item.name || '')}"
+        placeholder="e.g. Sleeping bag" required>
       <div id="catalog-selected-badge" style="display:none;margin-top:4px;font-size:12px;color:var(--primary)">
         ✓ Pre-filled from catalog.
         <button type="button" style="background:none;border:none;color:var(--text-3);font-size:12px;cursor:pointer;padding:0 0 0 4px;text-decoration:underline;font-family:inherit" onclick="clearCatalogSelection()">Clear</button>
@@ -906,9 +916,17 @@ function openAddItemModal() {
   openModal('Add gear item', itemFormHtml());
 }
 
+function openCatalogSearchPanel() {
+  const panel = document.getElementById('catalog-search-panel');
+  const link  = document.getElementById('catalog-search-link');
+  if (panel) panel.style.display = 'block';
+  if (link)  link.style.display  = 'none';
+  setTimeout(() => document.getElementById('catalog-panel-input')?.focus(), 0);
+}
+
 function catalogSearchDebounced() {
   clearTimeout(_catalogSearchTimer);
-  const q = document.getElementById('f-name')?.value.trim();
+  const q = document.getElementById('catalog-panel-input')?.value.trim();
   const resultsEl = document.getElementById('f-name-results');
   if (!q || q.length < 2) {
     if (resultsEl) resultsEl.style.display = 'none';
@@ -963,7 +981,9 @@ function selectCatalogResult(idx) {
   if (item.manufacturer_weight_g) set('f-weight', gToDisplay(item.manufacturer_weight_g));
   if (item.url) set('f-url', item.url);
 
-  // Hide results, show badge
+  // Collapse the search panel entirely and show the badge below the Item field
+  const panel = document.getElementById('catalog-search-panel');
+  if (panel) panel.style.display = 'none';
   const resultsEl = document.getElementById('f-name-results');
   if (resultsEl) resultsEl.style.display = 'none';
   const badge = document.getElementById('catalog-selected-badge');
@@ -982,6 +1002,10 @@ function clearCatalogSelection() {
   document.getElementById('f-catalog-id').value = '';
   const badge = document.getElementById('catalog-selected-badge');
   if (badge) badge.style.display = 'none';
+  const panel = document.getElementById('catalog-search-panel');
+  if (panel) panel.style.display = 'none';
+  const link = document.getElementById('catalog-search-link');
+  if (link) link.style.display = '';
   const resultsEl = document.getElementById('f-name-results');
   if (resultsEl) resultsEl.style.display = 'none';
   const contributeWrap = document.getElementById('f-contribute-wrap');
