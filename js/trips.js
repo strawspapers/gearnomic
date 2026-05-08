@@ -676,6 +676,7 @@ function templateCard(tmpl) {
 // ── Detail view ────────────────────────────────────────────
 function openTemplateDetail(id) {
   activeTemplateId = id;
+  localStorage.setItem('gn_last_loadout_id', id);
   const tmpl = state.templates.find(t => t.id === id);
   if (!tmpl) return;
   renderTemplates();
@@ -687,6 +688,11 @@ function closeTemplateDetail() {
   activeTemplateId = null;
   document.getElementById('template-detail-wrap').style.display = 'none';
   renderTemplates();
+}
+
+function dismissKitNudge(id) {
+  sessionStorage.setItem('gn_kit_nudge_' + id, '1');
+  document.getElementById('kit-nudge')?.remove();
 }
 
 function renderTemplateDetail(tmpl) {
@@ -744,6 +750,25 @@ function renderTemplateDetail(tmpl) {
     </div>
 
     <div class="cat-pills" style="margin-bottom:1.25rem">${catPills}</div>
+
+    ${validIds.length >= 3
+      && !state.trips.some(t => (t.loadout_ids || []).includes(tmpl.id))
+      && !sessionStorage.getItem('gn_kit_nudge_' + tmpl.id) ? `
+    <div id="kit-nudge" style="display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:.625rem 1rem;margin-bottom:1rem;background:var(--accent-l);border-radius:var(--r-lg);
+      font-size:13px;color:var(--text-1)">
+      <span>Looking good.
+        <button type="button" onclick="openTemplateForm('${tmpl.id}')"
+          style="background:none;border:none;color:var(--primary);font-size:13px;cursor:pointer;
+                 padding:0;font-family:inherit;text-decoration:underline">
+          Give this loadout a name and attach it to a trip →
+        </button>
+      </span>
+      <button type="button" onclick="dismissKitNudge('${tmpl.id}')"
+        style="background:none;border:none;color:var(--text-3);font-size:16px;cursor:pointer;
+               padding:0;line-height:1;flex-shrink:0">✕</button>
+    </div>` : ''}
+
     <p style="font-size:11px;color:var(--text-3);margin-bottom:.75rem">
       Drag ⠿ to move category · Tap ⠿ on mobile · Click carry badge to cycle: blank = packed ·
       <span style="background:var(--warning-bg);color:var(--warning-text);padding:1px 5px;border-radius:10px;font-weight:500">W</span> worn ·
@@ -869,6 +894,7 @@ function saveTemplate(id) {
     created_from: existing ? (existing.created_from || null) : (createdFrom || null),
     created_at:   existing ? (existing.created_at || new Date().toISOString().slice(0, 10))
                            : (originalDate || new Date().toISOString().slice(0, 10)),
+    updated_at:   new Date().toISOString().slice(0, 10),
   };
 
   if (existing) {

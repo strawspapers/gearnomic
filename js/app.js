@@ -8,6 +8,7 @@ let _sb = null;           // Supabase client
 let _user = null;         // current auth.User
 let _syncTimer = null;    // debounce handle
 let _isSupporter = false; // paid supporter status
+let _myKitId = null;      // ID of the auto-created "My Kit" loadout for new users this session
 
 
 function _supabaseReady() {
@@ -1827,6 +1828,52 @@ function setupListeners() {
   });
 }
 
+// ── Loadout routing ────────────────────────────────────────
+
+function getOrCreateMyKit() {
+  let kit = state.templates.find(t => t.name === 'My Kit');
+  if (!kit) {
+    kit = {
+      id:          uid('tmpl'),
+      name:        'My Kit',
+      description: '',
+      trip_type:   'backpacking',
+      gear_ids:    [],
+      carry_types: {},
+      created_at:  new Date().toISOString().slice(0, 10),
+      updated_at:  new Date().toISOString().slice(0, 10),
+    };
+    state.templates.push(kit);
+    saveState();
+  }
+  return kit;
+}
+
+function routeOnLoad() {
+  // Don't hijack the share overlay or admin impersonation view
+  if (window.location.hash.startsWith('#share=') || window._adminImpersonateMode) return;
+
+  if (state.items.length === 0) {
+    // New user: create My Kit and open it in the loadout builder
+    const kit = getOrCreateMyKit();
+    _myKitId = kit.id;
+    showTab('templates');
+    setTimeout(() => openTemplateDetail(kit.id), 50);
+  } else if (state.templates.length > 0) {
+    // Returning user: open the most recently modified loadout
+    const lastId = localStorage.getItem('gn_last_loadout_id');
+    const target = (lastId && state.templates.find(t => t.id === lastId))
+      || [...state.templates].sort((a, b) =>
+           (b.updated_at || b.created_at || '').localeCompare(a.updated_at || a.created_at || '')
+         )[0];
+    showTab('templates');
+    setTimeout(() => openTemplateDetail(target.id), 50);
+  } else {
+    // Gear exists but no loadouts yet — show empty loadout builder
+    showTab('templates');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   // ── Admin impersonation mode ───────────────────────────
   const hash = window.location.hash;
@@ -1919,10 +1966,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load local data so the app is ready in the background
   loadState();
   syncUnitBtns();
-
-  // Render gear closet immediately with local data — no waiting for auth
-  renderGear();
-
   setupListeners();
 
   // Footer
@@ -1938,6 +1981,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('auth-anon-actions').style.display = 'flex';
     setSyncIndicator('offline');
     if (shareToken) handleShareHash(shareToken);
+    else routeOnLoad();
     return;
   }
 
@@ -1951,8 +1995,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateHeaderAuth();
   }
 
-  // Show shared list view if applicable (after auth check)
+  // Route to the right surface, or show the shared list if one was linked
   if (shareToken) handleShareHash(shareToken);
+  else routeOnLoad();
 
   // React to sign-in / sign-out / password recovery events
   _sb.auth.onAuthStateChange(async (event, session) => {
@@ -1996,6 +2041,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       refreshAll();
       updateHeaderAuth();
       toast('Signed in!' + (_isSupporter ? ' Your data is syncing.' : ' Upgrade to enable cloud sync.'));
+
+      // Route to the right loadout surface after sign-in
+      if (!window._pendingShareToken) routeOnLoad();
 
       // Resume a pending share save if the user signed in to save a shared list
       if (window._pendingShareToken) {

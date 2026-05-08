@@ -872,10 +872,19 @@ function saveItem(id) {
     if (idx >= 0) state.items[idx] = data;
   } else {
     state.items.push(data);
+    // Auto-add to My Kit during new-user onboarding
+    if (_myKitId) {
+      const kit = state.templates.find(t => t.id === _myKitId);
+      if (kit && !kit.gear_ids.includes(data.id)) {
+        kit.gear_ids.push(data.id);
+        kit.updated_at = new Date().toISOString().slice(0, 10);
+      }
+    }
   }
 
   saveState(); closeModal(); renderGear();
   if (currentTab === 'dashboard') renderDashboard();
+  if (currentTab === 'templates') renderTemplates();
   toast(id ? 'Item updated!' : 'Item added!');
 
   if (isNew && !_user && state.items.length === 1) {
