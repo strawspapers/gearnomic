@@ -796,85 +796,28 @@ function openTemplateForm(id) {
 
 function templateFormHtml(tmpl) {
   tmpl = tmpl || {};
-  const selectedIds = new Set(tmpl.gear_ids || []);
-
-  const byCat = {};
-  state.items.forEach(item => {
-    if (!byCat[item.category]) byCat[item.category] = [];
-    byCat[item.category].push(item);
-  });
-
-  const gearPickerHtml = Object.entries(byCat).map(([cat, items]) => `
-    <div style="margin-bottom:.875rem">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
-        <span style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3)">${esc(cat)}</span>
-        <button type="button" class="btn btn-xs" onclick="toggleCategoryInTemplate('${esc(cat)}')">Toggle all</button>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px">
-        ${items.map(item => `
-          <label style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1px solid var(--border);border-radius:var(--r-md);font-size:12px;cursor:pointer;transition:all .12s;background:${selectedIds.has(item.id) ? 'var(--accent-l)' : 'var(--surface)'}">
-            <input type="checkbox" value="${item.id}" ${selectedIds.has(item.id) ? 'checked' : ''}
-              style="width:13px;height:13px;accent-color:var(--accent)"
-              onchange="this.parentElement.style.background=this.checked?'var(--accent-l)':'var(--surface)';this.parentElement.style.borderColor=this.checked?'var(--accent)':'var(--border)'">
-            <span>${esc(item.name)}</span>
-            <span style="color:var(--text-3);font-size:10px">${wg(item.weight_g)}</span>
-          </label>`).join('')}
-      </div>
-    </div>`).join('');
-
   return `
     <div class="form-grid">
-      <div class="form-row"><label class="form-label">Template name *</label><input class="input input-full" id="tmf-name" value="${esc(tmpl.name || '')}" placeholder="e.g. 3-Season Ultralight Base"></div>
+      <div class="form-row" style="grid-column:1/-1"><label class="form-label">Template name *</label><input class="input input-full" id="tmf-name" value="${esc(tmpl.name || '')}" placeholder="e.g. 3-Season Ultralight Base"></div>
     </div>
     <div class="form-row"><label class="form-label">Description</label>
       <input class="input input-full" id="tmf-desc" value="${esc(tmpl.description || '')}" placeholder="When would you use this kit?"></div>
-
-    <div style="margin-bottom:.5rem">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
-        <label class="form-label" style="margin:0">Gear items</label>
-        <span id="tmf-count" style="font-size:12px;color:var(--text-3)"></span>
-      </div>
-      <div style="max-height:340px;overflow-y:auto;padding:.75rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md)" id="tmf-picker" oninput="updateTemplateCount()">
-        ${gearPickerHtml}
-      </div>
-    </div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="saveTemplate('${tmpl.id || ''}')">Save template</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     </div>
     <input type="hidden" id="tmf-created-from" value="${esc(tmpl.created_from || '')}">
     <input type="hidden" id="tmf-original-date" value="${esc(tmpl.created_at || '')}">
-    <input type="hidden" id="tmf-carry-types" value="${esc(JSON.stringify(tmpl.carry_types || {}))}">`;
+    <input type="hidden" id="tmf-carry-types" value="${esc(JSON.stringify(tmpl.carry_types || {}))}">
+  `;
 }
 
-function toggleCategoryInTemplate(cat) {
-  const boxes = document.querySelectorAll('#tmf-picker input[type=checkbox]');
-  // Find if all items in this cat are checked
-  const catBoxes = [...boxes].filter(cb => {
-    const item = state.items.find(i => i.id === cb.value);
-    return item && item.category === cat;
-  });
-  const allChecked = catBoxes.every(cb => cb.checked);
-  catBoxes.forEach(cb => {
-    cb.checked = !allChecked;
-    cb.parentElement.style.background = cb.checked ? 'var(--accent-l)' : 'var(--surface)';
-    cb.parentElement.style.borderColor = cb.checked ? 'var(--accent)' : 'var(--border)';
-  });
-  updateTemplateCount();
-}
 
-function updateTemplateCount() {
-  const checked = document.querySelectorAll('#tmf-picker input[type=checkbox]:checked').length;
-  const el = document.getElementById('tmf-count');
-  if (el) el.textContent = `${checked} item${checked !== 1 ? 's' : ''} selected`;
-}
+
 
 function saveTemplate(id) {
   const name = document.getElementById('tmf-name').value.trim();
   if (!name) { alert('Loadout name is required.'); return; }
-
-  const gearIds = [...document.querySelectorAll('#tmf-picker input[type=checkbox]:checked')].map(cb => cb.value);
-  if (!gearIds.length) { alert('Please select at least one gear item.'); return; }
 
   // Read preserved fields from hidden inputs
   const createdFrom = (document.getElementById('tmf-created-from')?.value) || null;
@@ -890,7 +833,7 @@ function saveTemplate(id) {
     name,
     description:  document.getElementById('tmf-desc').value.trim(),
     trip_type:    id ? (state.templates.find(t => t.id === id)?.trip_type || null) : null,
-    gear_ids:     gearIds,
+    gear_ids:     existing ? (existing.gear_ids || []) : [],
     // Carry types: keep existing template's map, or inherit from trip when saving-as-template
     carry_types:  existing ? (existing.carry_types || {}) : inheritedCarryTypes,
     created_from: existing ? (existing.created_from || null) : (createdFrom || null),
@@ -909,8 +852,9 @@ function saveTemplate(id) {
   saveState();
   closeModal();
   activeTemplateId = data.id;
-  // Always refresh templates grid so it's ready when user navigates there
   renderTemplates();
+  if (isNew) setTimeout(() => openTemplateDetail(data.id), 50);
+  else if (document.getElementById('template-detail-wrap')?.style.display !== 'none') renderTemplateDetail(data);
   toast(isNew ? 'Loadout created!' : 'Loadout updated!');
 }
 
@@ -946,7 +890,6 @@ function saveAsTemplate(tripId) {
     created_from: trip.id,
   };
   openModal('Save trip as loadout', templateFormHtml(pseudo));
-  setTimeout(updateTemplateCount, 50);
 }
 
 // ── Attach loadout from loadout library to a trip ────────────
