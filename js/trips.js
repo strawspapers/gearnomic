@@ -702,7 +702,6 @@ function renderTemplateDetail(tmpl) {
   const tw = templateWeight(tmpl);
   const cats = templateCategorySummary(tmpl);
   const validIds = (tmpl.gear_ids||[]).filter(id => state.items.find(i => i.id === id));
-  const missing  = (tmpl.gear_ids || []).length - validIds.length;
 
   // Weight breakdown using per-template carry types
   const wornW = validIds.reduce((s, id) => {
@@ -741,7 +740,7 @@ function renderTemplateDetail(tmpl) {
     ${tmpl.description ? `<p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">${esc(tmpl.description)}</p>` : ''}
 
     <div style="display:flex;gap:20px;font-size:13px;margin-bottom:1rem;flex-wrap:wrap">
-      <span>Items: <strong>${validIds.length}</strong>${missing ? ` <span style="color:var(--danger);font-size:11px">(${missing} missing)</span>` : ''}</span>
+      <span>Items: <strong>${validIds.length}</strong></span>
       <span>Base: <strong class="mono">${wg(baseW)}</strong></span>
       ${wornW ? `<span>Worn: <strong class="mono">${wg(wornW)}</strong></span>` : ''}
       ${consW ? `<span>Consumable: <strong class="mono">${wg(consW)}</strong></span>` : ''}

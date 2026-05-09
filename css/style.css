@@ -801,7 +801,7 @@ tr.trip-feedback-row:hover td { background: var(--surface) !important; }
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
-.template-card.active { border-color: var(--accent); border-width: 2px; }
+.template-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .template-card-accent {
   position: absolute;
   top: 0; left: 0;
@@ -1865,10 +1865,9 @@ body.drawer-closet-open .btn-drawer-closet {
 /* Two-button row below loadout table */
 .loadout-drawer-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   margin-top: .75rem;
 }
-.loadout-drawer-row .btn { flex: 1; }
 
 /* Mobile: full-width overlay, higher z-index */
 @media (max-width: 640px) {
