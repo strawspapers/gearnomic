@@ -653,8 +653,7 @@ function templateCard(tmpl) {
   const catCount = Object.keys(cats).length;
   const sourceTrip = tmpl.created_from ? state.trips.find(t => t.id === tmpl.created_from) : null;
 
-  return `<div class="template-card ${activeTemplateId === tmpl.id ? 'active' : ''}" onclick="openTemplateDetail('${tmpl.id}')">
-    <div class="template-card-accent"></div>
+  return `<div class="template-card ${activeTemplateId === tmpl.id ? 'active' : ''}" onclick="openTemplateDetail('${tmpl.id}')">`
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div class="template-card-name">${esc(tmpl.name)}</div>
     </div>
