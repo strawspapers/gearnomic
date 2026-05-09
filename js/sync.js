@@ -96,7 +96,34 @@ async function loadSupporterStatus() {
 // Current schema version. Bump this when adding a new structural migration below.
 // Cheap field-existence guards always run; numbered migrations only run when
 // state._schemaVersion is behind, so old migrations are skipped on every subsequent load.
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
+
+// Parse a legacy combined qty string (e.g. "2 oz", "1 tsp") into {qty, unit}.
+function _parseIngAmt(raw) {
+  if (!raw) return { qty: '', unit: '' };
+  const s = raw.trim();
+  if (/^to taste$/i.test(s))  return { qty: '', unit: 'to taste' };
+  if (/^a?\s*pinch$/i.test(s)) return { qty: '', unit: 'pinch' };
+  const unitMap = {
+    oz: 'oz', ounce: 'oz', ounces: 'oz',
+    g: 'g', gram: 'g', grams: 'g',
+    ml: 'ml',
+    cup: 'cup', cups: 'cup',
+    tbsp: 'tbsp', tablespoon: 'tbsp', tablespoons: 'tbsp',
+    tsp: 'tsp', teaspoon: 'tsp', teaspoons: 'tsp',
+    pkg: 'pkg', pack: 'pkg', packet: 'pkg', packets: 'pkg',
+    pinch: 'pinch',
+  };
+  const m = s.match(/^([¼½¾⅓⅔⅛⅜⅝⅞\d.,\/]+)\s*(.*)$/);
+  if (m) {
+    const num  = m[1].trim();
+    const tail = m[2].trim();
+    const unit = unitMap[tail.toLowerCase()] ?? tail;
+    return { qty: num, unit };
+  }
+  if (/^[¼½¾⅓⅔⅛⅜⅝⅞\d.,\/]+$/.test(s)) return { qty: s, unit: '' };
+  return { qty: '', unit: s, _unparsed: true };
+}
 
 function applyMigrations() {
   // ── Field-existence guards (always run — cheap, idempotent) ─────
@@ -162,6 +189,21 @@ function applyMigrations() {
       delete t.gear_ids;
       delete t.carry_types;
       delete t.gear_overrides;
+    });
+  }
+
+  if (sv < 2) {
+    // Migration 2: ingredient {amount} or combined {qty} → {qty, unit}
+    (state.recipes || []).forEach(recipe => {
+      (recipe.ingredients || []).forEach(ing => {
+        if ('unit' in ing) return; // already migrated
+        const raw = ing.amount ?? ing.qty ?? '';
+        const parsed = _parseIngAmt(String(raw));
+        ing.qty  = parsed.qty;
+        ing.unit = parsed.unit;
+        if (parsed._unparsed) ing._unparsed_qty = raw;
+        delete ing.amount;
+      });
     });
   }
 

@@ -569,7 +569,7 @@ function openShoppingList(planId) {
     if (!recipe || !recipe.ingredients?.length) return;
     if (!recipeIdsSeen.has(meal.recipe_id)) recipeIdsSeen.add(meal.recipe_id);
     recipe.ingredients.forEach(ing => {
-      if (ing.name?.trim()) allIngredients.push({ name: ing.name.trim(), qty: (ing.qty || '').trim() });
+      if (ing.name?.trim()) allIngredients.push({ name: ing.name.trim(), qty: (ing.qty || '').trim(), unit: (ing.unit || '').trim() });
     });
   });
 
@@ -591,27 +591,25 @@ function openShoppingList(planId) {
   // Within each group, sub-group by unit suffix to enable numeric summing
   const groups = {}; // key: lowercaseName → { displayName, qtys: { suffixKey → { num, suffix } | { raw, count } } }
 
-  allIngredients.forEach(({ name, qty }) => {
+  allIngredients.forEach(({ name, qty, unit }) => {
     const key = name.toLowerCase();
     if (!groups[key]) groups[key] = { displayName: name, qtys: {} };
 
-    if (!qty) {
+    const num = parseFloat(qty);
+    if (!isNaN(num) && qty !== '') {
+      // Numeric qty — group by unit so identical units can be summed
+      const sk = '__num__' + (unit || '').toLowerCase();
+      if (!groups[key].qtys[sk]) groups[key].qtys[sk] = { num: 0, suffix: unit, isNum: true };
+      groups[key].qtys[sk].num += num;
+    } else if (unit) {
+      // Non-numeric (e.g. "to taste", "pinch") — group by unit string
+      const rk = '__raw__' + unit.toLowerCase();
+      if (!groups[key].qtys[rk]) groups[key].qtys[rk] = { raw: unit, count: 0 };
+      groups[key].qtys[rk].count++;
+    } else {
+      // No qty, no unit
       const rk = '__raw__';
       groups[key].qtys[rk] = groups[key].qtys[rk] || { raw: '', count: 0 };
-      groups[key].qtys[rk].count++;
-      return;
-    }
-
-    const m = qty.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
-    if (m) {
-      const num    = parseFloat(m[1]);
-      const suffix = m[2].trim();
-      const sk     = '__num__' + suffix.toLowerCase();
-      if (!groups[key].qtys[sk]) groups[key].qtys[sk] = { num: 0, suffix, isNum: true };
-      groups[key].qtys[sk].num += num;
-    } else {
-      const rk = '__raw__' + qty.toLowerCase();
-      if (!groups[key].qtys[rk]) groups[key].qtys[rk] = { raw: qty, count: 0 };
       groups[key].qtys[rk].count++;
     }
   });
@@ -765,7 +763,10 @@ function renderRecipeLibrary() {
         </div>
         ${r.ingredients?.length ? `
           <div style="font-size:11.5px;color:var(--text-2);margin-bottom:.5rem">
-            ${r.ingredients.map(i => `<div style="padding:1px 0">${i.qty ? `<span style="color:var(--text-3)">${esc(i.qty)}</span> ` : ''}${esc(i.name)}</div>`).join('')}
+            ${r.ingredients.map(i => {
+              const qtyPart = [i.qty, i.unit].filter(Boolean).join(' ');
+              return `<div style="padding:1px 0">${qtyPart ? `<span style="color:var(--text-3)">${esc(qtyPart)}</span> ` : ''}${esc(i.name)}</div>`;
+            }).join('')}
           </div>` : ''}
         ${r.prep_notes ? `<div style="font-size:11.5px;color:var(--text-3);font-style:italic;margin-top:.25rem">${esc(r.prep_notes)}</div>` : ''}
       </div>`).join('') + '</div>';
@@ -778,13 +779,26 @@ function openRecipeForm(id) {
 
 function recipeFormHtml(r) {
   r = r || {};
-  const ings = (r.ingredients && r.ingredients.length) ? r.ingredients : [{ qty: '', name: '' }];
-  const ingRowHtml = i => `
-    <div class="rf-ing-row" style="display:flex;gap:6px;margin-bottom:5px">
-      <input class="input rf-ing-qty" style="width:90px;flex-shrink:0" placeholder="qty" value="${esc(i.qty||'')}">
+  const KNOWN_UNITS = ['oz','g','ml','cup','tbsp','tsp','pkg','pinch','to taste'];
+  const ings = (r.ingredients && r.ingredients.length) ? r.ingredients : [{ qty: '', unit: '', name: '' }];
+  const ingRowHtml = i => {
+    const unitVal  = i.unit || '';
+    const isOther  = unitVal && !KNOWN_UNITS.includes(unitVal);
+    const selVal   = isOther ? 'other' : unitVal;
+    const otherVal = isOther ? unitVal : '';
+    return `
+    <div class="rf-ing-row" style="display:flex;gap:6px;margin-bottom:5px;align-items:center">
+      <input class="input rf-ing-qty" type="number" min="0" step="any" style="width:58px;flex-shrink:0" placeholder="#" value="${esc(String(i.qty||''))}">
+      <select class="select rf-ing-unit" style="width:90px;flex-shrink:0" onchange="rfUnitChange(this)">
+        <option value="">—</option>
+        ${KNOWN_UNITS.map(u => `<option value="${u}"${selVal===u?' selected':''}>${u}</option>`).join('')}
+        <option value="other"${isOther?' selected':''}>other…</option>
+      </select>
+      <input class="input rf-ing-unit-other" style="width:62px;flex-shrink:0${isOther?'':';display:none'}" placeholder="unit" value="${esc(otherVal)}">
       <input class="input rf-ing-name" style="flex:1;min-width:0" placeholder="ingredient" value="${esc(i.name||'')}">
       <button type="button" class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:4px 8px" onclick="this.closest('.rf-ing-row').remove()">×</button>
     </div>`;
+  };
   return `
     <div class="form-grid">
       <div class="form-row"><label class="form-label">Recipe name *</label>
@@ -813,15 +827,28 @@ function recipeFormHtml(r) {
     </div>`;
 }
 
+function rfUnitChange(sel) {
+  const other = sel.closest('.rf-ing-row')?.querySelector('.rf-ing-unit-other');
+  if (!other) return;
+  other.style.display = sel.value === 'other' ? '' : 'none';
+  if (sel.value === 'other') other.focus();
+}
+
 function rfAddIngredient() {
   const list = document.getElementById('rf-ingredients-list');
   if (!list) return;
   const row = document.createElement('div');
   row.className = 'rf-ing-row';
-  row.style.cssText = 'display:flex;gap:6px;margin-bottom:5px';
+  row.style.cssText = 'display:flex;gap:6px;margin-bottom:5px;align-items:center';
   row.innerHTML = `
-    <input class="input rf-ing-qty" style="width:90px;flex-shrink:0" placeholder="qty" value="">
-    <input class="input rf-ing-name" style="flex:1;min-width:0" placeholder="ingredient" value="">
+    <input class="input rf-ing-qty" type="number" min="0" step="any" style="width:58px;flex-shrink:0" placeholder="#">
+    <select class="select rf-ing-unit" style="width:90px;flex-shrink:0" onchange="rfUnitChange(this)">
+      <option value="">—</option>
+      ${['oz','g','ml','cup','tbsp','tsp','pkg','pinch','to taste'].map(u=>`<option value="${u}">${u}</option>`).join('')}
+      <option value="other">other…</option>
+    </select>
+    <input class="input rf-ing-unit-other" style="width:62px;flex-shrink:0;display:none" placeholder="unit">
+    <input class="input rf-ing-name" style="flex:1;min-width:0" placeholder="ingredient">
     <button type="button" class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:4px 8px" onclick="this.closest('.rf-ing-row').remove()">×</button>`;
   list.appendChild(row);
   row.querySelector('.rf-ing-qty').focus();
@@ -830,10 +857,17 @@ function rfAddIngredient() {
 function saveRecipe(id) {
   const name = document.getElementById('rf-name').value.trim();
   if (!name) { alert('Recipe name required.'); return; }
-  const ingredients = Array.from(document.querySelectorAll('#rf-ingredients-list .rf-ing-row')).map(row => ({
-    qty:  row.querySelector('.rf-ing-qty').value.trim(),
-    name: row.querySelector('.rf-ing-name').value.trim(),
-  })).filter(i => i.name);
+  const ingredients = Array.from(document.querySelectorAll('#rf-ingredients-list .rf-ing-row')).map(row => {
+    const unitSel = row.querySelector('.rf-ing-unit')?.value || '';
+    const unit = unitSel === 'other'
+      ? (row.querySelector('.rf-ing-unit-other')?.value.trim() || '')
+      : unitSel;
+    return {
+      qty:  row.querySelector('.rf-ing-qty')?.value.trim() || '',
+      unit,
+      name: row.querySelector('.rf-ing-name')?.value.trim() || '',
+    };
+  }).filter(i => i.name);
   const data = {
     id:   id || uid('rec'),
     name,

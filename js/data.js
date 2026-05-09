@@ -150,11 +150,11 @@ const SEED_DATA = {
       source: 'Andrew Skurka',
       prep_notes: 'Add 10–12oz boiling water, stir well, cover 5 min. Crumble Fritos on top.',
       ingredients: [
-        { name: 'Instant refried beans', amount: '2 oz', weight_g: 57, cal: 200 },
-        { name: 'Instant white rice',    amount: '1.5 oz', weight_g: 43, cal: 160 },
-        { name: 'Cheddar cheese',        amount: '1 oz',  weight_g: 28, cal: 110 },
-        { name: 'Fritos corn chips',     amount: '0.5 oz', weight_g: 14, cal: 80 },
-        { name: 'Taco seasoning',        amount: '1 tsp',  weight_g: 3,  cal: 10 },
+        { name: 'Instant refried beans', qty: '2',    unit: 'oz',  weight_g: 57, cal: 200 },
+        { name: 'Instant white rice',    qty: '1.5',  unit: 'oz',  weight_g: 43, cal: 160 },
+        { name: 'Cheddar cheese',        qty: '1',    unit: 'oz',  weight_g: 28, cal: 110 },
+        { name: 'Fritos corn chips',     qty: '0.5',  unit: 'oz',  weight_g: 14, cal: 80  },
+        { name: 'Taco seasoning',        qty: '1',    unit: 'tsp', weight_g: 3,  cal: 10  },
       ]
     },
     {
@@ -167,10 +167,10 @@ const SEED_DATA = {
       source: '',
       prep_notes: 'Combine oats, protein powder and dried fruit in bag at home. Add 1.5C boiling water, stir, wait 3 min.',
       ingredients: [
-        { name: 'Instant rolled oats',   amount: '¾ cup',  weight_g: 60, cal: 230 },
-        { name: 'Protein powder',        amount: '1 scoop', weight_g: 30, cal: 120 },
-        { name: 'Dried fruit/raisins',   amount: '2 tbsp', weight_g: 20, cal: 60 },
-        { name: 'Nut butter packet',     amount: '1 packet', weight_g: 32, cal: 190 },
+        { name: 'Instant rolled oats',  qty: '¾', unit: 'cup',  weight_g: 60, cal: 230 },
+        { name: 'Protein powder',       qty: '1',  unit: 'scoop', weight_g: 30, cal: 120 },
+        { name: 'Dried fruit/raisins',  qty: '2',  unit: 'tbsp', weight_g: 20, cal: 60  },
+        { name: 'Nut butter packet',    qty: '1',  unit: 'pkg',  weight_g: 32, cal: 190 },
       ]
     },
     {
@@ -183,11 +183,11 @@ const SEED_DATA = {
       source: '',
       prep_notes: 'Boil 2C water, add ramen + packet. Stir in mashed potato powder. Top with olive oil and bacon bits.',
       ingredients: [
-        { name: 'Ramen noodle pack',       amount: '1 pack', weight_g: 85, cal: 380 },
-        { name: 'Instant mashed potatoes', amount: '2 tbsp', weight_g: 20, cal: 80 },
-        { name: 'Olive oil',               amount: '1 tbsp', weight_g: 14, cal: 120 },
-        { name: 'Bacon bits',              amount: '2 tbsp', weight_g: 14, cal: 70 },
-        { name: 'Parmesan (packet)',        amount: '1 tbsp', weight_g: 7,  cal: 30 },
+        { name: 'Ramen noodle pack',       qty: '1', unit: 'pkg',  weight_g: 85, cal: 380 },
+        { name: 'Instant mashed potatoes', qty: '2', unit: 'tbsp', weight_g: 20, cal: 80  },
+        { name: 'Olive oil',               qty: '1', unit: 'tbsp', weight_g: 14, cal: 120 },
+        { name: 'Bacon bits',              qty: '2', unit: 'tbsp', weight_g: 14, cal: 70  },
+        { name: 'Parmesan (packet)',        qty: '1', unit: 'tbsp', weight_g: 7,  cal: 30  },
       ]
     },
     {
@@ -200,11 +200,11 @@ const SEED_DATA = {
       source: '',
       prep_notes: 'Mix at home and split into daily bags. Hits 4.5 cal/gram.',
       ingredients: [
-        { name: 'Mixed nuts',    amount: '1 oz',   weight_g: 28, cal: 180 },
-        { name: 'Dark chocolate chips', amount: '1 oz', weight_g: 28, cal: 170 },
-        { name: 'Dried cranberries',    amount: '2 tbsp', weight_g: 20, cal: 60 },
-        { name: 'Sunflower seeds', amount: '1 tbsp', weight_g: 14, cal: 80 },
-        { name: 'Pretzels',       amount: '0.5 oz', weight_g: 14, cal: 55 },
+        { name: 'Mixed nuts',           qty: '1',   unit: 'oz',   weight_g: 28, cal: 180 },
+        { name: 'Dark chocolate chips', qty: '1',   unit: 'oz',   weight_g: 28, cal: 170 },
+        { name: 'Dried cranberries',    qty: '2',   unit: 'tbsp', weight_g: 20, cal: 60  },
+        { name: 'Sunflower seeds',      qty: '1',   unit: 'tbsp', weight_g: 14, cal: 80  },
+        { name: 'Pretzels',             qty: '0.5', unit: 'oz',   weight_g: 14, cal: 55  },
       ]
     },
     {
@@ -217,11 +217,11 @@ const SEED_DATA = {
       source: '',
       prep_notes: 'No cook. Spread tortilla with nut butter, layer toppings, roll and eat.',
       ingredients: [
-        { name: 'Flour tortilla (10")', amount: '1',      weight_g: 50, cal: 190 },
-        { name: 'Almond butter packet', amount: '1 packet', weight_g: 32, cal: 190 },
-        { name: 'Honey packet',         amount: '1',      weight_g: 21, cal: 60 },
-        { name: 'Summer sausage',       amount: '1 oz',   weight_g: 28, cal: 110 },
-        { name: 'Hard cheese',          amount: '0.75 oz', weight_g: 21, cal: 85 },
+        { name: 'Flour tortilla (10")', qty: '1',    unit: '',    weight_g: 50, cal: 190 },
+        { name: 'Almond butter packet', qty: '1',    unit: 'pkg', weight_g: 32, cal: 190 },
+        { name: 'Honey packet',         qty: '1',    unit: '',    weight_g: 21, cal: 60  },
+        { name: 'Summer sausage',       qty: '1',    unit: 'oz',  weight_g: 28, cal: 110 },
+        { name: 'Hard cheese',          qty: '0.75', unit: 'oz',  weight_g: 21, cal: 85  },
       ]
     },
   ],
