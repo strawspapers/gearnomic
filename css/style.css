@@ -716,6 +716,18 @@ tr.trip-feedback-row:hover td { background: var(--surface) !important; }
   white-space: nowrap;
 }
 .toast.show { opacity: 1; }
+.toast.has-action { pointer-events: auto; }
+.toast-undo-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  margin-left: 6px;
+}
 
 /* ── Gear summary bar ── */
 .gear-summary {
@@ -1785,30 +1797,24 @@ body.drawer-db-open #drawer-db { transform: translateX(0); }
   user-select: none;
 }
 .drawer-item:hover { background: rgba(0,0,0,.04); }
-.d-check {
-  width: 15px;
-  height: 15px;
-  border-radius: 3px;
-  border: 1.5px solid #bbb;
+.d-toggle {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid var(--primary);
+  color: var(--primary);
   flex-shrink: 0;
-  background: rgba(255,255,255,.8);
-  position: relative;
-  transition: background .1s, border-color .1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1;
+  transition: border-color .1s, color .1s;
 }
-.drawer-item.checked .d-check {
-  background: var(--primary);
-  border-color: var(--primary);
-}
-.drawer-item.checked .d-check::after {
-  content: '';
-  position: absolute;
-  left: 2px;
-  top: 5px;
-  width: 8px;
-  height: 4px;
-  border-left: 2px solid #fff;
-  border-bottom: 2px solid #fff;
-  transform: rotate(-45deg) translateY(-2px);
+.drawer-item.checked .d-toggle {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 .d-info { flex: 1; min-width: 0; }
 .d-name {

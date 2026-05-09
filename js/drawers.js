@@ -6,6 +6,41 @@ let _drawerOpen   = null;   // 'db' | 'closet' | null
 let _gearDbCache  = null;   // catalog items, fetched once on first open
 let _drawerTmplId = null;   // template being edited in the closet drawer
 
+// ── Undo toast state ──────────────────────────────────────
+
+let _undoItem  = null;   // { item, idx } pending undo
+let _undoTimer = null;
+
+function showUndoToast(name, item, idx) {
+  clearTimeout(_undoTimer);
+  _undoItem = { item, idx };
+
+  const el = document.getElementById('toast');
+  el.innerHTML = `${esc(name)} removed — <button class="toast-undo-btn" onclick="undoRemove()">Undo</button>`;
+  el.classList.add('show', 'has-action');
+
+  _undoTimer = setTimeout(() => {
+    el.classList.remove('show', 'has-action');
+    _undoItem = null;
+  }, 4000);
+}
+
+function undoRemove() {
+  if (!_undoItem) return;
+  clearTimeout(_undoTimer);
+
+  const el = document.getElementById('toast');
+  el.classList.remove('show', 'has-action');
+
+  state.items.splice(_undoItem.idx, 0, _undoItem.item);
+  _undoItem = null;
+
+  saveState();
+  renderGear();
+  renderDrawerDb();
+  toast('Restored to your gear closet.');
+}
+
 // ── Open / close ──────────────────────────────────────────
 
 function openDrawerDb() {
@@ -56,8 +91,8 @@ async function fetchGearDb() {
 }
 
 function renderDrawerDb() {
-  const body   = document.getElementById('drawer-db-body');
-  const foot   = document.getElementById('drawer-db-foot');
+  const body = document.getElementById('drawer-db-body');
+  const foot = document.getElementById('drawer-db-foot');
   if (!body) return;
 
   if (!_sb) {
@@ -98,7 +133,7 @@ function renderDrawerDb() {
       const wt  = item.manufacturer_weight_g != null ? wg(item.manufacturer_weight_g) : '';
       const sub = [item.brand, wt].filter(Boolean).join(' · ');
       return `<div class="drawer-item${checked ? ' checked' : ''}" onclick="toggleDbItem('${item.id}')">
-        <div class="d-check"></div>
+        <span class="d-toggle">${checked ? '−' : '+'}</span>
         <div class="d-info">
           <div class="d-name">${esc(item.designation || item.name)}</div>
           ${sub ? `<div class="d-sub">${esc(sub)}</div>` : ''}
@@ -122,8 +157,12 @@ function toggleDbItem(catalogId) {
 
   const existing = (state.items || []).find(i => i.catalog_item_id === catalogId);
   if (existing) {
-    if (!confirm(`Remove "${existing.name}" from your Gear Closet?`)) return;
-    state.items = state.items.filter(i => i.id !== existing.id);
+    const idx = state.items.indexOf(existing);
+    state.items.splice(idx, 1);
+    saveState();
+    renderGear();
+    renderDrawerDb();
+    showUndoToast(existing.name, existing, idx);
   } else {
     if (!checkLimit('items')) return;
     const cat = state.categories.find(c =>
@@ -143,11 +182,10 @@ function toggleDbItem(catalogId) {
       volume_liters:   null,
       catalog_item_id: catalogId,
     });
+    saveState();
+    renderGear();
+    renderDrawerDb();
   }
-
-  saveState();
-  renderGear();
-  renderDrawerDb();
 }
 
 // ── Gear Closet drawer (loadout builder) ──────────────────
@@ -196,7 +234,7 @@ function renderDrawerCloset() {
       const wt  = item.weight_g ? wg(item.weight_g) : '';
       const sub = [item.brand, wt].filter(Boolean).join(' · ');
       return `<div class="drawer-item${checked ? ' checked' : ''}" onclick="toggleClosetItem('${item.id}')">
-        <div class="d-check"></div>
+        <span class="d-toggle">${checked ? '−' : '+'}</span>
         <div class="d-info">
           <div class="d-name">${esc(item.name)}</div>
           ${sub ? `<div class="d-sub">${esc(sub)}</div>` : ''}
