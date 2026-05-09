@@ -782,6 +782,10 @@ function renderTemplateDetail(tmpl) {
         </tr></thead>
         <tbody>${catGroupedGearTable(validIds, tmpl.id, true, 5)}</tbody>
       </table>
+    </div>
+    <div class="loadout-drawer-row">
+      <button class="btn btn-sm btn-drawer-closet" onclick="openDrawerCloset('${tmpl.id}')">add from closet</button>
+      <button class="btn btn-sm btn-drawer-db" onclick="openDrawerDb()">explore gear database</button>
     </div>`;
 }
 

@@ -262,6 +262,7 @@
         <button class="btn btn-sm" onclick="openColumnChooser()" title="Show or hide columns">Columns ▾</button>
         <button class="btn btn-sm" onclick="openManageCategories()">Manage categories</button>
         <button id="btn-bulk-select" class="btn btn-sm" onclick="toggleBulkMode()" title="Select multiple items to update or delete">Bulk update</button>
+        <button class="btn btn-sm btn-drawer-db" onclick="openDrawerDb()">explore gear database</button>
       </div>
       <!-- Bulk action bar (shown in select mode) -->
       <div id="bulk-bar" style="display:none;align-items:center;gap:8px;padding:.625rem .875rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:.75rem;flex-wrap:wrap">
@@ -538,7 +539,7 @@
       <span>© <span id="footer-year"></span> Gearnomic. All rights reserved.</span>
       <span style="display:flex;align-items:center;gap:12px">
         <span style="color:var(--text-3)">Built for the trail</span>
-<span style="color:var(--text-3);font-size:11px;font-family:monospace" title="Build commit">2026-05-09 0015Z</span>
+<span style="color:var(--text-3);font-size:11px;font-family:monospace" title="Build commit">2026-05-09 0212Z</span>
       </span>
     </div>
   </footer>
@@ -629,6 +630,32 @@
     </div>
   </div>
 
+  <!-- GEAR DATABASE DRAWER (left, shared) -->
+  <div id="drawer-db" class="gn-drawer">
+    <div class="drawer-head">
+      <span class="drawer-title">Gear Database</span>
+      <button class="drawer-x" onclick="closeDrawers()">✕</button>
+    </div>
+    <div class="drawer-search">
+      <input id="drawer-db-search" placeholder="Search catalog…" autocomplete="off" oninput="drawerDbSearch()">
+    </div>
+    <div class="drawer-body" id="drawer-db-body"></div>
+    <div class="drawer-foot" id="drawer-db-foot"></div>
+  </div>
+
+  <!-- GEAR CLOSET DRAWER (right, loadout builder only) -->
+  <div id="drawer-closet" class="gn-drawer">
+    <div class="drawer-head">
+      <span class="drawer-title">Your Gear Closet</span>
+      <button class="drawer-x" onclick="closeDrawers()">✕</button>
+    </div>
+    <div class="drawer-search">
+      <input id="drawer-closet-search" placeholder="Search your closet…" autocomplete="off" oninput="drawerClosetSearch()">
+    </div>
+    <div class="drawer-body" id="drawer-closet-body"></div>
+    <div class="drawer-foot" id="drawer-closet-foot"></div>
+  </div>
+
   <!-- GEAR COMPARISON PANEL -->
   <div id="compare-panel">
     <div class="cmp-header">
@@ -665,5 +692,6 @@
   <script src="js/food.js"></script>
   <script src="js/analytics.js"></script>
   <script src="js/compare.js"></script>
+  <script src="js/drawers.js"></script>
 </body>
 </html>

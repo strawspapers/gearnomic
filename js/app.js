@@ -219,6 +219,7 @@ function showTab(name) {
     _bulkMode = false;
     _bulkSelected.clear();
   }
+  if (typeof closeDrawers === 'function') closeDrawers();
   currentTab = name;
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
