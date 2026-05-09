@@ -1999,6 +1999,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (shareToken) handleShareHash(shareToken);
   else routeOnLoad();
 
+  // Open comparison panel if ?compare= is in the URL
+  if (typeof loadCompareFromUrl === 'function') loadCompareFromUrl();
+
   // React to sign-in / sign-out / password recovery events
   _sb.auth.onAuthStateChange(async (event, session) => {
     if (event === 'PASSWORD_RECOVERY') {

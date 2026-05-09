@@ -339,6 +339,7 @@
             <option value="name">A–Z</option>
           </select>
         </div>
+        <button class="btn btn-sm" onclick="openComparePanel()" title="Compare catalog items side-by-side">⚖ Compare catalog items</button>
       </div>
       <div class="card" style="padding:0;overflow:hidden">
         <div class="table-wrap">
@@ -537,7 +538,7 @@
       <span>© <span id="footer-year"></span> Gearnomic. All rights reserved.</span>
       <span style="display:flex;align-items:center;gap:12px">
         <span style="color:var(--text-3)">Built for the trail</span>
-<span style="color:var(--text-3);font-size:11px;font-family:monospace" title="Build commit">2026-05-08 0624Z</span>
+<span style="color:var(--text-3);font-size:11px;font-family:monospace" title="Build commit">2026-05-09 0015Z</span>
       </span>
     </div>
   </footer>
@@ -628,6 +629,27 @@
     </div>
   </div>
 
+  <!-- GEAR COMPARISON PANEL -->
+  <div id="compare-panel">
+    <div class="cmp-header">
+      <h2>Compare Catalog Items</h2>
+      <span class="cmp-header-count" id="cmp-count">0 / 4</span>
+      <button class="cmp-clear-btn" onclick="clearCompare()">Clear all</button>
+      <button class="cmp-close-btn" onclick="closeComparePanel()">Close ✕</button>
+    </div>
+    <div class="cmp-body">
+      <div class="cmp-search-wrap">
+        <input id="cmp-search" class="cmp-search-input"
+          placeholder="Search catalog to add items… (brand, type, or model)"
+          autocomplete="off"
+          oninput="cmpSearchDebounce()"
+          onblur="setTimeout(()=>{const d=document.getElementById('cmp-search-results');if(d)d.style.display='none'},200)">
+        <div id="cmp-search-results" class="cmp-search-results"></div>
+      </div>
+      <div id="cmp-table-wrap"></div>
+    </div>
+  </div>
+
   <!-- TOAST -->
   <div class="toast" id="toast"></div>
 
@@ -642,5 +664,6 @@
   <script src="js/trips.js"></script>
   <script src="js/food.js"></script>
   <script src="js/analytics.js"></script>
+  <script src="js/compare.js"></script>
 </body>
 </html>
