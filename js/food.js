@@ -733,45 +733,95 @@ function toggleMealSlot(planId, day, mealTime, enabled) {
 }
 
 // ── Recipe library ──────────────────────────────────────────
+// -- Recipe filter state
+let _rfMealFilter  = new Set();
+let _rfPrepFilter  = new Set();
+let _rfSearch      = '';
+
+const PREP_METHODS  = ['hot', 'cold-soak', 'no-cook'];
+const PREP_LABELS   = { hot: 'Hot', 'cold-soak': 'Cold soak', 'no-cook': 'No cook' };
+
+function rfToggleMeal(mt) {
+  if (_rfMealFilter.has(mt)) _rfMealFilter.delete(mt); else _rfMealFilter.add(mt);
+  renderRecipeLibrary();
+}
+function rfTogglePrep(pm) {
+  if (_rfPrepFilter.has(pm)) _rfPrepFilter.delete(pm); else _rfPrepFilter.add(pm);
+  renderRecipeLibrary();
+}
+function rfSetSearch(q) {
+  _rfSearch = q.toLowerCase();
+  renderRecipeLibrary();
+}
+
 function renderRecipeLibrary() {
   const grid = document.getElementById('recipes-grid');
   if (!grid) return;
+
+  // Filter bar
+  const fb = document.getElementById('recipe-filter-bar');
+  if (fb) {
+    const chip = (label, active, onclick) =>
+      ;
+    fb.innerHTML =
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+      '<input class="input" id="rf-search" placeholder="Search recipes…" style="width:180px;height:30px;font-size:12px" value="' + esc(_rfSearch) + '" oninput="rfSetSearch(this.value)">' +
+      '<span style="font-size:11px;color:var(--text-3)">Meal:</span>' +
+      MEAL_TIMES.map(mt => chip(MEAL_LABELS[mt], _rfMealFilter.has(mt), "rfToggleMeal('" + mt + "')")).join('') +
+      '<span style="font-size:11px;color:var(--text-3)">Prep:</span>' +
+      PREP_METHODS.map(pm => chip(PREP_LABELS[pm], _rfPrepFilter.has(pm), "rfTogglePrep('" + pm + "')")).join('') +
+      (_rfMealFilter.size || _rfPrepFilter.size || _rfSearch ? '<button class="btn btn-xs btn-ghost" onclick="_rfMealFilter.clear();_rfPrepFilter.clear();_rfSearch=\'\';renderRecipeLibrary()">Clear</button>' : '') +
+      '</div>';
+  }
+
+  // Apply filters
+  let recipes = state.recipes;
+  if (_rfMealFilter.size) recipes = recipes.filter(r => _rfMealFilter.has(r.meal_time));
+  if (_rfPrepFilter.size) recipes = recipes.filter(r => _rfPrepFilter.has(r.prep_method || ''));
+  if (_rfSearch) recipes = recipes.filter(r => r.name.toLowerCase().includes(_rfSearch));
+
   if (!state.recipes.length) {
-    grid.innerHTML = `<div class="empty-state"><p>No recipes yet.</p><button class="btn btn-primary" onclick="openRecipeForm()">+ Add recipe</button></div>`;
+    grid.innerHTML = '<div class="empty-state"><p>No recipes yet.</p><button class="btn btn-primary" onclick="openRecipeForm()">+ Add recipe</button></div>';
     return;
   }
-  grid.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.875rem">` +
-    state.recipes.map(r => `
-      <div class="card" style="margin-bottom:0">
-        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:.5rem">
-          <div>
-            <div style="font-weight:500;font-size:14px">${esc(r.name)}</div>
-            <div style="font-size:11px;color:var(--text-3);margin-top:2px">
-              ${MEAL_LABELS[r.meal_time]||r.meal_time}
-              ${r.source ? ` · ${esc(r.source)}` : ''}
-            </div>
-          </div>
-          <div style="display:flex;gap:5px">
-            <button class="btn btn-xs" onclick="openRecipeForm('${r.id}')">Edit</button>
-            <button class="btn btn-xs btn-danger" onclick="deleteRecipe('${r.id}')">Remove</button>
-          </div>
-        </div>
-        <div style="display:flex;gap:16px;font-size:12.5px;margin-bottom:.625rem">
-          <span><strong>${r.cal_per_serving}</strong> cal</span>
-          <span><strong>${wg(r.weight_g_per_serving)}</strong></span>
-          <span style="color:var(--text-3)">${(r.cal_per_serving/(r.weight_g_per_serving||1)).toFixed(1)} cal/g</span>
-        </div>
-        ${r.ingredients?.length ? `
-          <div style="font-size:11.5px;color:var(--text-2);margin-bottom:.5rem">
-            ${r.ingredients.map(i => {
-              const qtyPart = [i.qty, i.unit].filter(Boolean).join(' ');
-              return `<div style="padding:1px 0">${qtyPart ? `<span style="color:var(--text-3)">${esc(qtyPart)}</span> ` : ''}${esc(i.name)}</div>`;
-            }).join('')}
-          </div>` : ''}
-        ${r.prep_notes ? `<div style="font-size:11.5px;color:var(--text-3);font-style:italic;margin-top:.25rem">${esc(r.prep_notes)}</div>` : ''}
-      </div>`).join('') + '</div>';
-}
+  if (!recipes.length) {
+    grid.innerHTML = '<div class="empty-state"><p>No recipes match your filters.</p></div>';
+    return;
+  }
 
+  const prepBadge = pm => pm
+    ? '<span style="display:inline-block;padding:1px 6px;border-radius:99px;font-size:10px;font-weight:500;background:var(--surface-2);color:var(--text-2);margin-left:5px">' + esc(PREP_LABELS[pm] || pm) + '</span>'
+    : '';
+
+  grid.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.875rem">' +
+    recipes.map(r =>
+      '<div class="card" style="margin-bottom:0">' +
+      '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:.5rem">' +
+      '<div style="min-width:0">' +
+      '<div style="font-weight:500;font-size:14px">' + esc(r.name) + '</div>' +
+      (r.description ? '<div style="font-size:12px;color:var(--text-2);margin-top:2px;line-height:1.4">' + esc(r.description) + '</div>' : '') +
+      '<div style="font-size:11px;color:var(--text-3);margin-top:3px">' +
+      (MEAL_LABELS[r.meal_time] || r.meal_time) + prepBadge(r.prep_method) +
+      (r.source ? ' · ' + esc(r.source) : '') +
+      '</div></div>' +
+      '<div style="display:flex;gap:5px;flex-shrink:0;margin-left:8px">' +
+      '<button class="btn btn-xs" onclick="openRecipeForm('' + r.id + '')">Edit</button>' +
+      '<button class="btn btn-xs btn-danger" onclick="deleteRecipe('' + r.id + '')">Remove</button>' +
+      '</div></div>' +
+      '<div style="display:flex;gap:16px;font-size:12.5px;margin-bottom:.625rem">' +
+      '<span><strong>' + r.cal_per_serving + '</strong> cal</span>' +
+      '<span><strong>' + wg(r.weight_g_per_serving) + '</strong></span>' +
+      '<span style="color:var(--text-3)">' + (r.cal_per_serving / (r.weight_g_per_serving || 1)).toFixed(1) + ' cal/g</span>' +
+      '</div>' +
+      (r.ingredients && r.ingredients.length ? '<div style="font-size:11.5px;color:var(--text-2);margin-bottom:.5rem">' +
+        r.ingredients.map(i => {
+          const qtyPart = [i.qty, i.unit].filter(Boolean).join(' ');
+          return '<div style="padding:1px 0">' + (qtyPart ? '<span style="color:var(--text-3)">' + esc(qtyPart) + '</span> ' : '') + esc(i.name) + '</div>';
+        }).join('') + '</div>' : '') +
+      (r.prep_notes ? '<div style="font-size:11.5px;color:var(--text-3);font-style:italic;margin-top:.25rem">' + esc(r.prep_notes) + '</div>' : '') +
+      '</div>'
+    ).join('') + '</div>';
+}
 function openRecipeForm(id) {
   const r = id ? state.recipes.find(r => r.id === id) : null;
   openModal(r ? 'Edit recipe' : 'New recipe', recipeFormHtml(r));
@@ -801,11 +851,20 @@ function recipeFormHtml(r) {
   };
   return `
     <div class="form-grid">
-      <div class="form-row"><label class="form-label">Recipe name *</label>
+      <div class="form-row" style="grid-column:1/-1"><label class="form-label">Recipe name *</label>
         <input class="input input-full" id="rf-name" value="${esc(r.name||'')}" placeholder="e.g. Skurka Beans & Rice"></div>
+      <div class="form-row" style="grid-column:1/-1"><label class="form-label">Description <span style="font-weight:400;color:var(--text-3)">(optional)</span></label>
+        <input class="input input-full" id="rf-desc" value="${esc(r.description||'')}" placeholder="Short description of this recipe…"></div>
       <div class="form-row"><label class="form-label">Meal type</label>
         <select class="select input-full" id="rf-meal">
           ${MEAL_TIMES.map(mt => `<option value="${mt}" ${(r.meal_time||'dinner')===mt?'selected':''}>${MEAL_LABELS[mt]}</option>`).join('')}
+        </select></div>
+      <div class="form-row"><label class="form-label">Prep method</label>
+        <select class="select input-full" id="rf-prep-method">
+          <option value="">— unset —</option>
+          <option value="hot" ${(r.prep_method||'')=== 'hot'?'selected':''}>Hot</option>
+          <option value="cold-soak" ${(r.prep_method||'')=== 'cold-soak'?'selected':''}>Cold soak</option>
+          <option value="no-cook" ${(r.prep_method||'')=== 'no-cook'?'selected':''}>No cook</option>
         </select></div>
       <div class="form-row"><label class="form-label">Calories (per serving)</label>
         <input class="input input-full" id="rf-cal" type="number" min="0" value="${r.cal_per_serving||''}"></div>
@@ -872,6 +931,8 @@ function saveRecipe(id) {
     id:   id || uid('rec'),
     name,
     meal_time:            document.getElementById('rf-meal').value,
+    prep_method:          document.getElementById('rf-prep-method')?.value || '',
+    description:          document.getElementById('rf-desc')?.value.trim() || '',
     cal_per_serving:      parseInt(document.getElementById('rf-cal').value) || 0,
     weight_g_per_serving: parseInt(document.getElementById('rf-wg').value) || 0,
     source:               document.getElementById('rf-src').value.trim(),
