@@ -802,6 +802,7 @@ tr.trip-feedback-row:hover td { background: var(--surface) !important; }
   transform: translateY(-1px);
 }
 .template-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.template-card:hover .template-card-accent,
 .template-card.active .template-card-accent { display: none; }
 .template-card-accent {
   position: absolute;
