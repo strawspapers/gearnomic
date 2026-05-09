@@ -1677,21 +1677,7 @@ tr.bulk-selected td { background: var(--accent-l) !important; }
 
 /* ── Dual Drawer System ──────────────────────────────────── */
 
-/* Push transition — shift header + main content */
-#site-header,
-#main-content {
-  transition: transform 0.25s ease;
-}
-body.drawer-db-open #site-header,
-body.drawer-db-open #main-content {
-  transform: translateX(300px);
-}
-body.drawer-closet-open #site-header,
-body.drawer-closet-open #main-content {
-  transform: translateX(-300px);
-}
-
-/* Drawer shell */
+/* Drawer shell — overlay, no push */
 .gn-drawer {
   position: fixed;
   top: 0;
@@ -1704,21 +1690,25 @@ body.drawer-closet-open #main-content {
   overflow: hidden;
 }
 
-#drawer-db {
+/* Gear Closet drawer — left side */
+#drawer-closet {
   left: 0;
-  background: #f2f4ef;
-  border-right: 1px solid #8a9a7a;
+  background: #f9f5ee;
+  border-right: 1px solid #c8b98a;
+  box-shadow: 4px 0 20px rgba(0,0,0,.10);
   transform: translateX(-300px);
 }
-body.drawer-db-open #drawer-db { transform: translateX(0); }
+body.drawer-closet-open #drawer-closet { transform: translateX(0); }
 
-#drawer-closet {
+/* Gear Database drawer — right side */
+#drawer-db {
   right: 0;
-  background: #f9f5ee;
-  border-left: 1px solid #c8b98a;
+  background: #f2f4ef;
+  border-left: 1px solid #8a9a7a;
+  box-shadow: -4px 0 20px rgba(0,0,0,.10);
   transform: translateX(300px);
 }
-body.drawer-closet-open #drawer-closet { transform: translateX(0); }
+body.drawer-db-open #drawer-db { transform: translateX(0); }
 
 /* Drawer header */
 .drawer-head {
@@ -1874,15 +1864,7 @@ body.drawer-closet-open .btn-drawer-closet {
 }
 .loadout-drawer-row .btn { flex: 1; }
 
-/* Mobile: disable push, make drawers full-width overlay */
+/* Mobile: full-width overlay, higher z-index */
 @media (max-width: 640px) {
-  body.drawer-db-open #site-header,
-  body.drawer-db-open #main-content,
-  body.drawer-closet-open #site-header,
-  body.drawer-closet-open #main-content {
-    transform: none;
-  }
   .gn-drawer { width: 85vw; z-index: 200; }
-  #drawer-db  { left: 0; }
-  #drawer-closet { right: 0; }
 }
