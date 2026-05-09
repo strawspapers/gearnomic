@@ -762,7 +762,7 @@ function renderRecipeLibrary() {
   const fb = document.getElementById('recipe-filter-bar');
   if (fb) {
     const chip = (label, active, onclick) =>
-      ;
+      '<span style="display:inline-block;padding:4px 10px;border-radius:99px;font-size:12px;cursor:pointer;border:1px solid;user-select:none;' + (active ? 'background:var(--primary);color:#fff;border-color:var(--primary);' : 'background:var(--surface);color:var(--text-2);border-color:var(--border);') + '" onclick="' + onclick + '">' + label + '</span>';
     fb.innerHTML =
       '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
       '<input class="input" id="rf-search" placeholder="Search recipes…" style="width:180px;height:30px;font-size:12px" value="' + esc(_rfSearch) + '" oninput="rfSetSearch(this.value)">' +
@@ -805,8 +805,8 @@ function renderRecipeLibrary() {
       (r.source ? ' · ' + esc(r.source) : '') +
       '</div></div>' +
       '<div style="display:flex;gap:5px;flex-shrink:0;margin-left:8px">' +
-      '<button class="btn btn-xs" onclick="openRecipeForm('' + r.id + '')">Edit</button>' +
-      '<button class="btn btn-xs btn-danger" onclick="deleteRecipe('' + r.id + '')">Remove</button>' +
+      '<button class="btn btn-xs" onclick="openRecipeForm(\'' + r.id + '\')">Edit</button>' +
+      '<button class="btn btn-xs btn-danger" onclick="deleteRecipe(\'' + r.id + '\')">Remove</button>' +
       '</div></div>' +
       '<div style="display:flex;gap:16px;font-size:12.5px;margin-bottom:.625rem">' +
       '<span><strong>' + r.cal_per_serving + '</strong> cal</span>' +

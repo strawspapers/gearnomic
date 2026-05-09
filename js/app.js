@@ -42,8 +42,8 @@ function wg(g) {
 function woz(g) {
   if (!g) return '';
   if (_units === 'imperial') {
-    const oz = g / 28.3495;
-    return oz >= 16 ? `${(oz / 16).toFixed(2)} lb` : `${oz.toFixed(1)} oz`;
+    // Cross-unit: primary is imperial, secondary shows metric
+    return g >= 1000 ? `${(g/1000).toFixed(2)} kg` : `${Math.round(g)} g`;
   }
   return `${(g / 28.3495).toFixed(1)} oz`;
 }

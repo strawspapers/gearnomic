@@ -251,7 +251,7 @@ function renderAnalytics() {
       },
       options: {
         indexAxis: 'y', plugins: { legend: { display: false } },
-        scales: { x: { ticks: { callback: v => wg(v) }, grid: { color: '#f0ece4' } }, y: { grid: { display: false } } },
+        scales: { x: { ticks: { callback: v => _units === 'imperial' ? (v/453.592).toFixed(2)+' lb' : v>=1000?(v/1000).toFixed(1)+' kg':Math.round(v)+' g' }, grid: { color: '#f0ece4' } }, y: { grid: { display: false } } },
         animation: { duration: 400 }
       }
     });
@@ -278,7 +278,7 @@ function renderAnalytics() {
       return `<div class="target-row">
         <span class="target-label">${esc(cat.name)}</span>
         <div class="target-bar"><div class="target-fill" style="width:${Math.min(100,p)}%;background:${cat.color}"></div></div>
-        <span class="target-vals">${wg(w)} / ${wg(cat.target_g)} <span style="color:var(--${p>=100?'danger':p>=80?'warning':'success'})">${p}%</span></span>
+        <span class="target-vals">${_units==='imperial'?(w/453.592).toFixed(2)+' lb':(w>=1000?(w/1000).toFixed(2)+' kg':Math.round(w)+' g')} / ${_units==='imperial'?(cat.target_g/453.592).toFixed(2)+' lb':(cat.target_g>=1000?(cat.target_g/1000).toFixed(2)+' kg':Math.round(cat.target_g)+' g')} <span style="color:var(--${p>=100?'danger':p>=80?'warning':'success'})">${p}%</span></span>
       </div>`;
     }).join('');
     document.getElementById('analytics-targets').innerHTML = targetsHtml || `<div class="empty-state"><p>No category weight targets set.</p></div>`;
@@ -374,7 +374,7 @@ function renderAnalytics() {
     },
     options: {
       indexAxis: 'y', plugins: { legend: { display: false } },
-      scales: { x: { ticks: { callback: v => wg(v) }, grid: { color: '#f0ece4' } }, y: { grid: { display: false } } },
+      scales: { x: { ticks: { callback: v => _units === 'imperial' ? (v/453.592).toFixed(2)+' lb' : v>=1000?(v/1000).toFixed(1)+' kg':Math.round(v)+' g' }, grid: { color: '#f0ece4' } }, y: { grid: { display: false } } },
       animation: { duration: 400 }
     }
   });
@@ -382,7 +382,8 @@ function renderAnalytics() {
   if (chartCost) chartCost.destroy();
   const ctxC = document.getElementById('chart-cost')?.getContext('2d');
   // Remove any overlay from free-tier render
-  ctxC?.canvas?.parentElement?.querySelectorAll('div').forEach(d => d.remove());
+  ctxC?.canvas?.parentElement?.querySelectorAll('.analytics-lock-overlay').forEach(d => d.remove());
+  if (ctxC?.canvas) ctxC.canvas.style.filter = '';
   if (ctxC) chartCost = new Chart(ctxC, {
     type: 'doughnut',
     data: {
@@ -404,7 +405,7 @@ function renderAnalytics() {
     return `<div class="target-row">
       <span class="target-label" title="${esc(cat.name)}">${esc(cat.name)}</span>
       <div class="target-bar"><div class="target-fill" style="width:${Math.min(100,p)}%;background:${cat.color}"></div></div>
-      <span class="target-vals">${wg(w)} / ${wg(cat.target_g)} <span style="color:var(--${p>=100?'danger':p>=80?'warning':'success'})">${p}%</span></span>
+      <span class="target-vals">${_units==='imperial'?(w/453.592).toFixed(2)+' lb':(w>=1000?(w/1000).toFixed(2)+' kg':Math.round(w)+' g')} / ${_units==='imperial'?(cat.target_g/453.592).toFixed(2)+' lb':(cat.target_g>=1000?(cat.target_g/1000).toFixed(2)+' kg':Math.round(cat.target_g)+' g')} <span style="color:var(--${p>=100?'danger':p>=80?'warning':'success'})">${p}%</span></span>
     </div>`;
   }).join('');
   document.getElementById('analytics-targets').innerHTML = targetsHtml
@@ -437,7 +438,7 @@ function renderAnalytics() {
       },
       options: {
         plugins: { legend: { labels: { font: { size: 11 } } } },
-        scales: { y: { ticks: { callback: v => wg(v) }, grid: { color: '#f0ece4' } }, x: { grid: { display: false } } },
+        scales: { y: { ticks: { callback: v => _units === 'imperial' ? (v/453.592).toFixed(2)+' lb' : v>=1000?(v/1000).toFixed(1)+' kg':Math.round(v)+' g' }, grid: { color: '#f0ece4' } }, x: { grid: { display: false } } },
         animation: { duration: 400 }
       }
     });

@@ -655,7 +655,7 @@ function gearRow(item, cols, inCatSort, inCustomSort, visibleCustomFields) {
           ? cellInput(item.id, 'usage_days', item.usage_days || 0, 'number', 'min="0" style="width:44px"')
           : `<span style="color:var(--text-2)">${item.usage_days || 0}d</span>`}
       </span>
-      ${item.usage_nights != null ? ` · <span onclick="startCellEdit(event,'${item.id}','usage_nights')" title="Click to edit nights">
+      ${item.usage_nights > 0  ? ` · <span onclick="startCellEdit(event,'${item.id}','usage_nights')" title="Click to edit nights">
         ${isEditing(item.id, 'usage_nights')
           ? cellInput(item.id, 'usage_nights', item.usage_nights || 0, 'number', 'min="0" style="width:44px"')
           : `<span style="color:var(--text-3)">${item.usage_nights}n</span>`}

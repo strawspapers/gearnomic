@@ -197,7 +197,7 @@ function renderTripDetail(trip) {
         ${wornW ? `<span>Worn: <strong class="mono">${wg(wornW)}</strong></span>` : ''}
         ${consW ? `<span>Consumable: <strong class="mono">${wg(consW)}</strong></span>` : ''}
         <span>Total: <strong class="mono">${wg(tw)}</strong></span>
-        ${trip.weight_target_g ? `<span style="color:var(--${over?'danger':'success'})">${over?'↑ '+wg(tw-trip.weight_target_g)+' over':'↓ '+wg(trip.weight_target_g-tw)+' under'} ${wg(trip.weight_target_g)} target</span>` : ''}
+        ${trip.weight_target_g && tw > 0 ? `<span style="color:var(--${over?'danger':'success'})">${over?'↑ '+wg(tw-trip.weight_target_g)+' over':'↓ '+wg(trip.weight_target_g-tw)+' under'} ${wg(trip.weight_target_g)} target</span>` : ''}
       </div>
       ${trip.weight_target_g ? prog(tw, trip.weight_target_g) : ''}
     </div>
@@ -659,7 +659,7 @@ function templateCard(tmpl) {
     </div>
     <div class="template-card-desc">${esc(tmpl.description || 'No description')}</div>
     <div class="template-card-stats">
-      <span><strong>${(tmpl.gear_ids || []).length}</strong> items</span>
+      <span><strong>${(tmpl.gear_ids||[]).filter(id=>state.items.find(i=>i.id===id)).length}</strong> items</span>
       <span><strong class="mono">${wg(tw)}</strong> total</span>
       <span><strong>${catCount}</strong> categories</span>
     </div>
