@@ -844,7 +844,7 @@ function saveRecipe(id) {
     prep_notes:           document.getElementById('rf-prep').value.trim(),
     ingredients,
   };
-  if (existing) {
+  if (id) {
     const idx = state.recipes.findIndex(r => r.id === id);
     if (idx >= 0) state.recipes[idx] = data;
   } else {
