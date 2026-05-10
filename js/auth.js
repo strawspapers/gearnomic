@@ -209,10 +209,19 @@ async function submitAuth() {
 
   if (btn) { btn.textContent = isSignup ? 'Creating account…' : 'Signing in…'; btn.disabled = true; }
 
+  // Abort after 15 s so the button never stays frozen indefinitely
+  const _authAbort = new AbortController();
+  const _authTimeout = setTimeout(() => {
+    _authAbort.abort();
+    if (btn) { btn.textContent = isSignup ? 'Create account' : 'Sign in'; btn.disabled = false; }
+    setAuthError('Request timed out. Check your internet connection and try again.');
+  }, 15000);
+
   try {
     const { data, error } = isSignup
       ? await _sb.auth.signUp({ email, password })
       : await _sb.auth.signInWithPassword({ email, password });
+    clearTimeout(_authTimeout);
 
     if (error) throw error;
 
@@ -244,6 +253,7 @@ async function submitAuth() {
     }
     // Auth state change listener handles the rest
   } catch(e) {
+    clearTimeout(_authTimeout);
     if (btn) { btn.textContent = isSignup ? 'Create account' : 'Sign in'; btn.disabled = false; }
     const msg = e.message || '';
     if (msg.toLowerCase().includes('networkerror') || msg.toLowerCase().includes('fetch')) {
