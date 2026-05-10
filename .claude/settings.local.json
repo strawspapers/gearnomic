@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git rm *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(node \"c:/Users/brian/Documents/GitHub/gearnomic/_boot_fix.js\")"
     ]
   }
 }

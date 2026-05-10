@@ -1876,14 +1876,6 @@ function routeOnLoad() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Safety net: never leave the loading spinner indefinitely
-  const _authTimeout = setTimeout(() => {
-    const el = document.getElementById('auth-loading-indicator');
-    if (el) el.style.display = 'none';
-    const anon = document.getElementById('auth-anon-actions');
-    if (anon && anon.style.display === 'none') anon.style.display = 'flex';
-  }, 10000);
-
   // ── Admin impersonation mode ───────────────────────────
   const hash = window.location.hash;
   // ── Admin impersonation mode ─────────────────────────────
@@ -1984,35 +1976,40 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('dash-date').textContent =
     new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
-  // ── Supabase auth ─────────────────────────────────────────
-  if (!_supabaseReady()) {
-    document.getElementById('auth-loading-indicator').style.display = 'none';
-    document.getElementById('auth-anon-actions').style.display = 'flex';
-    setSyncIndicator('offline');
-    if (shareToken) handleShareHash(shareToken);
-    else routeOnLoad();
-    return;
-  }
+  // ── Show app immediately using local state — auth in background ─────
+  // Hide the loading indicator and show the app right away.
+  // Auth resolves asynchronously; onAuthStateChange handles signed-in updates.
+  const _authLoadingEl  = document.getElementById('auth-loading-indicator');
+  const _authAnonEl     = document.getElementById('auth-anon-actions');
+  if (_authLoadingEl) _authLoadingEl.style.display = 'none';
+  if (_authAnonEl)    _authAnonEl.style.display = 'flex';
 
-  let session = null;
-  try {
-    const res = await _sb.auth.getSession();
-    session = res?.data?.session ?? null;
-  } catch(e) { console.warn('[auth] getSession error:', e); }
-  if (session?.user) {
-    _user = session.user;
-    const loaded = await loadFromCloud();
-    if (loaded) refreshAll();
-    updateHeaderAuth();
-  } else {
-    updateHeaderAuth();
-  }
-
-  // Route to the right surface, or show the shared list if one was linked
   if (shareToken) handleShareHash(shareToken);
   else routeOnLoad();
 
-  // Open comparison panel if ?compare= is in the URL
+  if (!_supabaseReady()) { setSyncIndicator('offline'); return; }
+
+  // Auth check — 5 s max so a slow/hung token-refresh never blocks anything
+  let session = null;
+  try {
+    const res = await Promise.race([
+      _sb.auth.getSession(),
+      new Promise(r => setTimeout(() => r({ data: { session: null } }), 5000)),
+    ]);
+    session = res?.data?.session ?? null;
+  } catch(e) { console.warn('[auth] getSession error:', e); }
+
+  if (session?.user) {
+    _user = session.user;
+    // Cloud load — 8 s max
+    const loaded = await Promise.race([
+      loadFromCloud(),
+      new Promise(r => setTimeout(() => r(false), 8000)),
+    ]);
+    if (loaded) refreshAll();
+    updateHeaderAuth();
+  }
+
   if (typeof loadCompareFromUrl === 'function') loadCompareFromUrl();
 
   // React to sign-in / sign-out / password recovery events
