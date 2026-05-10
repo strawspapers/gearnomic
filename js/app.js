@@ -1876,6 +1876,14 @@ function routeOnLoad() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Safety net: never leave the loading spinner indefinitely
+  const _authTimeout = setTimeout(() => {
+    const el = document.getElementById('auth-loading-indicator');
+    if (el) el.style.display = 'none';
+    const anon = document.getElementById('auth-anon-actions');
+    if (anon && anon.style.display === 'none') anon.style.display = 'flex';
+  }, 10000);
+
   // ── Admin impersonation mode ───────────────────────────
   const hash = window.location.hash;
   // ── Admin impersonation mode ─────────────────────────────
@@ -1986,7 +1994,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  const { data: { session } } = await _sb.auth.getSession();
+  let session = null;
+  try {
+    const res = await _sb.auth.getSession();
+    session = res?.data?.session ?? null;
+  } catch(e) { console.warn('[auth] getSession error:', e); }
   if (session?.user) {
     _user = session.user;
     const loaded = await loadFromCloud();
