@@ -1870,7 +1870,9 @@ body.drawer-closet-open .btn-drawer-closet {
   margin-top: .75rem;
 }
 
-/* Mobile: full-width overlay, higher z-index */
+/* Mobile: full-width overlay, higher z-index, use % translate so drawers fully clear the viewport */
 @media (max-width: 640px) {
   .gn-drawer { width: 85vw; z-index: 200; }
+  #drawer-closet { transform: translateX(-100%); }
+  #drawer-db     { transform: translateX(100%); }
 }
