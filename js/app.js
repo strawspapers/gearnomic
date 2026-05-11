@@ -2002,53 +2002,56 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('dash-date').textContent =
     new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
-  // ── Show app immediately using local state — auth in background ─────
-  // Hide the loading indicator and show the app right away.
-  // Auth resolves asynchronously; onAuthStateChange handles signed-in updates.
-  const _authLoadingEl  = document.getElementById('auth-loading-indicator');
-  const _authAnonEl     = document.getElementById('auth-anon-actions');
-  if (_authLoadingEl) _authLoadingEl.style.display = 'none';
-  if (_authAnonEl)    _authAnonEl.style.display = 'flex';
-
-  if (shareToken) handleShareHash(shareToken);
-  else routeOnLoad();
-
-  if (!_supabaseReady()) { setSyncIndicator('offline'); return; }
-
-  // Auth check — 5 s max so a slow/hung token-refresh never blocks anything
-  let session = null;
-  let _sessionTimedOut = false;
-  try {
-    const res = await Promise.race([
-      _sb.auth.getSession(),
-      new Promise(r => setTimeout(() => { _sessionTimedOut = true; r({ data: { session: null } }); }, 5000)),
-    ]);
-    session = res?.data?.session ?? null;
-  } catch(e) { console.warn('[auth] getSession error:', e); }
-
-  // If getSession timed out, the SDK may have a hung refresh request that will
-  // block signInWithPassword. Clear stale tokens and create a fresh client.
-  if (_sessionTimedOut) {
-    try {
-      const ref = new URL(SUPABASE_URL).hostname.split('.')[0];
-      Object.keys(localStorage)
-        .filter(k => k.startsWith('sb-' + ref) || k.startsWith('supabase.auth'))
-        .forEach(k => localStorage.removeItem(k));
-      _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
-        auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: false }
-      });
-    } catch(e) { console.warn('[auth] cleanup error:', e); }
+  // ── Auth boot — no blocking network calls ────────────────────────────
+  // Read any stored session directly from localStorage (synchronous, no network).
+  // If a valid non-expired session exists, show signed-in state immediately.
+  // onAuthStateChange handles everything once the SDK warms up.
+  if (!_supabaseReady()) {
+    document.getElementById('auth-loading-indicator').style.display = 'none';
+    document.getElementById('auth-anon-actions').style.display = 'flex';
+    setSyncIndicator('offline');
+    if (shareToken) handleShareHash(shareToken);
+    else routeOnLoad();
+    return;
   }
 
-  if (session?.user) {
-    _user = session.user;
-    // Cloud load — 8 s max
-    const loaded = await Promise.race([
+  // Read stored session from localStorage without any SDK call
+  let _storedUser = null;
+  try {
+    const _ref = new URL(SUPABASE_URL).hostname.split('.')[0];
+    const _raw = localStorage.getItem('sb-' + _ref + '-auth-token');
+    if (_raw) {
+      const _parsed = JSON.parse(_raw);
+      const _exp = _parsed?.expires_at || 0;
+      // Use session if not expired (or expires within 60s — SDK will refresh)
+      if (Date.now() / 1000 < _exp - 60) _storedUser = _parsed?.user || null;
+    }
+  } catch(e) {}
+
+  if (_storedUser) {
+    // Show as signed-in immediately using local state
+    _user = _storedUser;
+    document.getElementById('auth-loading-indicator').style.display = 'none';
+    updateHeaderAuth();
+    if (shareToken) handleShareHash(shareToken);
+    else routeOnLoad();
+  } else {
+    // No valid local session — show anon state immediately
+    document.getElementById('auth-loading-indicator').style.display = 'none';
+    document.getElementById('auth-anon-actions').style.display = 'flex';
+    if (shareToken) handleShareHash(shareToken);
+    else routeOnLoad();
+  }
+
+  // Cloud load in background — non-blocking, 8 s max
+  if (_storedUser) {
+    Promise.race([
       loadFromCloud(),
       new Promise(r => setTimeout(() => r(false), 8000)),
-    ]);
-    if (loaded) refreshAll();
-    updateHeaderAuth();
+    ]).then(loaded => {
+      if (loaded) refreshAll();
+      updateHeaderAuth();
+    });
   }
 
   if (typeof loadCompareFromUrl === 'function') loadCompareFromUrl();
