@@ -770,6 +770,14 @@ function itemFormHtml(item) {
       <div class="form-row"><label class="form-label">Nights (for sleep/shelter)</label><input class="input input-full" id="f-nights" type="number" min="0" value="${item.usage_nights || 0}"></div>
     </div>
     <div class="form-row"><label class="form-label">Notes</label><textarea class="input input-full" id="f-notes" rows="2" style="height:60px">${esc(item.notes || '')}</textarea></div>
+    ${!isNew && _supabaseReady() && _user && !item.catalog_item_id ? `
+    <div style="margin-top:.875rem;padding-top:.875rem;border-top:.5px solid var(--border-2)">
+      <button type="button" onclick="contributeExistingItem('${item.id}')"
+        style="background:none;border:none;font-size:12px;color:var(--text-3);cursor:pointer;
+               padding:0;font-family:inherit;text-decoration:underline dotted">
+        Contribute to Gearnomic Catalogue →
+      </button>
+    </div>` : ''}
     ${isNew && _supabaseReady() && _user ? `
     <div id="f-contribute-wrap" style="margin-top:1.25rem;padding-top:1rem;border-top:.5px solid var(--border-2)">
       <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;user-select:none">
@@ -1023,6 +1031,13 @@ function clearCatalogSelection() {
 }
 
 // ── Catalog submission form ──────────────────────────────────
+
+function contributeExistingItem(id) {
+  const item = state.items.find(i => i.id === id);
+  if (!item) return;
+  _pendingCatalogSubmit = item;
+  openCatalogSubmitModal();
+}
 
 function openCatalogSubmitModal() {
   const item = _pendingCatalogSubmit || {};
