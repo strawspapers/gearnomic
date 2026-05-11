@@ -953,10 +953,13 @@ function openProfile() {
   const hasUsername = !!_username;
 
   const customLinksHtml = (_isSupporter || _isAmbassador) ? (() => {
+    const MAX_CL = 5;
     const links = pp.custom_links || [];
-    const rows = Array.from({length: 5}, (_, i) => {
+    // Show at least 1 row; show as many as already saved (up to max)
+    const initialCount = Math.max(1, Math.min(links.length, MAX_CL));
+    const rows = Array.from({length: initialCount}, (_, i) => {
       const cl = links[i] || {};
-      return `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      return `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px" class="s-cl-row">
         <input class="input" style="flex:1;min-width:0" id="s-cl-label-${i}" placeholder="Label" value="${esc(cl.label||'')}">
         <input class="input" style="flex:2;min-width:0" id="s-cl-url-${i}" placeholder="https://" value="${esc(cl.url||'')}">
         <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;cursor:pointer">
@@ -964,9 +967,11 @@ function openProfile() {
         </label>
       </div>`;
     }).join('');
+    const addBtnStyle = initialCount >= MAX_CL ? 'display:none' : '';
     return `<div>
-      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Custom links <span style="font-weight:400;text-transform:none;letter-spacing:0">(up to 5 · Supporter)</span></div>
-      ${rows}
+      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Custom links <span style="font-weight:400;text-transform:none;letter-spacing:0">(up to ${MAX_CL} · Supporter)</span></div>
+      <div id="s-cl-list">${rows}</div>
+      <button type="button" id="s-cl-add" class="btn btn-xs" style="${addBtnStyle}margin-top:4px" onclick="clAddRow()">+ Add link</button>
     </div>`;
   })() : '';
 
@@ -1016,10 +1021,10 @@ function openProfile() {
         </div>
       </div>
 
-      <!-- Social links -->
+      <!-- Social links — stacked, full width -->
       <div>
         <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Social links</div>
-        <div class="form-grid">
+        <div style="display:flex;flex-direction:column;gap:.625rem">
           <div class="form-row">
             <label class="form-label">Strava</label>
             ${prefixInput('s-strava', 'strava.com/athletes/', pp.social_strava, _stravaHandle)}
@@ -1221,6 +1226,28 @@ const RESERVED_USERNAMES = new Set([
   'welcome','start','getting-started','onboarding','tour','demo','test','sandbox',
 ]);
 
+// ── Custom link row add ────────────────────────────────────
+function clAddRow() {
+  const list = document.getElementById('s-cl-list');
+  const addBtn = document.getElementById('s-cl-add');
+  if (!list || !addBtn) return;
+  const MAX_CL = 5;
+  const idx = list.querySelectorAll('.s-cl-row').length;
+  if (idx >= MAX_CL) { addBtn.style.display = 'none'; return; }
+  const row = document.createElement('div');
+  row.className = 's-cl-row';
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px';
+  row.innerHTML = `
+    <input class="input" style="flex:1;min-width:0" id="s-cl-label-${idx}" placeholder="Label">
+    <input class="input" style="flex:2;min-width:0" id="s-cl-url-${idx}" placeholder="https://">
+    <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;cursor:pointer">
+      <input type="checkbox" id="s-cl-on-${idx}" checked style="accent-color:var(--primary)"> On
+    </label>`;
+  list.appendChild(row);
+  row.querySelector('input').focus();
+  if (idx + 1 >= MAX_CL) addBtn.style.display = 'none';
+}
+
 // ── Username availability check ───────────────────────────
 function checkUsernameAvailability(raw) {
   clearTimeout(_unameCheckTimer);
@@ -1268,10 +1295,11 @@ async function saveProfile(usernameToSet) {
 
 async function _saveProfileInner(usernameToSet) {
 
-  // Collect custom links (paid only)
+  // Collect custom links from however many rows are currently in the DOM
   const custom_links = [];
   if (_isSupporter || _isAmbassador) {
-    for (let i = 0; i < 5; i++) {
+    const rowCount = document.getElementById('s-cl-list')?.querySelectorAll('.s-cl-row').length ?? 0;
+    for (let i = 0; i < rowCount; i++) {
       const label   = document.getElementById('s-cl-label-' + i)?.value.trim() || '';
       const url     = document.getElementById('s-cl-url-' + i)?.value.trim()   || '';
       const enabled = document.getElementById('s-cl-on-' + i)?.checked ?? false;
