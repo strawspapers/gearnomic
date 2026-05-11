@@ -1154,13 +1154,14 @@ async function saveSettings() {
 
   saveState();
 
-  // Save profile to Supabase if signed in
   if (_supabaseReady() && _user) {
-    await saveProfile(usernameToSet);
+    const ok = await saveProfile(usernameToSet);
+    closeModal();
+    toast(ok ? 'Settings saved!' : 'Local settings saved — profile sync failed (see console).');
+  } else {
+    closeModal();
+    toast('Settings saved!');
   }
-
-  closeModal();
-  toast('Settings saved!');
 }
 
 // ── Reserved usernames ────────────────────────────────────
@@ -1214,7 +1215,7 @@ async function loadProfile() {
 
 // ── Save profile to Supabase ──────────────────────────────
 async function saveProfile(usernameToSet) {
-  if (!_supabaseReady() || !_user) return;
+  if (!_supabaseReady() || !_user) return false;
 
   // Collect custom links (paid only)
   const custom_links = [];
@@ -1279,16 +1280,15 @@ async function saveProfile(usernameToSet) {
 
   const { error } = await _sb.from('profiles').upsert(payload, { onConflict: 'id' });
   if (error) {
+    console.error('[profile] save failed:', error);
     if (error.message?.includes('unique') || error.message?.includes('duplicate')) {
       toast('That username was just taken — please choose another.');
-    } else {
-      toast('Profile save failed: ' + error.message);
     }
-    return;
+    return false;
   }
 
-  // Refresh local cache
   await loadProfile();
+  return true;
 }
 
 async function changePassword() {
