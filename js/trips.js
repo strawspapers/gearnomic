@@ -750,6 +750,7 @@ function renderTemplateDetail(tmpl) {
     <div class="cat-pills" style="margin-bottom:1.25rem">${catPills}</div>
 
     ${validIds.length >= 3
+      && !tmpl.name
       && !state.trips.some(t => (t.loadout_ids || []).includes(tmpl.id))
       && !sessionStorage.getItem('gn_kit_nudge_' + tmpl.id) ? `
     <div id="kit-nudge" style="display:flex;align-items:center;justify-content:space-between;gap:12px;
