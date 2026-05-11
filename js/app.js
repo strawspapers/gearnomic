@@ -1008,16 +1008,37 @@ function openProfile() {
         }
       </div>
 
-      <!-- Display name + Bio -->
+      <!-- Avatar + Display name + Bio -->
       <div>
         <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Profile</div>
+
+        <!-- Avatar upload -->
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:1rem">
+          <div style="position:relative;flex-shrink:0">
+            <div id="s-avatar-preview" style="width:64px;height:64px;border-radius:50%;background:var(--primary-l);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;color:#fff;overflow:hidden;cursor:pointer" onclick="document.getElementById('s-avatar-file').click()">
+              ${pp.avatar_url
+                ? `<img src="${esc(pp.avatar_url)}" style="width:64px;height:64px;object-fit:cover;border-radius:50%;display:block">`
+                : esc((lp.display_name || _username || '').split(/\s+/).map(w=>w[0]?.toUpperCase()).join('').slice(0,2) || '?')}
+            </div>
+            <button type="button" onclick="document.getElementById('s-avatar-file').click()"
+              style="position:absolute;bottom:-2px;right:-2px;width:22px;height:22px;border-radius:50%;background:var(--surface);border:1.5px solid var(--border);font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center"
+              title="Change photo">✎</button>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--text-1)">Profile photo</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:2px">JPG or PNG · max 2 MB</div>
+            <div id="s-avatar-status" style="font-size:11px;margin-top:2px"></div>
+          </div>
+          <input type="file" id="s-avatar-file" accept="image/jpeg,image/png" style="display:none" onchange="uploadAvatar(this)">
+        </div>
+
         <div class="form-row" style="margin-bottom:.75rem">
           <label class="form-label">Display name</label>
           <input class="input input-full" id="s-display-name" value="${esc(lp.display_name || '')}" placeholder="Your name on trail">
         </div>
         <div class="form-row">
           <label class="form-label">Bio</label>
-          <textarea class="input input-full" id="s-bio" rows="3" placeholder="A few words about your hiking style, goals, or favorite trails…" style="height:70px">${esc(pp.bio||'')}</textarea>
+          <textarea class="input input-full" id="s-bio" rows="1" placeholder="A few words about your hiking style, goals, or favorite trails…" style="resize:vertical">${esc(pp.bio||'')}</textarea>
         </div>
       </div>
 
@@ -1246,6 +1267,53 @@ function clAddRow() {
   list.appendChild(row);
   row.querySelector('input').focus();
   if (idx + 1 >= MAX_CL) addBtn.style.display = 'none';
+}
+
+// ── Avatar upload ─────────────────────────────────────────
+async function uploadAvatar(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+
+  const statusEl = document.getElementById('s-avatar-status');
+  const setStatus = (msg, color) => { if (statusEl) { statusEl.textContent = msg; statusEl.style.color = color || 'var(--text-3)'; } };
+
+  if (!['image/jpeg', 'image/png'].includes(file.type)) {
+    setStatus('JPG or PNG only.', 'var(--danger)'); return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    setStatus('File must be under 2 MB.', 'var(--danger)'); return;
+  }
+  if (!_supabaseReady() || !_user) { toast('Sign in to upload a photo.'); return; }
+
+  setStatus('Uploading…', 'var(--text-3)');
+
+  // Always upload to the same path so re-uploads overwrite the previous file.
+  // upsert:true is the critical flag — without it a second upload would error
+  // instead of replacing the existing object, and old files would accumulate.
+  const path = `${_user.id}/avatar.jpg`;
+  const { error: upErr } = await _sb.storage.from('avatars').upload(path, file, {
+    contentType: file.type,
+    upsert: true,
+  });
+
+  if (upErr) { setStatus('Upload failed: ' + upErr.message, 'var(--danger)'); return; }
+
+  const { data: { publicUrl } } = _sb.storage.from('avatars').getPublicUrl(path);
+
+  // Persist the URL to the profiles row
+  const { error: saveErr } = await _sb.from('profiles')
+    .upsert({ id: _user.id, avatar_url: publicUrl }, { onConflict: 'id' });
+
+  if (saveErr) { setStatus('Photo saved but profile update failed.', 'var(--danger)'); return; }
+
+  // Update the preview in the modal (cache-bust so the browser doesn't show the old image)
+  const preview = document.getElementById('s-avatar-preview');
+  if (preview) {
+    preview.innerHTML = `<img src="${esc(publicUrl)}?t=${Date.now()}" style="width:64px;height:64px;object-fit:cover;border-radius:50%;display:block">`;
+  }
+
+  if (_profile) _profile.avatar_url = publicUrl;
+  setStatus('Photo updated!', 'var(--success)');
 }
 
 // ── Username availability check ───────────────────────────
@@ -2233,7 +2301,7 @@ async function renderPublicProfile(slug) {
     .pp-cta{padding:6px 16px;background:#2A4032;color:#fff;border-radius:8px;font-size:13px;font-weight:500;text-decoration:none}
     .pp-page{max-width:720px;margin:0 auto;padding:32px 20px 64px;font-family:-apple-system,BlinkMacSystemFont,'DM Sans',sans-serif;color:#18181A}
     .pp-card{background:#fff;border-radius:16px;padding:28px;margin-bottom:20px;border:1px solid #DDD6C8}
-    .pp-avatar{width:72px;height:72px;border-radius:50%;background:#3D6B4F;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;color:#fff;margin-bottom:16px}
+    .pp-avatar{width:72px;height:72px;border-radius:50%;background:#3D6B4F;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;color:#fff;margin-bottom:16px;overflow:hidden;flex-shrink:0}
     .pp-username{font-size:22px;font-weight:600;font-family:Fraunces,Georgia,serif;margin-bottom:2px}
     .pp-displayname{font-size:14px;color:#5A5A52;margin-bottom:10px}
     .pp-badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
@@ -2291,6 +2359,9 @@ async function renderPublicProfile(slug) {
   })();
 
   const initials = (p.display_name || p.username || '').split(/\s+/).map(w => w[0]?.toUpperCase()).join('').slice(0,2) || '?';
+  const avatarHtml = p.avatar_url
+    ? `<img src="${esc(p.avatar_url)}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;display:block">`
+    : esc(initials);
 
   const socials = [];
   [['social_strava','Strava'],['social_instagram','Instagram'],['social_youtube','YouTube'],['social_website','Website']].forEach(([k,l]) => {
@@ -2336,7 +2407,7 @@ async function renderPublicProfile(slug) {
 
   root.outerHTML = `
     <div class="pp-card">
-      <div class="pp-avatar">${esc(initials)}</div>
+      <div class="pp-avatar">${avatarHtml}</div>
       <div class="pp-username">@${esc(p.username)}</div>
       ${p.display_name?`<div class="pp-displayname">${esc(p.display_name)}</div>`:''}
       ${badge?`<div class="pp-badges">${badge}</div>`:''}
