@@ -41,9 +41,8 @@
     .profile-badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.04em}
     .profile-bio{font-size:14px;color:var(--text-2);line-height:1.6;margin-bottom:14px;white-space:pre-wrap}
     .profile-socials{display:flex;flex-wrap:wrap;gap:8px}
-    .social-link{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text-1);transition:border-color .12s}
+    .social-link{display:inline-flex;align-items:center;padding:5px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text-1);transition:border-color .12s}
     .social-link:hover{border-color:var(--primary);text-decoration:none}
-    .social-icon{font-size:15px}
 
     /* ── Section cards ── */
     .section{background:var(--surface);border-radius:var(--r-lg);padding:20px;margin-bottom:16px;border:1px solid var(--border)}
@@ -120,29 +119,25 @@ function badgesHtml(p) {
 
 // ── Social links ───────────────────────────────────────────
 const SOCIAL_CONFIG = [
-  { key:'social_strava',    icon:'🏃', label:'Strava' },
-  { key:'social_instagram', icon:'📷', label:'Instagram' },
-  { key:'social_youtube',   icon:'▶',  label:'YouTube' },
-  { key:'social_website',   icon:'🔗', label:'Website' },
+  { key:'social_strava',    label:'Strava' },
+  { key:'social_instagram', label:'Instagram' },
+  { key:'social_youtube',   label:'YouTube' },
+  { key:'social_website',   label:'Website' },
 ];
 
 function socialsHtml(p) {
   const links = [];
-  SOCIAL_CONFIG.forEach(({key, icon, label}) => {
+  SOCIAL_CONFIG.forEach(({key, label}) => {
     if (!p[key]) return;
     let href = p[key];
     if (!href.startsWith('http')) href = 'https://' + href;
-    links.push(`<a class="social-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer">
-      <span class="social-icon">${icon}</span>${esc(label)}
-    </a>`);
+    links.push(`<a class="social-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`);
   });
   (p.custom_links || []).forEach(cl => {
     if (!cl.enabled || !cl.url) return;
     let href = cl.url;
     if (!href.startsWith('http')) href = 'https://' + href;
-    links.push(`<a class="social-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer">
-      <span class="social-icon">🔗</span>${esc(cl.label || 'Link')}
-    </a>`);
+    links.push(`<a class="social-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(cl.label || 'Link')}</a>`);
   });
   return links.length ? `<div class="profile-socials">${links.join('')}</div>` : '';
 }
