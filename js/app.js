@@ -868,10 +868,11 @@ function convertWishToGear(id) {
 // USER SETTINGS & PROFILE
 // ============================================================
 
-// ── Stripe price IDs — replace with your real IDs from Stripe Dashboard ──
-// Products → your product → Prices → copy the price_live_... ID
-const STRIPE_MONTHLY_URL = 'https://buy.stripe.com/00w5kCeTg0vBcNF0zi0oM00';
-const STRIPE_ANNUAL_URL  = 'https://buy.stripe.com/aFa9AS9yWbaf8xp6XG0oM01';
+// ── Stripe price IDs ──────────────────────────────────────────────────────
+const STRIPE_MONTHLY_PRICE = 'price_1TVmDdD0hLlbFHCuDyCQ8IPf';
+const STRIPE_ANNUAL_PRICE  = 'price_1TVmE0D0hLlbFHCuEoM7i49v';
+const STRIPE_MONTHLY_URL = `https://buy.stripe.com/${STRIPE_MONTHLY_PRICE}`;
+const STRIPE_ANNUAL_URL  = `https://buy.stripe.com/${STRIPE_ANNUAL_PRICE}`;
 
 function openUpgradeModal(reason) {
   const reasonHtml = reason
