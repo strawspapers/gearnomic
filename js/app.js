@@ -930,15 +930,28 @@ function openUpgradeModal(reason) {
     <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Maybe later</button></div>`);
 }
 
-function openSettings() {
-  if (!_user) { toast('Sign in to access settings.'); return; }
+// ── Social link helpers ───────────────────────────────────
+function _stravaHandle(url) {
+  return (url || '').replace(/^https?:\/\//i, '').replace(/^(?:www\.)?strava\.com\/athletes\//i, '').replace(/\/$/, '');
+}
+function _instaHandle(url) {
+  return (url || '').replace(/^https?:\/\//i, '').replace(/^(?:www\.)?instagram\.com\//i, '').replace(/\/$/, '');
+}
+function _buildSocialUrl(prefix, handle) {
+  const h = (handle || '').trim();
+  if (!h) return null;
+  if (/^https?:\/\//i.test(h)) return h;
+  return 'https://' + prefix + h;
+}
 
-  const lp      = state.profile || {};
-  const pp      = _profile || {};
-  const email   = _user.email || '';
+// ── Profile modal ─────────────────────────────────────────
+function openProfile() {
+  if (!_user) { toast('Sign in to access your profile.'); return; }
+
+  const lp = state.profile || {};
+  const pp = _profile || {};
   const hasUsername = !!_username;
 
-  // Custom links rows for paid users
   const customLinksHtml = (_isSupporter || _isAmbassador) ? (() => {
     const links = pp.custom_links || [];
     const rows = Array.from({length: 5}, (_, i) => {
@@ -957,63 +970,47 @@ function openSettings() {
     </div>`;
   })() : '';
 
-  openModal('Settings', `
-    <div style="display:flex;flex-direction:column;gap:1.25rem">
+  const prefixInput = (id, prefix, storedUrl, placeholder) => `
+    <div style="display:flex;align-items:stretch;border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;background:var(--surface)">
+      <span style="padding:8px 10px;font-size:12px;color:var(--text-3);background:var(--surface-2);border-right:1px solid var(--border-2);white-space:nowrap;display:flex;align-items:center">${esc(prefix)}</span>
+      <input id="${id}" value="${esc(placeholder(storedUrl))}" placeholder="username"
+        style="flex:1;min-width:0;border:none;outline:none;padding:8px 10px;font-size:14px;font-family:inherit;background:var(--surface)" autocomplete="off" autocapitalize="none">
+    </div>`;
 
-      <!-- Account tier -->
-      <div>
-        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Account</div>
-        ${_isSupporter || _isAmbassador
-          ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              ${tierBadgeHtml()}
-              <span style="font-size:13px;color:var(--text-2)">Cloud sync active. Thank you for supporting Gearnomic!</span>
-              ${_isSupporter ? `<a href="https://billing.stripe.com/p/login/00w5kCeTg0vBcNF0zi0oM00" target="_blank" class="btn btn-sm btn-ghost">Manage subscription</a>` : ''}
-            </div>`
-          : `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <span style="font-size:13px;color:var(--text-2)">Free — cloud sync included. Upgrade for unlimited meal plans &amp; full analytics.</span>
-              <button class="btn btn-sm btn-primary" onclick="closeModal();openUpgradeModal()">Upgrade</button>
-            </div>`
-        }
-      </div>
+  openModal('Profile', `
+    <div style="display:flex;flex-direction:column;gap:1.25rem">
 
       <!-- Username -->
       <div>
         <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.375rem">Username</div>
         <div style="font-size:12px;color:var(--text-3);margin-bottom:.5rem">
-          Your username is permanent once set and gives you a public profile at <strong>gearnomic.com/username</strong>
+          Permanent once set · public profile at <strong>gearnomic.com/username</strong>
         </div>
         ${hasUsername
           ? `<div style="display:flex;align-items:center;gap:10px">
               <span style="font-size:14px;font-weight:500;color:var(--primary)">@${esc(_username)}</span>
               <a href="/${esc(_username)}" target="_blank" class="btn btn-sm btn-ghost" style="font-size:12px">View profile ↗</a>
             </div>`
-          : `<div style="position:relative">
+          : `<div>
               <div style="display:flex;gap:8px;align-items:center">
                 <input class="input" id="s-username" placeholder="yourname" autocomplete="off" autocapitalize="none"
-                  style="width:200px;font-family:monospace"
-                  oninput="checkUsernameAvailability(this.value)">
+                  style="width:200px;font-family:monospace" oninput="checkUsernameAvailability(this.value)">
                 <span id="s-uname-status" style="font-size:12px;color:var(--text-3)"></span>
               </div>
               <div style="font-size:11px;color:var(--accent);margin-top:4px">⚠ Usernames cannot be changed after being set.</div>
-              <div style="font-size:11px;color:var(--text-3);margin-top:2px">3–30 characters · lowercase letters, numbers, - and _ only</div>
+              <div style="font-size:11px;color:var(--text-3);margin-top:2px">3–30 chars · lowercase letters, numbers, - and _ only</div>
             </div>`
         }
       </div>
 
-      <!-- Profile -->
+      <!-- Display name + Bio -->
       <div>
         <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Profile</div>
-        <div class="form-grid">
-          <div class="form-row">
-            <label class="form-label">Display name</label>
-            <input class="input input-full" id="s-display-name" value="${esc(lp.display_name || '')}" placeholder="Your name on trail">
-          </div>
-          <div class="form-row">
-            <label class="form-label">Email</label>
-            <input class="input input-full" value="${esc(email)}" disabled style="color:var(--text-3);cursor:not-allowed">
-          </div>
+        <div class="form-row" style="margin-bottom:.75rem">
+          <label class="form-label">Display name</label>
+          <input class="input input-full" id="s-display-name" value="${esc(lp.display_name || '')}" placeholder="Your name on trail">
         </div>
-        <div class="form-row" style="margin-top:.5rem">
+        <div class="form-row">
           <label class="form-label">Bio</label>
           <textarea class="input input-full" id="s-bio" rows="3" placeholder="A few words about your hiking style, goals, or favorite trails…" style="height:70px">${esc(pp.bio||'')}</textarea>
         </div>
@@ -1024,19 +1021,19 @@ function openSettings() {
         <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Social links</div>
         <div class="form-grid">
           <div class="form-row">
-            <label class="form-label">🏃 Strava</label>
-            <input class="input input-full" id="s-strava" value="${esc(pp.social_strava||'')}" placeholder="strava.com/athletes/…">
+            <label class="form-label">Strava</label>
+            ${prefixInput('s-strava', 'strava.com/athletes/', pp.social_strava, _stravaHandle)}
           </div>
           <div class="form-row">
-            <label class="form-label">📷 Instagram</label>
-            <input class="input input-full" id="s-instagram" value="${esc(pp.social_instagram||'')}" placeholder="instagram.com/username">
+            <label class="form-label">Instagram</label>
+            ${prefixInput('s-instagram', 'instagram.com/', pp.social_instagram, _instaHandle)}
           </div>
           <div class="form-row">
-            <label class="form-label">▶ YouTube</label>
+            <label class="form-label">YouTube</label>
             <input class="input input-full" id="s-youtube" value="${esc(pp.social_youtube||'')}" placeholder="youtube.com/@channel">
           </div>
           <div class="form-row">
-            <label class="form-label">🔗 Website</label>
+            <label class="form-label">Website</label>
             <input class="input input-full" id="s-website" value="${esc(pp.social_website||'')}" placeholder="yoursite.com">
           </div>
         </div>
@@ -1044,7 +1041,7 @@ function openSettings() {
 
       ${customLinksHtml}
 
-      <!-- Visibility (only shown if user has a username) -->
+      <!-- Visibility -->
       ${hasUsername ? `<div>
         <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.375rem">Public profile — what's visible</div>
         <div style="font-size:12px;color:var(--text-3);margin-bottom:.625rem">Nothing is public by default.</div>
@@ -1059,6 +1056,40 @@ function openSettings() {
             <span style="font-size:13px">${label}</span>
           </label>`).join('')}
       </div>` : ''}
+
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveProfileModal()">Save profile</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+
+// ── Settings modal (account / preferences only) ───────────
+function openSettings() {
+  if (!_user) { toast('Sign in to access settings.'); return; }
+
+  const lp  = state.profile || {};
+  const email = _user.email || '';
+
+  openModal('Settings', `
+    <div style="display:flex;flex-direction:column;gap:1.25rem">
+
+      <!-- Account -->
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Account</div>
+        <div style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">${esc(email)}</div>
+        ${_isSupporter || _isAmbassador
+          ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              ${tierBadgeHtml()}
+              <span style="font-size:13px;color:var(--text-2)">Cloud sync active. Thank you for supporting Gearnomic!</span>
+              ${_isSupporter ? `<a href="https://billing.stripe.com/p/login/00w5kCeTg0vBcNF0zi0oM00" target="_blank" class="btn btn-sm btn-ghost">Manage subscription</a>` : ''}
+            </div>`
+          : `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span style="font-size:13px;color:var(--text-2)">Free — cloud sync included. Upgrade for unlimited meal plans &amp; full analytics.</span>
+              <button class="btn btn-sm btn-primary" onclick="closeModal();openUpgradeModal()">Upgrade</button>
+            </div>`
+        }
+      </div>
 
       <!-- Preferences -->
       <div>
@@ -1079,17 +1110,6 @@ function openSettings() {
         </div>
       </div>
 
-      <!-- Data -->
-      <div>
-        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Data</div>
-        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-          <button class="btn btn-sm" onclick="exportData()">Export all data as JSON</button>
-          <button class="btn btn-sm" onclick="document.getElementById('import-file').click()">Import from JSON</button>
-          ${_user ? `<button class="btn btn-sm" onclick="syncToCloud().then(()=>toast('Synced!'))">Force sync to cloud</button>` : ''}
-          <button class="btn btn-sm" onclick="confirmLoadSampleGear()">Load sample gear</button>
-        </div>
-      </div>
-
       <!-- Security -->
       <div>
         <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Security</div>
@@ -1104,6 +1124,17 @@ function openSettings() {
           </div>
         </div>
         <button class="btn btn-sm" onclick="changePassword()">Update password</button>
+      </div>
+
+      <!-- Data -->
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Data</div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button class="btn btn-sm" onclick="exportData()">Export all data as JSON</button>
+          <button class="btn btn-sm" onclick="document.getElementById('import-file').click()">Import from JSON</button>
+          ${_user ? `<button class="btn btn-sm" onclick="syncToCloud().then(()=>toast('Synced!'))">Force sync to cloud</button>` : ''}
+          <button class="btn btn-sm" onclick="confirmLoadSampleGear()">Load sample gear</button>
+        </div>
       </div>
 
       <!-- Feedback -->
@@ -1126,18 +1157,16 @@ function openSettings() {
 
     </div>
     <div class="form-actions">
-      <button class="btn btn-primary" onclick="saveSettings()">Save changes</button>
+      <button class="btn btn-primary" onclick="saveSettings()">Save settings</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     </div>`);
 }
 
-async function saveSettings() {
+// ── Profile modal save ────────────────────────────────────
+async function saveProfileModal() {
   if (!state.profile) state.profile = {};
-  state.profile.display_name         = document.getElementById('s-display-name')?.value.trim() || null;
-  state.profile.units                = document.getElementById('s-units')?.value || 'metric';
-  state.profile.base_weight_target_g = parseInt(document.getElementById('s-bw-target')?.value) || null;
 
-  // Username — only set if not already locked
+  // Username — only if not already set
   let usernameToSet = null;
   if (!_username) {
     const raw = (document.getElementById('s-username')?.value || '').trim().toLowerCase();
@@ -1152,17 +1181,28 @@ async function saveSettings() {
     }
   }
 
+  // Persist display_name locally so it shows in the app immediately
+  state.profile.display_name = document.getElementById('s-display-name')?.value.trim() || null;
   saveState();
 
   if (_supabaseReady() && _user) {
     const ok = await saveProfile(usernameToSet);
     closeModal();
-    if (ok) toast('Settings saved!');
-    // if not ok, saveProfile already showed the specific error
+    if (ok) toast('Profile saved!');
   } else {
     closeModal();
-    toast('Settings saved!');
+    toast('Profile saved locally.');
   }
+}
+
+// ── Settings save (local prefs only) ─────────────────────
+async function saveSettings() {
+  if (!state.profile) state.profile = {};
+  state.profile.units                = document.getElementById('s-units')?.value || 'metric';
+  state.profile.base_weight_target_g = parseInt(document.getElementById('s-bw-target')?.value) || null;
+  saveState();
+  closeModal();
+  toast('Settings saved!');
 }
 
 // ── Reserved usernames ────────────────────────────────────
@@ -1270,8 +1310,8 @@ async function _saveProfileInner(usernameToSet) {
     id: _user.id,
     display_name:     state.profile?.display_name || null,
     bio:              document.getElementById('s-bio')?.value.trim() || null,
-    social_strava:    document.getElementById('s-strava')?.value.trim()    || null,
-    social_instagram: document.getElementById('s-instagram')?.value.trim() || null,
+    social_strava:    _buildSocialUrl('strava.com/athletes/', document.getElementById('s-strava')?.value),
+    social_instagram: _buildSocialUrl('instagram.com/',       document.getElementById('s-instagram')?.value),
     social_youtube:   document.getElementById('s-youtube')?.value.trim()   || null,
     social_website:   document.getElementById('s-website')?.value.trim()   || null,
     custom_links,

@@ -90,10 +90,11 @@
             <div id="user-menu">
               <!-- Supporter status row — changes based on tier -->
               <div id="user-menu-tier"></div>
+              <button class="menu-item" onclick="openProfile();toggleUserMenu()">Profile</button>
               <button class="menu-item" onclick="openSettings();toggleUserMenu()">Settings</button>
-              <button class="menu-item" onclick="exportData();toggleUserMenu()">↓ Export data</button>
+              <button class="menu-item" onclick="exportData();toggleUserMenu()">Export data</button>
               <div class="menu-divider"></div>
-              <button class="menu-item danger" onclick="signOut();toggleUserMenu()">→ Sign out</button>
+              <button class="menu-item danger" onclick="signOut();toggleUserMenu()">Sign out</button>
             </div>
           </div>
         </div>
@@ -161,6 +162,10 @@
       <button class="mob-drawer-btn" onclick="showTab('analytics');closeMobileMore()">
         <svg width="22" height="22"><use href="#icon-analytics"/></svg>
         Analytics
+      </button>
+      <button class="mob-drawer-btn" onclick="openProfile();closeMobileMore()">
+        <svg width="22" height="22"><use href="#icon-account"/></svg>
+        Profile
       </button>
       <button class="mob-drawer-btn" onclick="openSettings();closeMobileMore()">
         <svg width="22" height="22"><use href="#icon-settings"/></svg>
@@ -540,7 +545,7 @@
       <span>© <span id="footer-year"></span> Gearnomic. All rights reserved.</span>
       <span style="display:flex;align-items:center;gap:12px">
         <span style="color:var(--text-3)">Built for the trail</span>
-<span style="color:var(--text-3);font-size:11px;font-family:monospace" title="Build commit">2026-05-11 1831Z</span>
+<span style="color:var(--text-3);font-size:11px;font-family:monospace" title="Build commit">2026-05-11 1857Z</span>
       </span>
     </div>
   </footer>
