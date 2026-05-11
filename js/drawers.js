@@ -4,6 +4,7 @@
 
 let _drawerOpen   = null;   // 'db' | 'closet' | null
 let _gearDbCache  = null;   // catalog items, fetched once on first open
+let _gearDbError  = null;   // error message string, or null
 let _drawerTmplId = null;   // template being edited in the closet drawer
 
 // ── Undo toast state ──────────────────────────────────────
@@ -48,7 +49,7 @@ function openDrawerDb() {
   closeDrawers(true);
   _drawerOpen = 'db';
   document.body.classList.add('drawer-db-open');
-  if (_gearDbCache) {
+  if (_gearDbCache && !_gearDbError) {
     renderDrawerDb();
   } else {
     renderDrawerDb(); // shows "loading…" immediately
@@ -80,14 +81,28 @@ function closeDrawers(silent) {
 
 async function fetchGearDb() {
   if (!_sb) { renderDrawerDb(); return; }
+  _gearDbError = null;
   const { data, error } = await _sb
     .from('catalog_items')
     .select('id, brand, name, designation, manufacturer_weight_g, category')
     .eq('status', 'approved')
     .order('category')
     .order('brand');
-  if (!error) _gearDbCache = data || [];
+  if (error) {
+    console.error('fetchGearDb:', error);
+    _gearDbError = error.message || 'Failed to load catalog';
+    _gearDbCache = [];
+  } else {
+    _gearDbCache = data || [];
+  }
   renderDrawerDb();
+}
+
+function retryGearDb() {
+  _gearDbCache = null;
+  _gearDbError = null;
+  renderDrawerDb();
+  fetchGearDb();
 }
 
 function renderDrawerDb() {
@@ -97,6 +112,10 @@ function renderDrawerDb() {
 
   if (!_sb) {
     body.innerHTML = '<div style="padding:20px 14px;font-size:12px;color:var(--text-3)">Sign in to browse the gear database.</div>';
+    return;
+  }
+  if (_gearDbError) {
+    body.innerHTML = `<div style="padding:20px 14px;font-size:12px;color:var(--text-3)">Could not load catalog.<br><button onclick="retryGearDb()" style="margin-top:8px;font-size:11px;padding:4px 10px;cursor:pointer;border:1px solid var(--border);border-radius:4px;background:var(--bg-2)">Retry</button></div>`;
     return;
   }
   if (!_gearDbCache) {

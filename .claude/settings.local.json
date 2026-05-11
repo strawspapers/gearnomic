@@ -6,7 +6,10 @@
       "Bash(node \"c:/Users/brian/Documents/GitHub/gearnomic/_boot_fix.js\")",
       "Bash(grep -n \"3\\\\.99\\\\|3.99\\\\|\\\\$3\\\\|upgrade\\\\|Upgrade\\\\|openUpgradeModal\\\\|sync.*only\\\\|nosync\\\\|supporter.*sync\\\\|isSupporter.*sync\\\\|supporter.*save\\\\|save.*supporter\\\\|syncToCloud\\\\|_isSupporter\" \"c:/Users/brian/Documents/GitHub/gearnomic/js/sync.js\")",
       "Bash(node \"c:/Users/brian/Documents/GitHub/gearnomic/_revert_auth.js\")",
-      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\brian\\\\Documents\\\\GitHub\\\\gearnomic\\\\supabase\\\\\" -File | Select-Object Name)"
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\brian\\\\Documents\\\\GitHub\\\\gearnomic\\\\supabase\\\\\" -File | Select-Object Name)",
+      "Bash(git -C \"c:/Users/brian/Documents/GitHub/gearnomic\" log --oneline -15 -- js/drawers.js)",
+      "Bash(git -C \"c:/Users/brian/Documents/GitHub/gearnomic\" diff c90f0a3..08add96 -- js/drawers.js)",
+      "Bash(git -C \"c:/Users/brian/Documents/GitHub/gearnomic\" show c90f0a3:js/drawers.js)"
     ]
   }
 }
