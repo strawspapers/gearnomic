@@ -168,9 +168,13 @@ If that doesn't match what you put in the file, GitHub Pages is serving a <stron
   // Step 4 — actually try to reach the project
   show('Testing connection…', 'blue');
   try {
+    const controller = new AbortController();
+    const _fetchTimeout = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(`${cleanUrl}/auth/v1/settings`, {
-      headers: { apikey: SUPABASE_ANON.trim() }
+      headers: { apikey: SUPABASE_ANON.trim() },
+      signal: controller.signal,
     });
+    clearTimeout(_fetchTimeout);
 
     if (res.status === 200) {
       const body = await res.json().catch(() => ({}));
@@ -216,8 +220,8 @@ async function submitAuth() {
   const _authTimeout = setTimeout(() => {
     _authAbort.abort();
     if (btn) { btn.textContent = isSignup ? 'Create account' : 'Sign in'; btn.disabled = false; }
-    setAuthError('Request timed out. Check your internet connection and try again.');
-  }, 15000);
+    setAuthError('Request timed out — Supabase auth is not responding. Try: incognito window, different network, or check <a href="https://status.supabase.com" target="_blank" style="color:inherit">status.supabase.com</a>.');
+  }, 10000);
 
   try {
     const { data, error } = isSignup

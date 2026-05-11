@@ -34,7 +34,16 @@ function _supabaseReady() {
   if (_sb) return true;
   if (typeof supabase === 'undefined' || typeof SUPABASE_URL === 'undefined') return false;
   if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_PROJECT_URL') return false;
-  try { _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON); return true; }
+  try {
+    _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+      }
+    });
+    return true;
+  }
   catch(e) { return false; }
 }
 
@@ -2008,13 +2017,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Auth check — 5 s max so a slow/hung token-refresh never blocks anything
   let session = null;
+  let _sessionTimedOut = false;
   try {
     const res = await Promise.race([
       _sb.auth.getSession(),
-      new Promise(r => setTimeout(() => r({ data: { session: null } }), 5000)),
+      new Promise(r => setTimeout(() => { _sessionTimedOut = true; r({ data: { session: null } }); }, 5000)),
     ]);
     session = res?.data?.session ?? null;
   } catch(e) { console.warn('[auth] getSession error:', e); }
+
+  // If getSession timed out, the SDK may have a hung refresh request that will
+  // block signInWithPassword. Clear stale tokens and create a fresh client.
+  if (_sessionTimedOut) {
+    try {
+      const ref = new URL(SUPABASE_URL).hostname.split('.')[0];
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('sb-' + ref) || k.startsWith('supabase.auth'))
+        .forEach(k => localStorage.removeItem(k));
+      _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+        auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: false }
+      });
+    } catch(e) { console.warn('[auth] cleanup error:', e); }
+  }
 
   if (session?.user) {
     _user = session.user;
