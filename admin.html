@@ -435,8 +435,15 @@ async function loadUsers() {
   const { data: authData, error } = await _sb.auth.admin.listUsers({ perPage: 1000 });
   if (error) { toast('Failed to load users: ' + error.message); return; }
 
-  const { data: userData } = await _sb.from('user_data')
+  // Try fetching with is_ambassador; fall back without it if the column doesn't exist yet.
+  let { data: userData, error: udError } = await _sb.from('user_data')
     .select('user_id, is_supporter, is_ambassador, supporter_since, stripe_customer_id, data');
+  if (udError) {
+    const fallback = await _sb.from('user_data')
+      .select('user_id, is_supporter, supporter_since, stripe_customer_id, data');
+    userData = fallback.data;
+    if (fallback.error) toast('Warning: could not load user tier data — ' + fallback.error.message);
+  }
 
   const map = {};
   (userData || []).forEach(r => { map[r.user_id] = r; });
