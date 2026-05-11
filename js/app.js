@@ -2192,7 +2192,142 @@ function routeOnLoad() {
   }
 }
 
+// ── Public profile renderer ───────────────────────────────
+async function renderPublicProfile(slug) {
+  document.title = '@' + slug + ' — Gearnomic';
+
+  const st = document.createElement('style');
+  st.textContent = `
+    body{background:#EDE8DF!important;margin:0}
+    .pp-head{background:#fff;border-bottom:1px solid #DDD6C8;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+    .pp-logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:#18181A;font-weight:600;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,'DM Sans',sans-serif}
+    .pp-logo-mark{width:28px;height:28px;background:#2A4032;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff}
+    .pp-cta{padding:6px 16px;background:#2A4032;color:#fff;border-radius:8px;font-size:13px;font-weight:500;text-decoration:none}
+    .pp-page{max-width:720px;margin:0 auto;padding:32px 20px 64px;font-family:-apple-system,BlinkMacSystemFont,'DM Sans',sans-serif;color:#18181A}
+    .pp-card{background:#fff;border-radius:16px;padding:28px;margin-bottom:20px;border:1px solid #DDD6C8}
+    .pp-avatar{width:72px;height:72px;border-radius:50%;background:#3D6B4F;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;color:#fff;margin-bottom:16px}
+    .pp-username{font-size:22px;font-weight:600;font-family:Fraunces,Georgia,serif;margin-bottom:2px}
+    .pp-displayname{font-size:14px;color:#5A5A52;margin-bottom:10px}
+    .pp-badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+    .pp-badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.04em}
+    .pp-bio{font-size:14px;color:#5A5A52;line-height:1.6;margin-bottom:14px;white-space:pre-wrap}
+    .pp-socials{display:flex;flex-wrap:wrap;gap:8px}
+    .pp-social{display:inline-flex;align-items:center;padding:5px 12px;border:1px solid #DDD6C8;border-radius:8px;font-size:13px;color:#18181A;text-decoration:none}
+    .pp-social:hover{border-color:#2A4032}
+    .pp-section{background:#fff;border-radius:12px;padding:20px;margin-bottom:16px;border:1px solid #DDD6C8}
+    .pp-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#9A9A87;margin-bottom:14px}
+    .pp-loadout{padding:10px 0;border-bottom:.5px solid #DDD6C8}
+    .pp-loadout:last-child{border-bottom:none;padding-bottom:0}
+    .pp-gear-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:.5px solid #DDD6C8}
+    .pp-gear-row:last-child{border-bottom:none}
+    .pp-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+    .pp-stat{background:#F7F3ED;border-radius:10px;padding:12px;text-align:center}
+    .pp-stat-val{font-size:22px;font-weight:600;color:#2A4032}
+    .pp-stat-lbl{font-size:11px;color:#9A9A87;margin-top:3px}`;
+  document.head.appendChild(st);
+
+  document.body.innerHTML = `
+    <div class="pp-head">
+      <a class="pp-logo" href="/"><div class="pp-logo-mark">GN</div>Gearnomic</a>
+      <a class="pp-cta" href="/">Track your kit →</a>
+    </div>
+    <div class="pp-page"><div id="pp-root" style="text-align:center;padding:60px;color:#9A9A87">Loading…</div></div>`;
+
+  const root = document.getElementById('pp-root');
+
+  if (!_supabaseReady()) { root.innerHTML = '<p>Could not connect.</p>'; return; }
+
+  const { data: p } = await Promise.race([
+    _sb.from('profiles').select('*').eq('username', slug).single(),
+    new Promise(r => setTimeout(() => r({ data: null }), 8000)),
+  ]).catch(() => ({ data: null }));
+
+  if (!p) {
+    root.innerHTML = `<div style="text-align:center;padding:60px">
+      <h2 style="font-size:22px;margin-bottom:8px">@${esc(slug)} not found</h2>
+      <p style="color:#9A9A87;margin-bottom:16px">This username doesn't exist on Gearnomic.</p>
+      <a href="/" style="color:#2A4032">← Back to Gearnomic</a></div>`;
+    return;
+  }
+
+  document.title = `${p.display_name || '@' + p.username} — Gearnomic`;
+
+  const badge = (() => {
+    if (p.is_ambassador) return '<span class="pp-badge" style="background:#6a3db8;color:#fff">AMBASSADOR</span>';
+    if (p.is_supporter) {
+      if (p.supporter_since && p.supporter_since < FOUNDER_CUTOFF)
+        return '<span class="pp-badge" style="background:#B87B0A;color:#fff">FOUNDER</span>';
+      return '<span class="pp-badge" style="background:#2A4032;color:#fff">SUPPORTER</span>';
+    }
+    return '';
+  })();
+
+  const initials = (p.display_name || p.username || '').split(/\s+/).map(w => w[0]?.toUpperCase()).join('').slice(0,2) || '?';
+
+  const socials = [];
+  [['social_strava','Strava'],['social_instagram','Instagram'],['social_youtube','YouTube'],['social_website','Website']].forEach(([k,l]) => {
+    if (!p[k]) return;
+    const href = p[k].startsWith('http') ? p[k] : 'https://' + p[k];
+    socials.push(`<a class="pp-social" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(l)}</a>`);
+  });
+  (p.custom_links||[]).filter(cl => cl.enabled && cl.url).forEach(cl => {
+    const href = cl.url.startsWith('http') ? cl.url : 'https://' + cl.url;
+    socials.push(`<a class="pp-social" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(cl.label||'Link')}</a>`);
+  });
+
+  const loadoutsSection = (p.public_loadouts && p.snap_loadouts?.length) ? `
+    <div class="pp-section">
+      <div class="pp-section-title">Featured loadouts</div>
+      ${p.snap_loadouts.map(l => `<div class="pp-loadout">
+        <div style="font-weight:500;font-size:14px">${esc(l.name)}</div>
+        <div style="font-size:12px;color:#9A9A87">${l.items_count} items · ${wg(l.total_weight_g)}${l.description?' · '+esc(l.description):''}</div>
+      </div>`).join('')}
+    </div>` : '';
+
+  const tripsSection = (p.public_trips && p.snap_trips) ? `
+    <div class="pp-section">
+      <div class="pp-section-title">Adventure stats</div>
+      <div class="pp-stats">
+        ${p.snap_trips.total_trips!=null?`<div class="pp-stat"><div class="pp-stat-val">${p.snap_trips.total_trips}</div><div class="pp-stat-lbl">Trips</div></div>`:''}
+        ${p.snap_trips.completed!=null?`<div class="pp-stat"><div class="pp-stat-val">${p.snap_trips.completed}</div><div class="pp-stat-lbl">Completed</div></div>`:''}
+        ${p.snap_trips.total_distance?`<div class="pp-stat"><div class="pp-stat-val">${p.snap_trips.total_distance}</div><div class="pp-stat-lbl">km hiked</div></div>`:''}
+      </div>
+    </div>` : '';
+
+  const gearSection = (p.public_gear && p.snap_gear?.length) ? `
+    <div class="pp-section">
+      <div class="pp-section-title">Gear list</div>
+      ${p.snap_gear.map(g => `<div class="pp-gear-row">
+        <div><div style="font-size:13px;font-weight:500">${esc(g.name)}</div>
+        <div style="font-size:11px;color:#9A9A87">${esc(g.brand||'')}${g.brand&&g.category?' · ':''}${esc(g.category||'')}</div></div>
+        <div style="font-size:12px;font-family:monospace;color:#5A5A52">${wg(g.weight_g)}</div>
+      </div>`).join('')}
+    </div>` : '';
+
+  const hasContent = loadoutsSection || tripsSection || gearSection || (p.public_bio && p.bio) || socials.length;
+
+  root.outerHTML = `
+    <div class="pp-card">
+      <div class="pp-avatar">${esc(initials)}</div>
+      <div class="pp-username">@${esc(p.username)}</div>
+      ${p.display_name?`<div class="pp-displayname">${esc(p.display_name)}</div>`:''}
+      ${badge?`<div class="pp-badges">${badge}</div>`:''}
+      ${p.public_bio&&p.bio?`<div class="pp-bio">${esc(p.bio)}</div>`:''}
+      ${socials.length?`<div class="pp-socials">${socials.join('')}</div>`:''}
+    </div>
+    ${loadoutsSection}${tripsSection}${gearSection}
+    ${!hasContent?`<div class="pp-section" style="text-align:center;padding:32px"><p style="color:#9A9A87">This profile is private.</p></div>`:''}
+    <div style="text-align:center;margin-top:24px;font-size:12px;color:#9A9A87">Built with <a href="/" style="color:#2A4032">Gearnomic</a></div>`;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+  // ── Public profile check — must run before anything else ─────────────
+  const _pubSlug = (() => {
+    const s = window.location.pathname.slice(1).split('/')[0].toLowerCase();
+    return (s && !RESERVED_USERNAMES.has(s) && /^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$/.test(s)) ? s : null;
+  })();
+  if (_pubSlug) { await renderPublicProfile(_pubSlug); return; }
+
   // ── Admin impersonation mode ───────────────────────────
   const hash = window.location.hash;
   // ── Admin impersonation mode ─────────────────────────────
