@@ -1332,7 +1332,7 @@ function checkUsernameAvailability(raw) {
   el.textContent = 'Checking…'; el.style.color = 'var(--text-3)';
   _unameCheckTimer = setTimeout(async () => {
     if (!_supabaseReady()) return;
-    const { data } = await _sb.from('profiles').select('id').eq('username', val).maybeSingle();
+    const { data } = await _sb.from('profiles').select('id').eq('username', val).neq('id', _user?.id ?? '').maybeSingle();
     if (!el.isConnected) return;
     if (data) { el.textContent = '✗ Taken'; el.style.color = 'var(--danger)'; }
     else      { el.textContent = '✓ Available'; el.style.color = 'var(--success)'; }
