@@ -1,3 +1,4 @@
+/admin /admin.html 200
 /:slug/lists/* /profile.html 200
 /:slug /profile.html 200
 /* /index.html 200
