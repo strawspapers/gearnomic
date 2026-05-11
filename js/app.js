@@ -869,10 +869,8 @@ function convertWishToGear(id) {
 // ============================================================
 
 // ── Stripe price IDs ──────────────────────────────────────────────────────
-const STRIPE_MONTHLY_PRICE = 'price_1TVmDdD0hLlbFHCuDyCQ8IPf';
-const STRIPE_ANNUAL_PRICE  = 'price_1TVmE0D0hLlbFHCuEoM7i49v';
-const STRIPE_MONTHLY_URL = `https://buy.stripe.com/${STRIPE_MONTHLY_PRICE}`;
-const STRIPE_ANNUAL_URL  = `https://buy.stripe.com/${STRIPE_ANNUAL_PRICE}`;
+const STRIPE_MONTHLY_URL = 'https://buy.stripe.com/fZueVcbH45PVeVN1Dm0oM04';
+const STRIPE_ANNUAL_URL  = 'https://buy.stripe.com/cNidR85iGbaf4h995O0oM05';
 
 function openUpgradeModal(reason) {
   const reasonHtml = reason
