@@ -81,6 +81,8 @@ async function loadFromCloud() {
     state = data.data;
     applyMigrations();
     try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
+    // Load public profile in background (non-blocking)
+    if (typeof loadProfile === 'function') loadProfile().catch(() => {});
     return true;
   } catch(e) { return false; }
 }

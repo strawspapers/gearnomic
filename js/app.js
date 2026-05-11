@@ -10,6 +10,9 @@ let _syncTimer = null;    // debounce handle
 let _isSupporter    = false; // paid supporter status
 let _isAmbassador   = false; // comped/influencer account
 let _supporterSince = null;  // ISO date string, used for Founder badge
+let _profile        = null;  // loaded Supabase profiles row
+let _username       = null;  // shorthand for _profile?.username
+let _unameCheckTimer = null; // debounce for username availability check
 
 // Subscriber cutoff: anyone who paid before this date gets the Founder badge
 const FOUNDER_CUTOFF = '2026-09-01';
@@ -930,8 +933,29 @@ function openUpgradeModal(reason) {
 function openSettings() {
   if (!_user) { toast('Sign in to access settings.'); return; }
 
-  const profile = state.profile || {};
+  const lp      = state.profile || {};
+  const pp      = _profile || {};
   const email   = _user.email || '';
+  const hasUsername = !!_username;
+
+  // Custom links rows for paid users
+  const customLinksHtml = (_isSupporter || _isAmbassador) ? (() => {
+    const links = pp.custom_links || [];
+    const rows = Array.from({length: 5}, (_, i) => {
+      const cl = links[i] || {};
+      return `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <input class="input" style="flex:1;min-width:0" id="s-cl-label-${i}" placeholder="Label" value="${esc(cl.label||'')}">
+        <input class="input" style="flex:2;min-width:0" id="s-cl-url-${i}" placeholder="https://" value="${esc(cl.url||'')}">
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;cursor:pointer">
+          <input type="checkbox" id="s-cl-on-${i}" ${cl.enabled ? 'checked' : ''} style="accent-color:var(--primary)"> On
+        </label>
+      </div>`;
+    }).join('');
+    return `<div>
+      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Custom links <span style="font-weight:400;text-transform:none;letter-spacing:0">(up to 5 · Supporter)</span></div>
+      ${rows}
+    </div>`;
+  })() : '';
 
   openModal('Settings', `
     <div style="display:flex;flex-direction:column;gap:1.25rem">
@@ -952,20 +976,89 @@ function openSettings() {
         }
       </div>
 
+      <!-- Username -->
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.375rem">Username</div>
+        <div style="font-size:12px;color:var(--text-3);margin-bottom:.5rem">
+          Your username is permanent once set and gives you a public profile at <strong>gearnomic.com/u/username</strong>
+        </div>
+        ${hasUsername
+          ? `<div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:14px;font-weight:500;color:var(--primary)">@${esc(_username)}</span>
+              <a href="/u/${esc(_username)}" target="_blank" class="btn btn-sm btn-ghost" style="font-size:12px">View profile ↗</a>
+            </div>`
+          : `<div style="position:relative">
+              <div style="display:flex;gap:8px;align-items:center">
+                <input class="input" id="s-username" placeholder="yourname" autocomplete="off" autocapitalize="none"
+                  style="width:200px;font-family:monospace"
+                  oninput="checkUsernameAvailability(this.value)">
+                <span id="s-uname-status" style="font-size:12px;color:var(--text-3)"></span>
+              </div>
+              <div style="font-size:11px;color:var(--accent);margin-top:4px">⚠ Usernames cannot be changed after being set.</div>
+              <div style="font-size:11px;color:var(--text-3);margin-top:2px">3–30 characters · lowercase letters, numbers, - and _ only</div>
+            </div>`
+        }
+      </div>
+
       <!-- Profile -->
       <div>
         <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Profile</div>
         <div class="form-grid">
           <div class="form-row">
             <label class="form-label">Display name</label>
-            <input class="input input-full" id="s-display-name" value="${esc(profile.display_name || '')}" placeholder="Your name on trail">
+            <input class="input input-full" id="s-display-name" value="${esc(lp.display_name || '')}" placeholder="Your name on trail">
           </div>
           <div class="form-row">
             <label class="form-label">Email</label>
             <input class="input input-full" value="${esc(email)}" disabled style="color:var(--text-3);cursor:not-allowed">
           </div>
         </div>
+        <div class="form-row" style="margin-top:.5rem">
+          <label class="form-label">Bio</label>
+          <textarea class="input input-full" id="s-bio" rows="3" placeholder="A few words about your hiking style, goals, or favorite trails…" style="height:70px">${esc(pp.bio||'')}</textarea>
+        </div>
       </div>
+
+      <!-- Social links -->
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Social links</div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label class="form-label">🏃 Strava</label>
+            <input class="input input-full" id="s-strava" value="${esc(pp.social_strava||'')}" placeholder="strava.com/athletes/…">
+          </div>
+          <div class="form-row">
+            <label class="form-label">📷 Instagram</label>
+            <input class="input input-full" id="s-instagram" value="${esc(pp.social_instagram||'')}" placeholder="instagram.com/username">
+          </div>
+          <div class="form-row">
+            <label class="form-label">▶ YouTube</label>
+            <input class="input input-full" id="s-youtube" value="${esc(pp.social_youtube||'')}" placeholder="youtube.com/@channel">
+          </div>
+          <div class="form-row">
+            <label class="form-label">🔗 Website</label>
+            <input class="input input-full" id="s-website" value="${esc(pp.social_website||'')}" placeholder="yoursite.com">
+          </div>
+        </div>
+      </div>
+
+      ${customLinksHtml}
+
+      <!-- Visibility (only shown if user has a username) -->
+      ${hasUsername ? `<div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.375rem">Public profile — what's visible</div>
+        <div style="font-size:12px;color:var(--text-3);margin-bottom:.625rem">Nothing is public by default.</div>
+        ${[
+          ['s-pub-bio',      pp.public_bio,      'Bio &amp; social links'],
+          ['s-pub-loadouts', pp.public_loadouts,  'Featured loadouts'],
+          ['s-pub-trips',    pp.public_trips,     'Adventure stats'],
+          ['s-pub-gear',     pp.public_gear,      'Gear list'],
+        ].map(([id, val, label]) => `
+          <label style="display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer;border-bottom:.5px solid var(--border-2)">
+            <input type="checkbox" id="${id}" ${val ? 'checked' : ''} style="accent-color:var(--primary);width:16px;height:16px">
+            <span style="font-size:13px">${label}</span>
+          </label>`).join('')}
+      </div>` : ''}
 
       <!-- Preferences -->
       <div>
@@ -974,14 +1067,14 @@ function openSettings() {
           <div class="form-row">
             <label class="form-label">Units</label>
             <select class="select input-full" id="s-units">
-              <option value="metric"   ${(profile.units||'metric')==='metric'   ?'selected':''}>Metric (kg / g)</option>
-              <option value="imperial" ${profile.units==='imperial'?'selected':''}>Imperial (lb / oz)</option>
+              <option value="metric"   ${(lp.units||'metric')==='metric'   ?'selected':''}>Metric (kg / g)</option>
+              <option value="imperial" ${lp.units==='imperial'?'selected':''}>Imperial (lb / oz)</option>
             </select>
           </div>
           <div class="form-row">
             <label class="form-label">Base weight target (g)</label>
             <input class="input input-full" id="s-bw-target" type="number" min="0" step="100"
-              value="${profile.base_weight_target_g || ''}" placeholder="e.g. 4500">
+              value="${lp.base_weight_target_g || ''}" placeholder="e.g. 4500">
           </div>
         </div>
       </div>
@@ -1040,12 +1133,142 @@ function openSettings() {
 
 async function saveSettings() {
   if (!state.profile) state.profile = {};
-  state.profile.display_name     = document.getElementById('s-display-name')?.value.trim() || null;
-  state.profile.units            = document.getElementById('s-units')?.value || 'metric';
+  state.profile.display_name         = document.getElementById('s-display-name')?.value.trim() || null;
+  state.profile.units                = document.getElementById('s-units')?.value || 'metric';
   state.profile.base_weight_target_g = parseInt(document.getElementById('s-bw-target')?.value) || null;
+
+  // Username — only set if not already locked
+  let usernameToSet = null;
+  if (!_username) {
+    const raw = (document.getElementById('s-username')?.value || '').trim().toLowerCase();
+    if (raw) {
+      if (!/^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$/.test(raw)) {
+        toast('Username must be 3–30 chars, letters/numbers/- only.'); return;
+      }
+      const statusEl = document.getElementById('s-uname-status');
+      if (statusEl?.textContent.includes('taken')) { toast('That username is already taken.'); return; }
+      usernameToSet = raw;
+    }
+  }
+
   saveState();
+
+  // Save profile to Supabase if signed in
+  if (_supabaseReady() && _user) {
+    await saveProfile(usernameToSet);
+  }
+
   closeModal();
   toast('Settings saved!');
+}
+
+// ── Username availability check ───────────────────────────
+function checkUsernameAvailability(raw) {
+  clearTimeout(_unameCheckTimer);
+  const el = document.getElementById('s-uname-status');
+  if (!el) return;
+  const val = raw.trim().toLowerCase();
+  if (!val) { el.textContent = ''; return; }
+  if (!/^[a-z0-9][a-z0-9_-]*[a-z0-9]$/.test(val) || val.length < 3) {
+    el.textContent = 'Invalid format'; el.style.color = 'var(--danger)'; return;
+  }
+  el.textContent = 'Checking…'; el.style.color = 'var(--text-3)';
+  _unameCheckTimer = setTimeout(async () => {
+    if (!_supabaseReady()) return;
+    const { data } = await _sb.from('profiles').select('id').eq('username', val).maybeSingle();
+    if (!el.isConnected) return;
+    if (data) { el.textContent = '✗ Taken'; el.style.color = 'var(--danger)'; }
+    else       { el.textContent = '✓ Available'; el.style.color = 'var(--success)'; }
+  }, 400);
+}
+
+// ── Load profile from Supabase ────────────────────────────
+async function loadProfile() {
+  if (!_supabaseReady() || !_user) return;
+  try {
+    const { data } = await _sb.from('profiles').select('*').eq('id', _user.id).maybeSingle();
+    _profile  = data || null;
+    _username = data?.username || null;
+  } catch(e) { /* non-fatal */ }
+}
+
+// ── Save profile to Supabase ──────────────────────────────
+async function saveProfile(usernameToSet) {
+  if (!_supabaseReady() || !_user) return;
+
+  // Collect custom links (paid only)
+  const custom_links = [];
+  if (_isSupporter || _isAmbassador) {
+    for (let i = 0; i < 5; i++) {
+      const label   = document.getElementById('s-cl-label-' + i)?.value.trim() || '';
+      const url     = document.getElementById('s-cl-url-' + i)?.value.trim()   || '';
+      const enabled = document.getElementById('s-cl-on-' + i)?.checked ?? false;
+      if (label || url) custom_links.push({ label, url, enabled });
+    }
+  }
+
+  // Build snapshot data for public display
+  const hasUsername = !!(_username || usernameToSet);
+  const pub_loadouts = hasUsername && !!document.getElementById('s-pub-loadouts')?.checked;
+  const pub_trips    = hasUsername && !!document.getElementById('s-pub-trips')?.checked;
+  const pub_gear     = hasUsername && !!document.getElementById('s-pub-gear')?.checked;
+
+  const snap_loadouts = pub_loadouts
+    ? (state.templates || []).map(t => ({
+        name: t.name, description: t.description || '',
+        items_count: (t.gear_ids || []).filter(id => state.items.find(i => i.id === id)).length,
+        total_weight_g: (t.gear_ids || []).reduce((s, id) => {
+          const item = state.items.find(i => i.id === id);
+          return s + (item?.weight_g || 0);
+        }, 0),
+      }))
+    : null;
+
+  const snap_trips = pub_trips ? {
+    total_trips:    (state.trips || []).length,
+    completed:      (state.trips || []).filter(t => t.status === 'completed').length,
+    total_distance: (state.trips || []).reduce((s, t) => s + (t.distance_km || 0), 0) || null,
+  } : null;
+
+  const snap_gear = pub_gear
+    ? (state.items || []).map(i => ({ name: i.name, brand: i.brand || '', category: i.category, weight_g: i.weight_g || 0 }))
+    : null;
+
+  const payload = {
+    id: _user.id,
+    display_name:     state.profile?.display_name || null,
+    bio:              document.getElementById('s-bio')?.value.trim() || null,
+    social_strava:    document.getElementById('s-strava')?.value.trim()    || null,
+    social_instagram: document.getElementById('s-instagram')?.value.trim() || null,
+    social_youtube:   document.getElementById('s-youtube')?.value.trim()   || null,
+    social_website:   document.getElementById('s-website')?.value.trim()   || null,
+    custom_links,
+    public_bio:      hasUsername && !!document.getElementById('s-pub-bio')?.checked,
+    public_loadouts: pub_loadouts,
+    public_trips:    pub_trips,
+    public_gear:     pub_gear,
+    snap_loadouts,
+    snap_trips,
+    snap_gear,
+    is_supporter:    _isSupporter,
+    is_ambassador:   _isAmbassador,
+    supporter_since: _supporterSince,
+  };
+
+  if (usernameToSet) payload.username = usernameToSet;
+
+  const { error } = await _sb.from('profiles').upsert(payload, { onConflict: 'id' });
+  if (error) {
+    if (error.message?.includes('unique') || error.message?.includes('duplicate')) {
+      toast('That username was just taken — please choose another.');
+    } else {
+      toast('Profile save failed: ' + error.message);
+    }
+    return;
+  }
+
+  // Refresh local cache
+  await loadProfile();
 }
 
 async function changePassword() {
@@ -2074,6 +2297,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await syncToCloud(); // save clean state to cloud
         saveState();         // update localStorage too
       }
+      loadProfile().catch(() => {}); // non-blocking
       refreshAll();
       updateHeaderAuth();
       toast('Signed in! Your data is syncing.');

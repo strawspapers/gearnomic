@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gearnomic</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="/js/config.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#EDE8DF;--surface:#fff;--surface-2:#F7F3ED;
+      --primary:#2A4032;--primary-l:#3D6B4F;--accent:#B87B0A;
+      --text-1:#18181A;--text-2:#5A5A52;--text-3:#9A9A87;
+      --border:#DDD6C8;--r-lg:12px;--r-xl:16px;
+      --success:#2A7048;--success-bg:#EAF4EE;
+    }
+    body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:var(--text-1);min-height:100vh;font-size:14px}
+    a{color:var(--primary);text-decoration:none}
+    a:hover{text-decoration:underline}
+
+    /* ── Top bar ── */
+    .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between}
+    .topbar-logo{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;color:var(--text-1);text-decoration:none}
+    .logo-mark{width:28px;height:28px;background:var(--primary);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#fff}
+    .topbar-cta{padding:6px 16px;background:var(--primary);color:#fff;border-radius:8px;font-size:13px;font-weight:500}
+
+    /* ── Layout ── */
+    .page{max-width:720px;margin:0 auto;padding:32px 20px 64px}
+
+    /* ── Profile header ── */
+    .profile-header{background:var(--surface);border-radius:var(--r-xl);padding:28px;margin-bottom:20px;border:1px solid var(--border)}
+    .profile-avatar{width:72px;height:72px;border-radius:50%;background:var(--primary-l);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;color:#fff;flex-shrink:0;margin-bottom:16px}
+    .profile-username{font-size:22px;font-weight:600;font-family:'Fraunces',serif;margin-bottom:2px}
+    .profile-displayname{font-size:14px;color:var(--text-2);margin-bottom:10px}
+    .profile-badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+    .profile-badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.04em}
+    .profile-bio{font-size:14px;color:var(--text-2);line-height:1.6;margin-bottom:14px;white-space:pre-wrap}
+    .profile-socials{display:flex;flex-wrap:wrap;gap:8px}
+    .social-link{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text-1);transition:border-color .12s}
+    .social-link:hover{border-color:var(--primary);text-decoration:none}
+    .social-icon{font-size:15px}
+
+    /* ── Section cards ── */
+    .section{background:var(--surface);border-radius:var(--r-lg);padding:20px;margin-bottom:16px;border:1px solid var(--border)}
+    .section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin-bottom:14px}
+
+    /* ── Loadout cards ── */
+    .loadout-card{padding:12px 0;border-bottom:1px solid var(--border)}
+    .loadout-card:last-child{border-bottom:none;padding-bottom:0}
+    .loadout-name{font-weight:500;font-size:14px;margin-bottom:2px}
+    .loadout-meta{font-size:12px;color:var(--text-3)}
+
+    /* ── Gear list ── */
+    .gear-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:.5px solid var(--border)}
+    .gear-row:last-child{border-bottom:none}
+    .gear-name{font-size:13px;font-weight:500}
+    .gear-sub{font-size:11px;color:var(--text-3)}
+    .gear-weight{font-size:12px;font-family:monospace;color:var(--text-2)}
+
+    /* ── Stats ── */
+    .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+    .stat-box{background:var(--surface-2);border-radius:10px;padding:12px;text-align:center}
+    .stat-val{font-size:22px;font-weight:600;color:var(--primary)}
+    .stat-lbl{font-size:11px;color:var(--text-3);margin-top:3px}
+
+    /* ── States ── */
+    .loading{text-align:center;padding:60px;color:var(--text-3)}
+    .not-found{text-align:center;padding:60px}
+    .not-found h2{font-size:22px;margin-bottom:8px}
+    .not-found p{color:var(--text-3)}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="topbar-logo" href="/">
+    <div class="logo-mark">GN</div>
+    Gearnomic
+  </a>
+  <a class="topbar-cta" href="/">Track your kit →</a>
+</div>
+
+<div class="page">
+  <div id="profile-root"><div class="loading">Loading…</div></div>
+</div>
+
+<script>
+// ── Helpers ───────────────────────────────────────────────
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function wg(g){
+  if(!g) return '—';
+  return g>=1000 ? (g/1000).toFixed(2)+' kg' : Math.round(g)+' g';
+}
+
+// ── Parse path: /u/username or /u/username/lists/list-name ─
+const pathParts = window.location.pathname.replace(/^\/u\//,'').split('/');
+const USERNAME  = pathParts[0]?.toLowerCase();
+const LIST_NAME = pathParts[2] || null; // /u/username/lists/list-name
+
+// ── Badge rendering ────────────────────────────────────────
+const FOUNDER_CUTOFF = '2026-09-01';
+function badgesHtml(p) {
+  const badges = [];
+  if (p.is_ambassador) {
+    badges.push('<span class="profile-badge" style="background:#6a3db8;color:#fff">AMBASSADOR</span>');
+  } else if (p.is_supporter) {
+    const isFounder = p.supporter_since && p.supporter_since < FOUNDER_CUTOFF;
+    if (isFounder) badges.push('<span class="profile-badge" style="background:#B87B0A;color:#fff">FOUNDER</span>');
+    else badges.push('<span class="profile-badge" style="background:#2A4032;color:#fff">SUPPORTER</span>');
+  }
+  return badges.length ? `<div class="profile-badges">${badges.join('')}</div>` : '';
+}
+
+// ── Social links ───────────────────────────────────────────
+const SOCIAL_CONFIG = [
+  { key:'social_strava',    icon:'🏃', label:'Strava' },
+  { key:'social_instagram', icon:'📷', label:'Instagram' },
+  { key:'social_youtube',   icon:'▶',  label:'YouTube' },
+  { key:'social_website',   icon:'🔗', label:'Website' },
+];
+
+function socialsHtml(p) {
+  const links = [];
+  SOCIAL_CONFIG.forEach(({key, icon, label}) => {
+    if (!p[key]) return;
+    let href = p[key];
+    if (!href.startsWith('http')) href = 'https://' + href;
+    links.push(`<a class="social-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer">
+      <span class="social-icon">${icon}</span>${esc(label)}
+    </a>`);
+  });
+  (p.custom_links || []).forEach(cl => {
+    if (!cl.enabled || !cl.url) return;
+    let href = cl.url;
+    if (!href.startsWith('http')) href = 'https://' + href;
+    links.push(`<a class="social-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer">
+      <span class="social-icon">🔗</span>${esc(cl.label || 'Link')}
+    </a>`);
+  });
+  return links.length ? `<div class="profile-socials">${links.join('')}</div>` : '';
+}
+
+// ── Avatar initials ────────────────────────────────────────
+function initials(p) {
+  const name = p.display_name || p.username || '';
+  return name.split(/\s+/).map(w => w[0]?.toUpperCase()).join('').slice(0,2) || '?';
+}
+
+// ── Render profile ─────────────────────────────────────────
+function renderProfile(p) {
+  const root = document.getElementById('profile-root');
+
+  // Update page title
+  document.title = `${p.display_name || p.username} — Gearnomic`;
+
+  // Build header
+  const headerParts = [
+    `<div class="profile-avatar">${esc(initials(p))}</div>`,
+    `<div class="profile-username">@${esc(p.username)}</div>`,
+    p.display_name ? `<div class="profile-displayname">${esc(p.display_name)}</div>` : '',
+    badgesHtml(p),
+    p.public_bio && p.bio ? `<div class="profile-bio">${esc(p.bio)}</div>` : '',
+    socialsHtml(p),
+  ].join('');
+
+  // Loadouts section
+  let loadoutsSection = '';
+  if (p.public_loadouts && Array.isArray(p.snap_loadouts) && p.snap_loadouts.length) {
+    loadoutsSection = `
+      <div class="section">
+        <div class="section-title">Featured loadouts</div>
+        ${p.snap_loadouts.map(l => `
+          <div class="loadout-card">
+            <div class="loadout-name">${esc(l.name)}</div>
+            <div class="loadout-meta">${l.items_count} items · ${wg(l.total_weight_g)}${l.description ? ' · ' + esc(l.description) : ''}</div>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  // Trip stats section
+  let tripsSection = '';
+  if (p.public_trips && p.snap_trips) {
+    const st = p.snap_trips;
+    tripsSection = `
+      <div class="section">
+        <div class="section-title">Adventure stats</div>
+        <div class="stats-grid">
+          ${st.total_trips    != null ? `<div class="stat-box"><div class="stat-val">${st.total_trips}</div><div class="stat-lbl">Trips</div></div>` : ''}
+          ${st.completed      != null ? `<div class="stat-box"><div class="stat-val">${st.completed}</div><div class="stat-lbl">Completed</div></div>` : ''}
+          ${st.total_distance != null ? `<div class="stat-box"><div class="stat-val">${st.total_distance}</div><div class="stat-lbl">km hiked</div></div>` : ''}
+          ${st.countries      != null ? `<div class="stat-box"><div class="stat-val">${st.countries}</div><div class="stat-lbl">Countries</div></div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  // Gear section
+  let gearSection = '';
+  if (p.public_gear && Array.isArray(p.snap_gear) && p.snap_gear.length) {
+    gearSection = `
+      <div class="section">
+        <div class="section-title">Gear list</div>
+        ${p.snap_gear.map(g => `
+          <div class="gear-row">
+            <div>
+              <div class="gear-name">${esc(g.name)}</div>
+              <div class="gear-sub">${esc(g.brand || '')}${g.brand && g.category ? ' · ' : ''}${esc(g.category || '')}</div>
+            </div>
+            <div class="gear-weight">${wg(g.weight_g)}</div>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  // Check if nothing is public at all
+  const hasPublicContent = loadoutsSection || tripsSection || gearSection;
+
+  root.innerHTML = `
+    <div class="profile-header">${headerParts}</div>
+    ${loadoutsSection}
+    ${tripsSection}
+    ${gearSection}
+    ${!hasPublicContent && !(p.public_bio && p.bio) && !socialsHtml(p) ? `
+      <div class="section" style="text-align:center;color:var(--text-3);padding:32px">
+        <p style="font-size:14px">This profile is private.</p>
+      </div>` : ''}
+    <div style="text-align:center;margin-top:24px;font-size:12px;color:var(--text-3)">
+      Built with <a href="/" style="color:var(--primary)">Gearnomic</a>
+    </div>`;
+}
+
+// ── Main ───────────────────────────────────────────────────
+async function main() {
+  if (!USERNAME) {
+    document.getElementById('profile-root').innerHTML = `
+      <div class="not-found">
+        <h2>No profile here</h2>
+        <p>Head back to <a href="/">Gearnomic</a> to manage your kit.</p>
+      </div>`;
+    return;
+  }
+
+  if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_ANON === 'undefined') {
+    document.getElementById('profile-root').innerHTML = `<div class="loading">Configuration error.</div>`;
+    return;
+  }
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  const { data: profile, error } = await sb
+    .from('profiles')
+    .select('*')
+    .eq('username', USERNAME)
+    .single();
+
+  if (error || !profile) {
+    document.getElementById('profile-root').innerHTML = `
+      <div class="not-found">
+        <h2>@${esc(USERNAME)} not found</h2>
+        <p>This username doesn't exist on Gearnomic.</p>
+        <p style="margin-top:16px"><a href="/" style="color:var(--primary)">← Back to Gearnomic</a></p>
+      </div>`;
+    return;
+  }
+
+  renderProfile(profile);
+}
+
+main();
+</script>
+</body>
+</html>
