@@ -115,7 +115,7 @@ function switchAuthTab(tab) {
 function setAuthError(msg) {
   const el = document.getElementById('auth-error');
   if (!el) return;
-  el.textContent = msg;
+  el.innerHTML = esc(msg);
   el.style.display = msg ? 'block' : 'none';
 }
 
@@ -220,7 +220,7 @@ async function submitAuth() {
   const _authTimeout = setTimeout(() => {
     _authAbort.abort();
     if (btn) { btn.textContent = isSignup ? 'Create account' : 'Sign in'; btn.disabled = false; }
-    setAuthError('Request timed out — Supabase auth is not responding. Try: incognito window, different network, or check <a href="https://status.supabase.com" target="_blank" style="color:inherit">status.supabase.com</a>.');
+    setAuthError('Sign-in is taking too long. Please check your connection and try again.');
   }, 10000);
 
   try {
@@ -263,8 +263,7 @@ async function submitAuth() {
     if (btn) { btn.textContent = isSignup ? 'Create account' : 'Sign in'; btn.disabled = false; }
     const msg = e.message || '';
     if (msg.toLowerCase().includes('networkerror') || msg.toLowerCase().includes('fetch')) {
-      // Run full diagnostics
-      await diagnoseSupabase();
+      setAuthError('Connection error. Please check your internet connection and try again.');
     } else if (msg.includes('Invalid login credentials')) {
       setAuthError('Wrong email or password. Try again, or use "Create account" to register.');
     } else if (msg.includes('Email not confirmed')) {
@@ -272,7 +271,7 @@ async function submitAuth() {
     } else if (msg.includes('User already registered')) {
       setAuthError('An account with this email exists. Switch to "Sign in" instead.');
     } else {
-      setAuthError(msg || 'Authentication failed. Check your config and try again.');
+      setAuthError('Something went wrong. Please try again.');
     }
   }
 }
