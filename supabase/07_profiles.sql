@@ -46,6 +46,24 @@ ALTER TABLE profiles ADD CONSTRAINT profiles_username_format
     AND username ~ '^[a-z0-9][a-z0-9_-]*[a-z0-9]$'
   ));
 
+-- Reserved slugs that cannot be claimed as usernames
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_username_not_reserved;
+ALTER TABLE profiles ADD CONSTRAINT profiles_username_not_reserved
+  CHECK (username IS NULL OR username NOT IN (
+    'login','logout','signup','register','auth','oauth','callback','verify','reset','password',
+    'settings','account','profile','dashboard','admin','share','api','pricing','plans','upgrade',
+    'billing','subscribe','subscription','checkout','about','contact','help','support','faq',
+    'terms','privacy','legal','blog','changelog','press','careers','jobs','team','mission',
+    'www','mail','email','static','assets','cdn','dev','staging','beta','app','web','mobile',
+    'feed','rss','sitemap','robots','404','500','error','pack','gear','kit','trip','trips',
+    'list','lists','loadout','loadouts','recipe','recipes','meal','meals','stable','bike',
+    'explore','discover','search','u','user','users','gearnomic','anthropic','administrator',
+    'moderator','mod','official','staff','new','edit','delete','create','update','save',
+    'import','export','download','upload','invite','refer','referral','affiliate','ambassador',
+    'founder','supporter','public','private','null','undefined','root','home','index',
+    'welcome','start','getting-started','onboarding','tour','demo','test','sandbox'
+  ));
+
 CREATE INDEX IF NOT EXISTS idx_profiles_username ON profiles (username) WHERE username IS NOT NULL;
 
 -- ── Row-level security ────────────────────────────────────

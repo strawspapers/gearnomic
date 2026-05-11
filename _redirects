@@ -1,2 +1,2 @@
-/u/* /profile.html 200
-/* /index.html 200
+/:username/lists/* /profile.html 200
+/* /profile.html 200

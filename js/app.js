@@ -980,12 +980,12 @@ function openSettings() {
       <div>
         <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.375rem">Username</div>
         <div style="font-size:12px;color:var(--text-3);margin-bottom:.5rem">
-          Your username is permanent once set and gives you a public profile at <strong>gearnomic.com/u/username</strong>
+          Your username is permanent once set and gives you a public profile at <strong>gearnomic.com/username</strong>
         </div>
         ${hasUsername
           ? `<div style="display:flex;align-items:center;gap:10px">
               <span style="font-size:14px;font-weight:500;color:var(--primary)">@${esc(_username)}</span>
-              <a href="/u/${esc(_username)}" target="_blank" class="btn btn-sm btn-ghost" style="font-size:12px">View profile ↗</a>
+              <a href="/${esc(_username)}" target="_blank" class="btn btn-sm btn-ghost" style="font-size:12px">View profile ↗</a>
             </div>`
           : `<div style="position:relative">
               <div style="display:flex;gap:8px;align-items:center">
@@ -1145,8 +1145,9 @@ async function saveSettings() {
       if (!/^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$/.test(raw)) {
         toast('Username must be 3–30 chars, letters/numbers/- only.'); return;
       }
+      if (RESERVED_USERNAMES.has(raw)) { toast('That username is reserved.'); return; }
       const statusEl = document.getElementById('s-uname-status');
-      if (statusEl?.textContent.includes('taken')) { toast('That username is already taken.'); return; }
+      if (statusEl?.textContent.includes('Taken')) { toast('That username is already taken.'); return; }
       usernameToSet = raw;
     }
   }
@@ -1162,6 +1163,22 @@ async function saveSettings() {
   toast('Settings saved!');
 }
 
+// ── Reserved usernames ────────────────────────────────────
+const RESERVED_USERNAMES = new Set([
+  'login','logout','signup','register','auth','oauth','callback','verify','reset','password',
+  'settings','account','profile','dashboard','admin','share','api','pricing','plans','upgrade',
+  'billing','subscribe','subscription','checkout','about','contact','help','support','faq',
+  'terms','privacy','legal','blog','changelog','press','careers','jobs','team','mission',
+  'www','mail','email','static','assets','cdn','dev','staging','beta','app','web','mobile',
+  'feed','rss','sitemap','robots','404','500','error','pack','gear','kit','trip','trips',
+  'list','lists','loadout','loadouts','recipe','recipes','meal','meals','stable','bike',
+  'explore','discover','search','u','user','users','gearnomic','anthropic','administrator',
+  'moderator','mod','official','staff','new','edit','delete','create','update','save',
+  'import','export','download','upload','invite','refer','referral','affiliate','ambassador',
+  'founder','supporter','public','private','null','undefined','root','home','index',
+  'welcome','start','getting-started','onboarding','tour','demo','test','sandbox',
+]);
+
 // ── Username availability check ───────────────────────────
 function checkUsernameAvailability(raw) {
   clearTimeout(_unameCheckTimer);
@@ -1172,13 +1189,16 @@ function checkUsernameAvailability(raw) {
   if (!/^[a-z0-9][a-z0-9_-]*[a-z0-9]$/.test(val) || val.length < 3) {
     el.textContent = 'Invalid format'; el.style.color = 'var(--danger)'; return;
   }
+  if (RESERVED_USERNAMES.has(val)) {
+    el.textContent = '✗ Reserved'; el.style.color = 'var(--danger)'; return;
+  }
   el.textContent = 'Checking…'; el.style.color = 'var(--text-3)';
   _unameCheckTimer = setTimeout(async () => {
     if (!_supabaseReady()) return;
     const { data } = await _sb.from('profiles').select('id').eq('username', val).maybeSingle();
     if (!el.isConnected) return;
     if (data) { el.textContent = '✗ Taken'; el.style.color = 'var(--danger)'; }
-    else       { el.textContent = '✓ Available'; el.style.color = 'var(--success)'; }
+    else      { el.textContent = '✓ Available'; el.style.color = 'var(--success)'; }
   }, 400);
 }
 

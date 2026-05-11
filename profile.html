@@ -97,10 +97,10 @@ function wg(g){
   return g>=1000 ? (g/1000).toFixed(2)+' kg' : Math.round(g)+' g';
 }
 
-// ── Parse path: /u/username or /u/username/lists/list-name ─
-const pathParts = window.location.pathname.replace(/^\/u\//,'').split('/');
+// ── Parse path: /username or /username/lists/list-name ──────
+const pathParts = window.location.pathname.replace(/^\//,'').split('/');
 const USERNAME  = pathParts[0]?.toLowerCase();
-const LIST_NAME = pathParts[2] || null; // /u/username/lists/list-name
+const LIST_NAME = pathParts[2] || null; // /username/lists/list-name
 
 // ── Badge rendering ────────────────────────────────────────
 const FOUNDER_CUTOFF = '2026-09-01';
