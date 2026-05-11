@@ -1157,7 +1157,8 @@ async function saveSettings() {
   if (_supabaseReady() && _user) {
     const ok = await saveProfile(usernameToSet);
     closeModal();
-    toast(ok ? 'Settings saved!' : 'Local settings saved — profile sync failed (see console).');
+    if (ok) toast('Settings saved!');
+    // if not ok, saveProfile already showed the specific error
   } else {
     closeModal();
     toast('Settings saved!');
@@ -1281,9 +1282,7 @@ async function saveProfile(usernameToSet) {
   const { error } = await _sb.from('profiles').upsert(payload, { onConflict: 'id' });
   if (error) {
     console.error('[profile] save failed:', error);
-    if (error.message?.includes('unique') || error.message?.includes('duplicate')) {
-      toast('That username was just taken — please choose another.');
-    }
+    toast('Profile save failed: ' + error.message);
     return false;
   }
 
