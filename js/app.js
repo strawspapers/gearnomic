@@ -1217,6 +1217,16 @@ async function loadProfile() {
 // ── Save profile to Supabase ──────────────────────────────
 async function saveProfile(usernameToSet) {
   if (!_supabaseReady() || !_user) return false;
+  try {
+    return await _saveProfileInner(usernameToSet);
+  } catch(e) {
+    console.error('[profile] unexpected error:', e);
+    toast('Profile save error: ' + e.message);
+    return false;
+  }
+}
+
+async function _saveProfileInner(usernameToSet) {
 
   // Collect custom links (paid only)
   const custom_links = [];
