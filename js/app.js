@@ -2193,20 +2193,6 @@ function routeOnLoad() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // ── Profile routing — runs before everything else ─────────────────────
-  // index.html is the SPA entry for all paths (/* /index.html 200).
-  // If the path looks like a valid username, hand off to profile.html.
-  // Admin and other .html files are served directly by their explicit URLs.
-  (function() {
-    const slug = window.location.pathname.slice(1).split('/')[0].toLowerCase();
-    if (!slug) return; // root path — load the SPA normally
-    if (typeof RESERVED_USERNAMES !== 'undefined' && RESERVED_USERNAMES.has(slug)) return;
-    if (/^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$/.test(slug)) {
-      // Looks like a username — send to profile page preserving the full path
-      window.location.replace('/profile.html' + window.location.search + '#path=' + encodeURIComponent(window.location.pathname));
-    }
-  })();
-
   // ── Admin impersonation mode ───────────────────────────
   const hash = window.location.hash;
   // ── Admin impersonation mode ─────────────────────────────

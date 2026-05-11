@@ -97,16 +97,12 @@ function wg(g){
   return g>=1000 ? (g/1000).toFixed(2)+' kg' : Math.round(g)+' g';
 }
 
-// ── Parse path — read from #path= fragment set by app.js router ─────────
-// Falls back to pathname for direct /profile.html?... access in development.
-const _rawPath = (() => {
-  const hash = window.location.hash;
-  if (hash.startsWith('#path=')) return decodeURIComponent(hash.slice(6));
-  return window.location.pathname;
-})();
-const pathParts = _rawPath.replace(/^\//,'').split('/');
+// ── Parse path: /username or /username/lists/list-name ───────────────────
+// Netlify serves this file via a 200 rewrite so window.location.pathname
+// is the original requested URL (e.g. /straws), not /profile.html.
+const pathParts = window.location.pathname.replace(/^\//,'').split('/');
 const USERNAME  = pathParts[0]?.toLowerCase();
-const LIST_NAME = pathParts[2] || null; // /username/lists/list-name
+const LIST_NAME = pathParts[2] || null;
 
 // ── Badge rendering ────────────────────────────────────────
 const FOUNDER_CUTOFF = '2026-09-01';
@@ -255,11 +251,10 @@ async function main() {
   }
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-  const { data: profile, error } = await sb
-    .from('profiles')
-    .select('*')
-    .eq('username', USERNAME)
-    .single();
+  const { data: profile, error } = await Promise.race([
+    sb.from('profiles').select('*').eq('username', USERNAME).single(),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000)),
+  ]).catch(e => ({ data: null, error: e }));
 
   if (error || !profile) {
     document.getElementById('profile-root').innerHTML = `
