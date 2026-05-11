@@ -3,8 +3,8 @@
 function saveState() {
   state._savedAt = Date.now();
   try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
-  // Cloud sync only for Supporters
-  if (_user && _isSupporter) {
+  // Cloud sync for all signed-in users
+  if (_user) {
     clearTimeout(_syncTimer);
     _syncTimer = setTimeout(syncToCloud, 1500);
   }
@@ -36,7 +36,7 @@ async function syncToCloud() {
     adminSyncToCloud();
     return;
   }
-  if (!_supabaseReady() || !_user || !_isSupporter) return;
+  if (!_supabaseReady() || !_user) return;
   setSyncIndicator('saving');
   const MAX_ATTEMPTS = 4;
   const BASE_DELAY   = 1500; // ms; doubles each retry: 1.5s → 3s → 6s → give up
@@ -64,9 +64,11 @@ async function loadFromCloud() {
   if (!_supabaseReady() || !_user) return false;
   try {
     const { data, error } = await _sb.from('user_data')
-      .select('data,is_supporter,supporter_since,updated_at').eq('user_id', _user.id).single();
+      .select('data,is_supporter,is_ambassador,supporter_since,updated_at').eq('user_id', _user.id).single();
     if (error || !data?.data) return false;
-    _isSupporter = !!data.is_supporter;
+    _isSupporter    = !!data.is_supporter;
+    _isAmbassador   = !!data.is_ambassador;
+    _supporterSince = data.supporter_since || null;
     // Compare local _savedAt against the DB's updated_at (set by a server trigger on
     // every write — trustworthy, clock-skew-safe, and not affected by stale localStorage).
     // If local is newer the user edited before the debounce flushed; push local up.
@@ -88,9 +90,11 @@ async function loadSupporterStatus() {
   if (!_supabaseReady() || !_user) return;
   try {
     const { data } = await _sb.from('user_data')
-      .select('is_supporter').eq('user_id', _user.id).single();
-    _isSupporter = !!(data?.is_supporter);
-  } catch(e) { _isSupporter = false; }
+      .select('is_supporter,is_ambassador,supporter_since').eq('user_id', _user.id).single();
+    _isSupporter    = !!(data?.is_supporter);
+    _isAmbassador   = !!(data?.is_ambassador);
+    _supporterSince = data?.supporter_since || null;
+  } catch(e) { _isSupporter = false; _isAmbassador = false; _supporterSince = null; }
 }
 
 // Current schema version. Bump this when adding a new structural migration below.

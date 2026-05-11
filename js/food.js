@@ -30,18 +30,19 @@ function setFoodView(view) {
   if (btnPlan)    btnPlan.onclick    = view === 'plans' ? () => { setFoodView('plans'); openNewFoodPlan(); } : () => setFoodView('plans');
   if (btnRecipes) btnRecipes.onclick = view === 'recipes' ? () => setFoodView('plans') : () => setFoodView('recipes');
 
-  // Show/hide free-user banner
+  // Show upgrade nudge for free users who've used their 1-plan slot
   let banner = document.getElementById('food-free-banner');
-  if (!_isSupporter) {
+  const showBanner = !_isSupporter && !_isAmbassador && state.food_plans.length >= 1;
+  if (showBanner) {
     if (!banner) {
       banner = document.createElement('div');
       banner.id = 'food-free-banner';
       banner.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--accent-l);border:1px solid var(--accent);border-radius:var(--r-lg);padding:.625rem 1rem;margin-bottom:1rem;font-size:13px';
       banner.innerHTML = `
         <span style="color:var(--text-1)">
-          <strong>Exploring meal planning</strong> — feel free to try it out. You'll need a Supporter account to save your plans.
+          <strong>Free accounts include 1 meal plan.</strong> Upgrade for unlimited plans.
         </span>
-        <button class="btn btn-primary btn-sm" onclick="openUpgradeModal('Saving meal plans is a Supporter feature.')">Upgrade</button>`;
+        <button class="btn btn-primary btn-sm" onclick="openUpgradeModal('Free accounts include 1 meal plan. Upgrade for unlimited.')">Upgrade</button>`;
       const view = document.getElementById('food-plans-view');
       if (view) view.insertBefore(banner, view.firstChild);
     }
@@ -387,7 +388,11 @@ function updateSplitPreview() {
 }
 
 function saveFoodPlan(id) {
-  if (!requireSupporter('Saving meal plans')) return;
+  // Free accounts get 1 plan; supporters and ambassadors get unlimited
+  if (!id && !_isSupporter && !_isAmbassador && state.food_plans.length >= 1) {
+    openUpgradeModal('Free accounts include 1 meal plan. Upgrade for unlimited.');
+    return;
+  }
   const name = document.getElementById('fp-name').value.trim();
   if (!name) { alert('Plan name is required.'); return; }
 

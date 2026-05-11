@@ -53,15 +53,17 @@ function updateHeaderAuth() {
     if (footerSignin)   footerSignin.style.display   = 'none';
     if (footerSettings) footerSettings.style.display = '';
 
-    if (_isSupporter) {
-      setSyncIndicator('saved');
-      if (nudgeEl) nudgeEl.style.display = 'none';
-      if (tierEl)  tierEl.innerHTML = `<span style="color:var(--success);font-weight:600"> Supporter</span> <span style="color:var(--text-3)">· Sync active</span>`;
+    // Sync is free for all signed-in users
+    setSyncIndicator('saved');
+    if (nudgeEl) nudgeEl.style.display = 'none';
+
+    const badge = typeof tierBadgeHtml === 'function' ? tierBadgeHtml() : '';
+    if (_isSupporter || _isAmbassador) {
+      if (tierEl) tierEl.innerHTML = `${badge} <span style="color:var(--text-3);font-size:12px">· Sync active</span>`;
     } else {
-      setSyncIndicator('nosync');
-      if (nudgeEl) nudgeEl.style.display = 'flex';
-      if (tierEl)  tierEl.innerHTML = `<span style="color:var(--text-2)">Free plan</span> <span style="color:var(--text-3)">· Local only</span>
-        <button onclick="openUpgradeModal();toggleUserMenu()" style="display:block;margin-top:6px;width:100%;background:var(--primary);color:#fff;border:none;border-radius:var(--r-md);padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;text-align:center">Enable cloud sync — $3.99/mo</button>`;
+      if (tierEl) tierEl.innerHTML = `
+        <span style="color:var(--text-2)">Free plan</span> <span style="color:var(--text-3)">· Sync active</span>
+        <button onclick="openUpgradeModal();toggleUserMenu()" style="display:block;margin-top:6px;width:100%;background:var(--primary);color:#fff;border:none;border-radius:var(--r-md);padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;text-align:center">Upgrade — $2/mo or $12/yr</button>`;
     }
   } else {
     if (userInfo) userInfo.style.display = 'none';
@@ -275,6 +277,8 @@ async function signOut() {
   if (_supabaseReady()) await _sb.auth.signOut();
   _user = null;
   _isSupporter = false;
+  _isAmbassador = false;
+  _supporterSince = null;
   // Clear local data so the next user/session starts fresh
   try { localStorage.removeItem('trailkit_v1'); } catch(e) {}
   // Reset to demo state

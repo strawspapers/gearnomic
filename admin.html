@@ -436,7 +436,7 @@ async function loadUsers() {
   if (error) { toast('Failed to load users: ' + error.message); return; }
 
   const { data: userData } = await _sb.from('user_data')
-    .select('user_id, is_supporter, supporter_since, stripe_customer_id, data');
+    .select('user_id, is_supporter, is_ambassador, supporter_since, stripe_customer_id, data');
 
   const map = {};
   (userData || []).forEach(r => { map[r.user_id] = r; });
@@ -450,9 +450,10 @@ async function loadUsers() {
       created_at:   u.created_at,
       last_sign_in: u.last_sign_in_at,
       confirmed:    !!u.confirmed_at,
-      is_supporter: !!ud.is_supporter,
+      is_supporter:   !!ud.is_supporter,
+      is_ambassador:  !!ud.is_ambassador,
       supporter_since: ud.supporter_since || null,
-      has_stripe:   !!ud.stripe_customer_id,
+      has_stripe:     !!ud.stripe_customer_id,
       item_count:   (d.items || []).length,
       trip_count:   (d.trips || []).length,
       raw_data:     ud.data || null,
@@ -496,7 +497,7 @@ function filterTable() {
         <div class="sub">${u.id.slice(0,8)}… · ${u.item_count} items · ${u.trip_count} trips</div>
       </td>
       <td>
-        ${u.is_supporter ? `<span class="badge badge-supporter">Supporter</span>` : `<span class="badge badge-free">Free</span>`}
+        ${u.is_ambassador ? `<span class="badge" style="background:#d5c8f0;color:#4a2a8a">Ambassador</span>` : u.is_supporter ? `<span class="badge badge-supporter">Supporter</span>` : `<span class="badge badge-free">Free</span>`}
         ${!u.confirmed ? `<span class="badge badge-unconfirmed" style="margin-left:4px">Unconfirmed</span>` : ''}
       </td>
       <td><div class="sub">${fmtDate(u.created_at)}</div></td>
@@ -521,7 +522,8 @@ function openInspect(userId) {
   audit('INSPECT', `Viewed account data for ${u.email}`);
 
   document.getElementById('inspect-title').textContent    = u.email;
-  document.getElementById('inspect-subtitle').textContent = `${u.item_count} items · ${u.trip_count} trips · ${u.is_supporter ? 'Supporter' : 'Free'}`;
+  const tierLabel = u.is_ambassador ? 'Ambassador' : u.is_supporter ? 'Supporter' : 'Free';
+  document.getElementById('inspect-subtitle').textContent = `${u.item_count} items · ${u.trip_count} trips · ${tierLabel}`;
 
   const d = u.raw_data || {};
   const items     = d.items     || [];
@@ -538,6 +540,23 @@ function openInspect(userId) {
   const usd = v => v ? '$'+Number(v).toFixed(2) : '—';
 
   document.getElementById('inspect-body').innerHTML = `
+    <!-- Account tier controls -->
+    <div class="inspect-section">
+      <h3>Account tier</h3>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        ${u.is_ambassador
+          ? `<span style="background:#d5c8f0;color:#4a2a8a;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600">Ambassador</span>
+             <button class="btn-warn" onclick="revokeAmbassador('${esc(u.email)}')">Revoke Ambassador</button>`
+          : `<button class="btn-purple" onclick="grantAmbassador('${esc(u.email)}')">Grant Ambassador</button>`}
+        ${u.is_supporter
+          ? `<span style="background:#d5f0e0;color:#1a7a40;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600">Supporter</span>
+             ${u.supporter_since ? `<span style="font-size:12px;color:#aaa">since ${u.supporter_since}</span>` : ''}`
+          : ''}
+        ${!u.is_supporter && !u.is_ambassador
+          ? `<span style="background:#f0f0f0;color:#888;padding:3px 10px;border-radius:99px;font-size:12px">Free</span>` : ''}
+      </div>
+    </div>
+
     <!-- Summary stats -->
     <div class="inspect-section">
       <h3>Account summary</h3>
@@ -718,6 +737,38 @@ async function doRevoke(email) {
   audit('REVOKE', `Revoked Supporter access from ${email}`);
   toast(`Supporter access revoked for ${email}`);
   loadUsers();
+}
+
+async function grantAmbassador(email) {
+  if (!confirm(`Grant Ambassador status to ${email}?`)) return;
+  const user = await findUser(email);
+  if (!user) { toast('User not found.'); return; }
+  const { error } = await _sb.from('user_data').upsert(
+    { user_id: user.id, is_ambassador: true },
+    { onConflict: 'user_id' }
+  );
+  if (error) { toast('Error: ' + error.message); return; }
+  audit('AMBASSADOR_GRANT', `Granted Ambassador status to ${email}`);
+  toast(`Ambassador granted to ${email}`);
+  await loadUsers();
+  const u = _users.find(u => u.email === email);
+  if (u) openInspect(u.id);
+}
+
+async function revokeAmbassador(email) {
+  if (!confirm(`Revoke Ambassador status for ${email}?`)) return;
+  const user = await findUser(email);
+  if (!user) { toast('User not found.'); return; }
+  const { error } = await _sb.from('user_data').upsert(
+    { user_id: user.id, is_ambassador: false },
+    { onConflict: 'user_id' }
+  );
+  if (error) { toast('Error: ' + error.message); return; }
+  audit('AMBASSADOR_REVOKE', `Revoked Ambassador status from ${email}`);
+  toast(`Ambassador revoked for ${email}`);
+  await loadUsers();
+  const u = _users.find(u => u.email === email);
+  if (u) openInspect(u.id);
 }
 
 async function doDelete(email) {

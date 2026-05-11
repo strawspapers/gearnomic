@@ -7,7 +7,26 @@
 let _sb = null;           // Supabase client
 let _user = null;         // current auth.User
 let _syncTimer = null;    // debounce handle
-let _isSupporter = false; // paid supporter status
+let _isSupporter    = false; // paid supporter status
+let _isAmbassador   = false; // comped/influencer account
+let _supporterSince = null;  // ISO date string, used for Founder badge
+
+// Subscriber cutoff: anyone who paid before this date gets the Founder badge
+const FOUNDER_CUTOFF = '2026-09-01';
+
+// Returns badge metadata for the current user, or null for free accounts.
+function userTierBadge() {
+  if (_isAmbassador) return { label: 'Ambassador', bg: '#6a3db8', color: '#fff' };
+  if (_isSupporter && _supporterSince && _supporterSince < FOUNDER_CUTOFF)
+    return { label: 'Founder', bg: '#B87B0A', color: '#fff' };
+  if (_isSupporter) return { label: 'Supporter', bg: 'var(--primary)', color: '#fff' };
+  return null;
+}
+function tierBadgeHtml() {
+  const b = userTierBadge();
+  if (!b) return '';
+  return `<span style="background:${b.bg};color:${b.color};font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;letter-spacing:.04em">${b.label.toUpperCase()}</span>`;
+}
 let _myKitId = null;      // ID of the auto-created "My Kit" loadout for new users this session
 
 
@@ -855,29 +874,29 @@ function openUpgradeModal(reason) {
       <div style="font-size:32px;margin-bottom:.5rem"></div>
       <p style="font-size:15px;font-weight:500;margin-bottom:.375rem">Unlock the full Gearnomic experience</p>
       <p style="font-size:13px;color:var(--text-2);margin-bottom:1.5rem;line-height:1.6">
-        Supporters get unlimited gear, trips, templates, food planning, custom fields, full analytics, and cloud sync across all devices.
+        Supporters get unlimited meal plans, full analytics, unlimited gear &amp; trips, custom fields, and more.
       </p>
     </div>
 
-    <!-- Plan cards -->
+    <!-- Plan cards — annual is the primary CTA -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.25rem">
+      <div style="border:2px solid var(--primary);border-radius:var(--r-lg);padding:1rem;text-align:center;position:relative">
+        <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:10px;font-weight:600;padding:2px 10px;border-radius:99px;white-space:nowrap">RECOMMENDED</div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.375rem">Annual</div>
+        <div style="font-size:26px;font-weight:600;font-family:var(--font-disp)">$12</div>
+        <div style="font-size:12px;color:var(--text-3);margin-bottom:.875rem">per year — $1/mo</div>
+        <a href="${STRIPE_ANNUAL_URL}?prefilled_email=${encodeURIComponent(_user?.email||'')}&client_reference_id=${encodeURIComponent(_user?.id||'')}"
+          target="_blank" class="btn btn-primary btn-sm" style="display:block;text-align:center">
+          Subscribe annually
+        </a>
+      </div>
       <div style="border:1.5px solid var(--border);border-radius:var(--r-lg);padding:1rem;text-align:center">
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.375rem">Monthly</div>
-        <div style="font-size:26px;font-weight:600;font-family:var(--font-disp)">$3.99</div>
+        <div style="font-size:26px;font-weight:600;font-family:var(--font-disp)">$2</div>
         <div style="font-size:12px;color:var(--text-3);margin-bottom:.875rem">per month</div>
         <a href="${STRIPE_MONTHLY_URL}?prefilled_email=${encodeURIComponent(_user?.email||'')}&client_reference_id=${encodeURIComponent(_user?.id||'')}"
           target="_blank" class="btn btn-sm" style="display:block;text-align:center">
           Subscribe monthly
-        </a>
-      </div>
-      <div style="border:2px solid var(--primary);border-radius:var(--r-lg);padding:1rem;text-align:center;position:relative">
-        <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:10px;font-weight:600;padding:2px 10px;border-radius:99px;white-space:nowrap">BEST VALUE</div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.375rem">Annual</div>
-        <div style="font-size:26px;font-weight:600;font-family:var(--font-disp)">$29</div>
-        <div style="font-size:12px;color:var(--text-3);margin-bottom:.875rem">per year — $2.42/mo</div>
-        <a href="${STRIPE_ANNUAL_URL}?prefilled_email=${encodeURIComponent(_user?.email||'')}&client_reference_id=${encodeURIComponent(_user?.id||'')}"
-          target="_blank" class="btn btn-primary btn-sm" style="display:block;text-align:center">
-          Subscribe annually
         </a>
       </div>
     </div>
@@ -886,14 +905,12 @@ function openUpgradeModal(reason) {
     <div style="background:var(--surface-2);border-radius:var(--r-md);padding:.875rem 1rem;margin-bottom:1rem">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">What supporters get</div>
       ${[
-        'Unlimited gear items, trips & templates',
-        'Save meal plans & attach them to trips',
-        'Full analytics — value, usage & trip history',
+        'Unlimited meal plans — attach to any trip',
+        'Unlimited gear items, trips &amp; loadouts',
+        'Full analytics — value, usage &amp; trip history',
         'Custom gear fields',
-        'Cloud sync across all devices',
-        'Automatic backup — never lose your list',
-        'Priority support & early feature access',
-      ].map(f => `<div style="font-size:13px;color:var(--text-1);padding:3px 0">v ${f}</div>`).join('')}
+        'Automatic backup &amp; priority support',
+      ].map(f => `<div style="font-size:13px;color:var(--text-1);padding:3px 0">✓ ${f}</div>`).join('')}
     </div>
 
     <p style="font-size:11.5px;color:var(--text-3);text-align:center;line-height:1.5">
@@ -911,18 +928,18 @@ function openSettings() {
   openModal('Settings', `
     <div style="display:flex;flex-direction:column;gap:1.25rem">
 
-      <!-- Supporter status -->
+      <!-- Account tier -->
       <div>
-        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Supporter</div>
-        ${_isSupporter
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.625rem">Account</div>
+        ${_isSupporter || _isAmbassador
           ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <span style="background:var(--primary);color:#fff;font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px"> SUPPORTER</span>
-              <span style="font-size:13px;color:var(--text-2)">Cloud sync is active. Thank you for supporting Gearnomic!</span>
-              <a href="https://billing.stripe.com/p/login/00w5kCeTg0vBcNF0zi0oM00" target="_blank" class="btn btn-sm btn-ghost">Manage subscription</a>
+              ${tierBadgeHtml()}
+              <span style="font-size:13px;color:var(--text-2)">Cloud sync active. Thank you for supporting Gearnomic!</span>
+              ${_isSupporter ? `<a href="https://billing.stripe.com/p/login/00w5kCeTg0vBcNF0zi0oM00" target="_blank" class="btn btn-sm btn-ghost">Manage subscription</a>` : ''}
             </div>`
           : `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <span style="font-size:13px;color:var(--text-2)">Free plan — data saved locally on this device only.</span>
-              <button class="btn btn-sm btn-primary" onclick="closeModal();openUpgradeModal()">Upgrade for sync </button>
+              <span style="font-size:13px;color:var(--text-2)">Free — cloud sync included. Upgrade for unlimited meal plans &amp; full analytics.</span>
+              <button class="btn btn-sm btn-primary" onclick="closeModal();openUpgradeModal()">Upgrade</button>
             </div>`
         }
       </div>
@@ -967,7 +984,7 @@ function openSettings() {
         <div style="display:flex;gap:.5rem;flex-wrap:wrap">
           <button class="btn btn-sm" onclick="exportData()">Export all data as JSON</button>
           <button class="btn btn-sm" onclick="document.getElementById('import-file').click()">Import from JSON</button>
-          ${_isSupporter ? `<button class="btn btn-sm" onclick="syncToCloud().then(()=>toast('Synced!'))">Force sync to cloud</button>` : ''}
+          ${_user ? `<button class="btn btn-sm" onclick="syncToCloud().then(()=>toast('Synced!'))">Force sync to cloud</button>` : ''}
           <button class="btn btn-sm" onclick="confirmLoadSampleGear()">Load sample gear</button>
         </div>
       </div>
@@ -2053,7 +2070,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       refreshAll();
       updateHeaderAuth();
-      toast('Signed in!' + (_isSupporter ? ' Your data is syncing.' : ' Upgrade to enable cloud sync.'));
+      toast('Signed in! Your data is syncing.');
 
       // Route to the right loadout surface after sign-in
       if (!window._pendingShareToken) routeOnLoad();
