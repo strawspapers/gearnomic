@@ -950,7 +950,7 @@ function openProfile() {
 
   const lp = state.profile || {};
   const pp = _profile || {};
-  const hasUsername = !!_username;
+  const hasUsername = !!(_username || _profile?.username);
 
   const customLinksHtml = (_isSupporter || _isAmbassador) ? (() => {
     const MAX_CL = 5;
@@ -993,8 +993,8 @@ function openProfile() {
         </div>
         ${hasUsername
           ? `<div style="display:flex;align-items:center;gap:10px">
-              <span style="font-size:14px;font-weight:500;color:var(--primary)">@${esc(_username)}</span>
-              <a href="/${esc(_username)}" target="_blank" class="btn btn-sm btn-ghost" style="font-size:12px">View profile ↗</a>
+              <span style="font-size:14px;font-weight:500;color:var(--primary)">@${esc(_username || _profile?.username)}</span>
+              <a href="/${esc(_username || _profile?.username)}" target="_blank" class="btn btn-sm btn-ghost" style="font-size:12px">View profile ↗</a>
             </div>`
           : `<div>
               <div style="display:flex;gap:8px;align-items:center">
@@ -1376,7 +1376,7 @@ async function _saveProfileInner(usernameToSet) {
   }
 
   // Build snapshot data for public display
-  const hasUsername = !!(_username || usernameToSet);
+  const hasUsername = !!(_username || usernameToSet || _profile?.username);
   const pub_loadouts = hasUsername && !!document.getElementById('s-pub-loadouts')?.checked;
   const pub_trips    = hasUsername && !!document.getElementById('s-pub-trips')?.checked;
   const pub_gear     = hasUsername && !!document.getElementById('s-pub-gear')?.checked;
