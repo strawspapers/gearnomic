@@ -95,6 +95,7 @@ async function loadFromCloud() {
   try {
     const { data, error } = await _sb.from('user_data')
       .select('*').eq('user_id', _user.id).single();
+    console.log('[loadFromCloud] query result:', { error: error?.message, hasData: !!data?.data, itemCount: data?.data?.items?.length ?? 'n/a' });
     if (error || !data?.data) return false;
     _isSupporter    = !!data.is_supporter;
     _isAmbassador   = !!data.is_ambassador;
