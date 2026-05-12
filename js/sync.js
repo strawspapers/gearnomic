@@ -101,21 +101,27 @@ async function loadFromCloud() {
     _supporterSince = data.supporter_since || null;
     // One-time migration: if a localStorage copy exists and is newer than Supabase
     // (unsync'd changes from before the Supabase-only model), push it up first.
+    // Only runs when trailkit_v1 was written by the OLD system — loadState() no longer
+    // writes it on initialization, so this can never fire on fresh demo data.
     try {
       const localRaw = localStorage.getItem('trailkit_v1');
       if (localRaw) {
         const localData = JSON.parse(localRaw);
         const localTs   = localData?._savedAt || 0;
         const cloudTs   = data.data?._savedAt  || 0;
-        localStorage.removeItem('trailkit_v1'); // remove regardless — we're done with it
         if (localTs > cloudTs) {
-          // Local is newer: use it and push it to Supabase immediately.
           state = localData;
           applyMigrations();
-          await syncToCloud();
+          // Only remove localStorage after Supabase confirms the write succeeded.
+          const { error: pushErr } = await _sb.from('user_data').upsert(
+            { user_id: _user.id, data: state }, { onConflict: 'user_id' }
+          );
+          if (!pushErr) localStorage.removeItem('trailkit_v1');
           if (typeof loadProfile === 'function') loadProfile().catch(() => {});
           return true;
         }
+        // Cloud is newer — local copy is stale, safe to discard.
+        localStorage.removeItem('trailkit_v1');
       }
     } catch(e) {}
     // Supabase is the sole source of truth — always use cloud data.
@@ -282,7 +288,12 @@ function loadState() {
     recipes:       JSON.parse(JSON.stringify(SEED_DATA.recipes)),
     custom_fields: [],
   };
-  saveState();
+  // Do NOT call saveState() here. Demo data lives in memory only.
+  // Guests write to localStorage naturally on their first real interaction.
+  // Signed-in users get this overwritten by loadFromCloud() immediately.
+  // Calling saveState() here would write demo data to localStorage with a fresh
+  // _savedAt timestamp, causing the migration guard in loadFromCloud() to mistake
+  // it for real user data newer than Supabase and push it to the cloud.
 }
 
 function exportData() {
