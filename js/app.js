@@ -2540,21 +2540,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     session = res?.data?.session ?? null;
   } catch(e) { console.warn('[auth] getSession error:', e); }
 
-  if (session?.user) {
-    _user = session.user;
-    _accessToken = session.access_token || null;
-    const loaded = await Promise.race([
-      loadFromCloud(),
-      new Promise(r => setTimeout(() => r(false), 8000)),
-    ]);
-    if (loaded) { _cloudLoaded = true; refreshAll(); }
+  // Wrap in try/catch so any error in data loading or rendering cannot prevent
+  // onAuthStateChange from being registered below — that would break sign-in entirely.
+  try {
+    if (session?.user) {
+      _user = session.user;
+      _accessToken = session.access_token || null;
+      const loaded = await Promise.race([
+        loadFromCloud(),
+        new Promise(r => setTimeout(() => r(false), 8000)),
+      ]).catch(() => false);
+      if (loaded) { _cloudLoaded = true; refreshAll(); }
+    }
+    updateHeaderAuth();
+    if (shareToken) handleShareHash(shareToken);
+    else routeOnLoad();
+    if (typeof loadCompareFromUrl === 'function') loadCompareFromUrl();
+  } catch(e) {
+    console.error('[boot]', e);
+    try { updateHeaderAuth(); } catch(_) {}
   }
-  updateHeaderAuth();
-
-  if (shareToken) handleShareHash(shareToken);
-  else routeOnLoad();
-
-  if (typeof loadCompareFromUrl === 'function') loadCompareFromUrl();
 
   // React to sign-in / sign-out / password recovery events
   _sb.auth.onAuthStateChange(async (event, session) => {
@@ -2576,7 +2581,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       _user = session.user;
       hideAuthModal();
       hideSavePromptBanner();
-      const cloudLoaded = await loadFromCloud(); // also sets _isSupporter
+      const cloudLoaded = await loadFromCloud().catch(() => false); // also sets _isSupporter
+      if (cloudLoaded) _cloudLoaded = true;
       if (!cloudLoaded) {
         // Brand new user — no cloud data yet.
         // Reset to a clean empty state (don't keep the demo data).
