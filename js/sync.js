@@ -2,11 +2,13 @@
 // ── Persistence ────────────────────────────────────────────
 function saveState() {
   state._savedAt = Date.now();
-  try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
-  // Cloud sync for all signed-in users
   if (_user) {
+    // Signed-in: Supabase is the sole source of truth — no localStorage write
     clearTimeout(_syncTimer);
     _syncTimer = setTimeout(syncToCloud, 1500);
+  } else {
+    // Guest: localStorage is the only persistence available
+    try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
   }
 }
 
@@ -64,25 +66,16 @@ async function loadFromCloud() {
   if (!_supabaseReady() || !_user) return false;
   try {
     const { data, error } = await _sb.from('user_data')
-      .select('data,is_supporter,is_ambassador,supporter_since,updated_at').eq('user_id', _user.id).single();
+      .select('data,is_supporter,is_ambassador,supporter_since').eq('user_id', _user.id).single();
     if (error || !data?.data) return false;
     _isSupporter    = !!data.is_supporter;
     _isAmbassador   = !!data.is_ambassador;
     _supporterSince = data.supporter_since || null;
-    // Compare _savedAt embedded in both copies — both are client-clock timestamps,
-    // so there's no server/client clock-skew. updated_at is a server trigger timestamp
-    // and can be ahead of the client clock, causing cloud to falsely "win" when local
-    // is actually newer (e.g. a deletion that hasn't synced yet).
-    const localTs  = state._savedAt || 0;
-    const cloudTs  = data.data?._savedAt || 0;
-    if (localTs > cloudTs) {
-      syncToCloud();
-      return true;
-    }
+    // Supabase is the sole source of truth — always use cloud data, no comparison needed
     state = data.data;
     applyMigrations();
-    try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
-    // Load public profile in background (non-blocking)
+    // Remove stale local copy so it can never shadow cloud data
+    try { localStorage.removeItem('trailkit_v1'); } catch(e) {}
     if (typeof loadProfile === 'function') loadProfile().catch(() => {});
     return true;
   } catch(e) { return false; }
@@ -220,16 +213,20 @@ function applyMigrations() {
 }
 
 function loadState() {
-  try {
-    const raw = localStorage.getItem('trailkit_v1');
-    if (raw) {
-      state = JSON.parse(raw);
-      applyMigrations();
-      return;
-    }
-  } catch(e) {}
-  // First visit — start with demo trips/loadout so new users can explore,
-  // but keep the gear closet empty so the empty state is shown.
+  // For guests only: restore from localStorage (their sole persistence layer).
+  // Signed-in users skip this — loadFromCloud() will populate state from Supabase.
+  if (!_user) {
+    try {
+      const raw = localStorage.getItem('trailkit_v1');
+      if (raw) {
+        state = JSON.parse(raw);
+        applyMigrations();
+        return;
+      }
+    } catch(e) {}
+  }
+  // First visit or signed-in user with no local copy — seed with demo data.
+  // For signed-in users this is a brief placeholder; loadFromCloud() overwrites it.
   const demoTrip  = JSON.parse(JSON.stringify(DEMO_DATA.trip));
   const demoTmpl  = JSON.parse(JSON.stringify(DEMO_DATA.template));
 

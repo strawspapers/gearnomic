@@ -1541,7 +1541,7 @@ function openPrivacyPolicy() {
       We do not use advertising trackers, third-party analytics, or sell your data to anyone. We do not use cookies beyond what Supabase requires for authentication sessions.</p>
 
       <p style="margin-bottom:.875rem"><strong>Local storage</strong><br>
-      Your data is also cached in your browser's localStorage for fast offline access. Clearing your browser data will remove this local copy but your cloud backup remains intact if you have an account.</p>
+      Signed-in users' gear data is stored exclusively in Supabase — no local browser copy is kept. Guests (no account) use browser localStorage as their only storage; signing up moves that data to the cloud.</p>
 
       <p style="margin-bottom:.875rem"><strong>Admin access</strong><br>
       Gearnomic's operator may access account data for the purpose of providing customer support. This access is logged and limited to diagnosing issues. We do not access your data for any other purpose.</p>
