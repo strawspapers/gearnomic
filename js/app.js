@@ -2548,9 +2548,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       _accessToken = session.access_token || null;
       const loaded = await Promise.race([
         loadFromCloud(),
-        new Promise(r => setTimeout(() => r(false), 8000)),
-      ]).catch(() => false);
-      if (loaded) { _cloudLoaded = true; refreshAll(); }
+        new Promise(r => setTimeout(() => r(null), 8000)),
+      ]).catch(() => null);
+      if (loaded === true) { _cloudLoaded = true; refreshAll(); }
     }
     updateHeaderAuth();
     if (shareToken) handleShareHash(shareToken);
@@ -2581,11 +2581,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       _user = session.user;
       hideAuthModal();
       hideSavePromptBanner();
-      const cloudLoaded = await loadFromCloud().catch(() => false); // also sets _isSupporter
-      if (cloudLoaded) _cloudLoaded = true;
-      if (!cloudLoaded) {
-        // Brand new user — no cloud data yet.
-        // Reset to a clean empty state (don't keep the demo data).
+      // loadFromCloud returns: true=loaded, false=no row (new user), null=query error
+      const cloudLoaded = await loadFromCloud().catch(() => null);
+      if (cloudLoaded === true) _cloudLoaded = true;
+      if (cloudLoaded === false) {
+        // Genuinely new user — no row in Supabase yet. Safe to seed and push.
         state = {
           items:         [],
           trips:         [],
@@ -2599,9 +2599,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           profile:       { units: _units },
         };
         await loadSupporterStatus();
-        await syncToCloud(); // save clean state to cloud
-        saveState();         // update localStorage too
+        await syncToCloud();
       }
+      // cloudLoaded === null means a query error — do NOT touch Supabase.
       loadProfile().catch(() => {}); // non-blocking
       refreshAll();
       updateHeaderAuth();

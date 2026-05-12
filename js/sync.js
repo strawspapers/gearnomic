@@ -90,13 +90,17 @@ async function syncToCloud() {
   }
 }
 
+// Returns: true  = data loaded from Supabase
+//          false = no row exists (genuinely new user, safe to seed)
+//          null  = query error (do NOT overwrite Supabase with empty state)
 async function loadFromCloud() {
   if (!_supabaseReady() || !_user) return false;
   try {
     const { data, error } = await _sb.from('user_data')
-      .select('*').eq('user_id', _user.id).single();
-    console.log('[loadFromCloud] query result:', { error: error?.message, hasData: !!data?.data, itemCount: data?.data?.items?.length ?? 'n/a' });
-    if (error || !data?.data) return false;
+      .select('*').eq('user_id', _user.id).maybeSingle();
+    // maybeSingle: error=null+data=null means no row; error!=null means real query failure
+    if (error) { console.error('[loadFromCloud] query error:', error.message); return null; }
+    if (!data?.data) return false; // no row — genuinely new user
     _isSupporter    = !!data.is_supporter;
     _isAmbassador   = !!data.is_ambassador;
     _supporterSince = data.supporter_since || null;
