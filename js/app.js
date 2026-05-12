@@ -1202,7 +1202,7 @@ async function saveProfileModal() {
       }
       if (RESERVED_USERNAMES.has(raw)) { toast('That username is reserved.'); return; }
       const statusEl = document.getElementById('s-uname-status');
-      if (statusEl?.textContent.includes('Taken')) { toast('That username is already taken.'); return; }
+      if (statusEl?.textContent?.includes('Taken')) { toast('That username is already taken.'); return; }
       usernameToSet = raw;
     }
   }
