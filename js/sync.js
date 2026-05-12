@@ -3,13 +3,41 @@
 function saveState() {
   state._savedAt = Date.now();
   if (_user) {
-    // Signed-in: Supabase is the sole source of truth — no localStorage write
+    // Signed-in: Supabase is the sole source of truth — no localStorage write.
+    // beforeunload/visibilitychange flush any pending sync via keepalive fetch.
     clearTimeout(_syncTimer);
-    _syncTimer = setTimeout(syncToCloud, 1500);
+    _syncTimer = setTimeout(syncToCloud, 400);
   } else {
-    // Guest: localStorage is the only persistence available
+    // Guest: localStorage is the only persistence available.
     try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
   }
+}
+
+// Flush a pending sync immediately using fetch keepalive so the request
+// survives page unload. Called from beforeunload and visibilitychange.
+function flushToCloud() {
+  if (!_user || window._adminImpersonateMode || !_syncTimer) return;
+  clearTimeout(_syncTimer);
+  _syncTimer = null;
+  if (typeof SUPABASE_URL === 'undefined' || !_accessToken) {
+    // Token not yet cached — fall back to the normal async path and hope the
+    // browser keeps the tab alive long enough (e.g. tab switch, not close).
+    syncToCloud();
+    return;
+  }
+  try {
+    fetch(`${SUPABASE_URL}/rest/v1/user_data`, {
+      method:    'POST',
+      keepalive: true,
+      headers: {
+        'apikey':        SUPABASE_ANON,
+        'Authorization': `Bearer ${_accessToken}`,
+        'Content-Type':  'application/json',
+        'Prefer':        'resolution=merge-duplicates',
+      },
+      body: JSON.stringify({ user_id: _user.id, data: state }),
+    });
+  } catch(e) {}
 }
 
 // Writes the impersonated user's state back to their DB row.
@@ -71,10 +99,11 @@ async function loadFromCloud() {
     _isSupporter    = !!data.is_supporter;
     _isAmbassador   = !!data.is_ambassador;
     _supporterSince = data.supporter_since || null;
-    // Supabase is the sole source of truth — always use cloud data, no comparison needed
+    // Supabase is the sole source of truth — always use cloud data.
+    // No localStorage comparison needed; flushToCloud() protects the debounce window.
     state = data.data;
     applyMigrations();
-    // Remove stale local copy so it can never shadow cloud data
+    // Clear any stale local copy left over from before this migration.
     try { localStorage.removeItem('trailkit_v1'); } catch(e) {}
     if (typeof loadProfile === 'function') loadProfile().catch(() => {});
     return true;
@@ -213,20 +242,16 @@ function applyMigrations() {
 }
 
 function loadState() {
-  // For guests only: restore from localStorage (their sole persistence layer).
-  // Signed-in users skip this — loadFromCloud() will populate state from Supabase.
-  if (!_user) {
-    try {
-      const raw = localStorage.getItem('trailkit_v1');
-      if (raw) {
-        state = JSON.parse(raw);
-        applyMigrations();
-        return;
-      }
-    } catch(e) {}
-  }
-  // First visit or signed-in user with no local copy — seed with demo data.
-  // For signed-in users this is a brief placeholder; loadFromCloud() overwrites it.
+  try {
+    const raw = localStorage.getItem('trailkit_v1');
+    if (raw) {
+      state = JSON.parse(raw);
+      applyMigrations();
+      return;
+    }
+  } catch(e) {}
+  // First visit — start with demo trips/loadout so new users can explore,
+  // but keep the gear closet empty so the empty state is shown.
   const demoTrip  = JSON.parse(JSON.stringify(DEMO_DATA.trip));
   const demoTmpl  = JSON.parse(JSON.stringify(DEMO_DATA.template));
 

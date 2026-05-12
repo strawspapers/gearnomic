@@ -7,6 +7,7 @@
 let _sb = null;           // Supabase client
 let _user = null;         // current auth.User
 let _syncTimer = null;    // debounce handle
+let _accessToken = null;  // cached JWT for keepalive flush on unload
 let _isSupporter    = false; // paid supporter status
 let _isAmbassador   = false; // comped/influencer account
 let _supporterSince = null;  // ISO date string, used for Founder badge
@@ -1541,7 +1542,7 @@ function openPrivacyPolicy() {
       We do not use advertising trackers, third-party analytics, or sell your data to anyone. We do not use cookies beyond what Supabase requires for authentication sessions.</p>
 
       <p style="margin-bottom:.875rem"><strong>Local storage</strong><br>
-      Signed-in users' gear data is stored exclusively in Supabase — no local browser copy is kept. Guests (no account) use browser localStorage as their only storage; signing up moves that data to the cloud.</p>
+      Your data is cached in your browser's localStorage as a short-term buffer and is synced to Supabase in the background. Clearing your browser data will remove this local copy but your cloud data remains intact.</p>
 
       <p style="margin-bottom:.875rem"><strong>Admin access</strong><br>
       Gearnomic's operator may access account data for the purpose of providing customer support. This access is logged and limited to diagnosing issues. We do not access your data for any other purpose.</p>
@@ -2214,18 +2215,10 @@ function setupListeners() {
   // Flush any pending cloud sync immediately when the user hides the tab or
   // navigates away, so a quick refresh doesn't lose unsaved gear.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden' && _syncTimer) {
-      clearTimeout(_syncTimer);
-      _syncTimer = null;
-      syncToCloud();
-    }
+    if (document.visibilityState === 'hidden') flushToCloud();
   }, { once: false });
   window.addEventListener('beforeunload', () => {
-    if (_syncTimer) {
-      clearTimeout(_syncTimer);
-      _syncTimer = null;
-      syncToCloud();
-    }
+    flushToCloud();
   });
 
   document.querySelectorAll('.nav-tab').forEach(btn => {
@@ -2267,8 +2260,8 @@ function routeOnLoad() {
   // Don't hijack the share overlay or admin impersonation view
   if (window.location.hash.startsWith('#share=') || window._adminImpersonateMode) return;
 
-  if (state.items.length === 0) {
-    // New user: create My Kit and open it in the loadout builder
+  if (state.items.length === 0 && state.templates.length === 0) {
+    // New user (nothing at all yet): create My Kit and open it in the loadout builder
     const kit = getOrCreateMyKit();
     _myKitId = kit.id;
     showTab('templates');
@@ -2548,6 +2541,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (session?.user) {
     _user = session.user;
+    _accessToken = session.access_token || null;
     const loaded = await Promise.race([
       loadFromCloud(),
       new Promise(r => setTimeout(() => r(false), 8000)),
@@ -2563,6 +2557,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // React to sign-in / sign-out / password recovery events
   _sb.auth.onAuthStateChange(async (event, session) => {
+    _accessToken = session?.access_token || null;
     if (event === 'PASSWORD_RECOVERY') {
       _user = session?.user || null;
       showAuthModal();
