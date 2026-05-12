@@ -7,7 +7,8 @@
 let _sb = null;           // Supabase client
 let _user = null;         // current auth.User
 let _syncTimer = null;    // debounce handle
-let _accessToken = null;  // cached JWT for keepalive flush on unload
+let _accessToken  = null;  // cached JWT for keepalive flush on unload
+let _cloudLoaded  = false; // true once loadFromCloud() succeeds — gates My Kit creation
 let _isSupporter    = false; // paid supporter status
 let _isAmbassador   = false; // comped/influencer account
 let _supporterSince = null;  // ISO date string, used for Founder badge
@@ -2260,8 +2261,8 @@ function routeOnLoad() {
   // Don't hijack the share overlay or admin impersonation view
   if (window.location.hash.startsWith('#share=') || window._adminImpersonateMode) return;
 
-  if (state.items.length === 0 && state.templates.length === 0) {
-    // New user (nothing at all yet): create My Kit and open it in the loadout builder
+  if (state.items.length === 0 && state.templates.length === 0 && !_cloudLoaded) {
+    // Genuinely new user — Supabase had no row. Create My Kit for onboarding.
     const kit = getOrCreateMyKit();
     _myKitId = kit.id;
     showTab('templates');
@@ -2546,7 +2547,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       loadFromCloud(),
       new Promise(r => setTimeout(() => r(false), 8000)),
     ]);
-    if (loaded) refreshAll();
+    if (loaded) { _cloudLoaded = true; refreshAll(); }
   }
   updateHeaderAuth();
 

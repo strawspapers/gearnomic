@@ -99,12 +99,28 @@ async function loadFromCloud() {
     _isSupporter    = !!data.is_supporter;
     _isAmbassador   = !!data.is_ambassador;
     _supporterSince = data.supporter_since || null;
+    // One-time migration: if a localStorage copy exists and is newer than Supabase
+    // (unsync'd changes from before the Supabase-only model), push it up first.
+    try {
+      const localRaw = localStorage.getItem('trailkit_v1');
+      if (localRaw) {
+        const localData = JSON.parse(localRaw);
+        const localTs   = localData?._savedAt || 0;
+        const cloudTs   = data.data?._savedAt  || 0;
+        localStorage.removeItem('trailkit_v1'); // remove regardless — we're done with it
+        if (localTs > cloudTs) {
+          // Local is newer: use it and push it to Supabase immediately.
+          state = localData;
+          applyMigrations();
+          await syncToCloud();
+          if (typeof loadProfile === 'function') loadProfile().catch(() => {});
+          return true;
+        }
+      }
+    } catch(e) {}
     // Supabase is the sole source of truth — always use cloud data.
-    // No localStorage comparison needed; flushToCloud() protects the debounce window.
     state = data.data;
     applyMigrations();
-    // Clear any stale local copy left over from before this migration.
-    try { localStorage.removeItem('trailkit_v1'); } catch(e) {}
     if (typeof loadProfile === 'function') loadProfile().catch(() => {});
     return true;
   } catch(e) { return false; }
