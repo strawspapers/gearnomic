@@ -69,11 +69,12 @@ async function loadFromCloud() {
     _isSupporter    = !!data.is_supporter;
     _isAmbassador   = !!data.is_ambassador;
     _supporterSince = data.supporter_since || null;
-    // Compare local _savedAt against the DB's updated_at (set by a server trigger on
-    // every write — trustworthy, clock-skew-safe, and not affected by stale localStorage).
-    // If local is newer the user edited before the debounce flushed; push local up.
+    // Compare _savedAt embedded in both copies — both are client-clock timestamps,
+    // so there's no server/client clock-skew. updated_at is a server trigger timestamp
+    // and can be ahead of the client clock, causing cloud to falsely "win" when local
+    // is actually newer (e.g. a deletion that hasn't synced yet).
     const localTs  = state._savedAt || 0;
-    const cloudTs  = data.updated_at ? new Date(data.updated_at).getTime() : 0;
+    const cloudTs  = data.data?._savedAt || 0;
     if (localTs > cloudTs) {
       syncToCloud();
       return true;
