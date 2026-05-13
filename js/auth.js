@@ -75,15 +75,52 @@ function updateHeaderAuth() {
   }
 }
 
+// ── Auth modal viewport handling (mobile keyboard) ───────
+// When the virtual keyboard opens on iOS/Android, visualViewport shrinks.
+// We resize the overlay to match so the modal stays in the visible area.
+const _authVP = (() => {
+  function update() {
+    const el = document.getElementById('auth-modal-overlay');
+    if (!el || el.style.display === 'none') return;
+    const vv = window.visualViewport;
+    el.style.height = vv.height + 'px';
+    el.style.top    = (vv.offsetTop || 0) + 'px';
+  }
+  return {
+    start() {
+      if (!window.visualViewport) return;
+      window.visualViewport.addEventListener('resize', update);
+      window.visualViewport.addEventListener('scroll', update);
+      update();
+    },
+    stop() {
+      if (!window.visualViewport) return;
+      window.visualViewport.removeEventListener('resize', update);
+      window.visualViewport.removeEventListener('scroll', update);
+      const el = document.getElementById('auth-modal-overlay');
+      if (el) { el.style.height = ''; el.style.top = ''; }
+    }
+  };
+})();
+
+// Scroll focused input into view after keyboard animation settles
+document.addEventListener('focusin', e => {
+  if (e.target.closest?.('#auth-modal-overlay')) {
+    setTimeout(() => e.target.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' }), 350);
+  }
+});
+
 function showAuthModal() {
   const el = document.getElementById('auth-modal-overlay');
   if (el) { el.style.display = 'flex'; }
+  _authVP.start();
   setTimeout(() => document.getElementById('auth-email')?.focus(), 100);
 }
 
 function hideAuthModal() {
   const el = document.getElementById('auth-modal-overlay');
   if (el) { el.style.display = 'none'; }
+  _authVP.stop();
 }
 
 function switchAuthTab(tab) {
