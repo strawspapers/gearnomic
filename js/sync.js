@@ -64,7 +64,7 @@ async function loadFromCloud() {
   if (!_supabaseReady() || !_user) return false;
   try {
     const { data, error } = await _sb.from('user_data')
-      .select('data,is_supporter,is_ambassador,supporter_since,updated_at').eq('user_id', _user.id).single();
+      .select('data,is_supporter,supporter_since,updated_at').eq('user_id', _user.id).single();
     if (error || !data?.data) return false;
     _isSupporter    = !!data.is_supporter;
     _isAmbassador   = !!data.is_ambassador;
@@ -93,7 +93,7 @@ async function loadSupporterStatus() {
   if (!_supabaseReady() || !_user) return;
   try {
     const { data } = await _sb.from('user_data')
-      .select('is_supporter,is_ambassador,supporter_since').eq('user_id', _user.id).single();
+      .select('is_supporter,supporter_since').eq('user_id', _user.id).single();
     _isSupporter    = !!(data?.is_supporter);
     _isAmbassador   = !!(data?.is_ambassador);
     _supporterSince = data?.supporter_since || null;
