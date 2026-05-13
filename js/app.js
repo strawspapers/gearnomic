@@ -7,8 +7,6 @@
 let _sb = null;           // Supabase client
 let _user = null;         // current auth.User
 let _syncTimer = null;    // debounce handle
-let _accessToken  = null;  // cached JWT for keepalive flush on unload
-let _cloudLoaded  = false; // true once loadFromCloud() succeeds — gates My Kit creation
 let _isSupporter    = false; // paid supporter status
 let _isAmbassador   = false; // comped/influencer account
 let _supporterSince = null;  // ISO date string, used for Founder badge
@@ -1543,7 +1541,7 @@ function openPrivacyPolicy() {
       We do not use advertising trackers, third-party analytics, or sell your data to anyone. We do not use cookies beyond what Supabase requires for authentication sessions.</p>
 
       <p style="margin-bottom:.875rem"><strong>Local storage</strong><br>
-      Your data is cached in your browser's localStorage as a short-term buffer and is synced to Supabase in the background. Clearing your browser data will remove this local copy but your cloud data remains intact.</p>
+      Your data is also cached in your browser's localStorage for fast offline access. Clearing your browser data will remove this local copy but your cloud backup remains intact if you have an account.</p>
 
       <p style="margin-bottom:.875rem"><strong>Admin access</strong><br>
       Gearnomic's operator may access account data for the purpose of providing customer support. This access is logged and limited to diagnosing issues. We do not access your data for any other purpose.</p>
@@ -2216,10 +2214,18 @@ function setupListeners() {
   // Flush any pending cloud sync immediately when the user hides the tab or
   // navigates away, so a quick refresh doesn't lose unsaved gear.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') flushToCloud();
+    if (document.visibilityState === 'hidden' && _syncTimer) {
+      clearTimeout(_syncTimer);
+      _syncTimer = null;
+      syncToCloud();
+    }
   }, { once: false });
   window.addEventListener('beforeunload', () => {
-    flushToCloud();
+    if (_syncTimer) {
+      clearTimeout(_syncTimer);
+      _syncTimer = null;
+      syncToCloud();
+    }
   });
 
   document.querySelectorAll('.nav-tab').forEach(btn => {
@@ -2261,8 +2267,8 @@ function routeOnLoad() {
   // Don't hijack the share overlay or admin impersonation view
   if (window.location.hash.startsWith('#share=') || window._adminImpersonateMode) return;
 
-  if (state.items.length === 0 && state.templates.length === 0 && !_cloudLoaded) {
-    // Genuinely new user — Supabase had no row. Create My Kit for onboarding.
+  if (state.items.length === 0) {
+    // New user: create My Kit and open it in the loadout builder
     const kit = getOrCreateMyKit();
     _myKitId = kit.id;
     showTab('templates');
@@ -2540,30 +2546,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     session = res?.data?.session ?? null;
   } catch(e) { console.warn('[auth] getSession error:', e); }
 
-  // Wrap in try/catch so any error in data loading or rendering cannot prevent
-  // onAuthStateChange from being registered below — that would break sign-in entirely.
-  try {
-    if (session?.user) {
-      _user = session.user;
-      _accessToken = session.access_token || null;
-      const loaded = await Promise.race([
-        loadFromCloud(),
-        new Promise(r => setTimeout(() => r(null), 8000)),
-      ]).catch(() => null);
-      if (loaded === true) { _cloudLoaded = true; refreshAll(); }
-    }
-    updateHeaderAuth();
-    if (shareToken) handleShareHash(shareToken);
-    else routeOnLoad();
-    if (typeof loadCompareFromUrl === 'function') loadCompareFromUrl();
-  } catch(e) {
-    console.error('[boot]', e);
-    try { updateHeaderAuth(); } catch(_) {}
+  if (session?.user) {
+    _user = session.user;
+    const loaded = await Promise.race([
+      loadFromCloud(),
+      new Promise(r => setTimeout(() => r(false), 8000)),
+    ]);
+    if (loaded) refreshAll();
   }
+  updateHeaderAuth();
+
+  if (shareToken) handleShareHash(shareToken);
+  else routeOnLoad();
+
+  if (typeof loadCompareFromUrl === 'function') loadCompareFromUrl();
 
   // React to sign-in / sign-out / password recovery events
   _sb.auth.onAuthStateChange(async (event, session) => {
-    _accessToken = session?.access_token || null;
     if (event === 'PASSWORD_RECOVERY') {
       _user = session?.user || null;
       showAuthModal();
@@ -2581,11 +2580,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       _user = session.user;
       hideAuthModal();
       hideSavePromptBanner();
-      // loadFromCloud returns: true=loaded, false=no row (new user), null=query error
-      const cloudLoaded = await loadFromCloud().catch(() => null);
-      if (cloudLoaded === true) _cloudLoaded = true;
-      if (cloudLoaded === false) {
-        // Genuinely new user — no row in Supabase yet. Safe to seed and push.
+      const cloudLoaded = await loadFromCloud(); // also sets _isSupporter
+      if (!cloudLoaded) {
+        // Brand new user — no cloud data yet.
+        // Reset to a clean empty state (don't keep the demo data).
         state = {
           items:         [],
           trips:         [],
@@ -2599,9 +2597,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           profile:       { units: _units },
         };
         await loadSupporterStatus();
-        await syncToCloud();
+        await syncToCloud(); // save clean state to cloud
+        saveState();         // update localStorage too
       }
-      // cloudLoaded === null means a query error — do NOT touch Supabase.
       loadProfile().catch(() => {}); // non-blocking
       refreshAll();
       updateHeaderAuth();

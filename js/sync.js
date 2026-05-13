@@ -2,42 +2,12 @@
 // ── Persistence ────────────────────────────────────────────
 function saveState() {
   state._savedAt = Date.now();
+  try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
+  // Cloud sync for all signed-in users
   if (_user) {
-    // Signed-in: Supabase is the sole source of truth — no localStorage write.
-    // beforeunload/visibilitychange flush any pending sync via keepalive fetch.
     clearTimeout(_syncTimer);
-    _syncTimer = setTimeout(syncToCloud, 400);
-  } else {
-    // Guest: localStorage is the only persistence available.
-    try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
+    _syncTimer = setTimeout(syncToCloud, 1500);
   }
-}
-
-// Flush a pending sync immediately using fetch keepalive so the request
-// survives page unload. Called from beforeunload and visibilitychange.
-function flushToCloud() {
-  if (!_user || window._adminImpersonateMode || !_syncTimer) return;
-  clearTimeout(_syncTimer);
-  _syncTimer = null;
-  if (typeof SUPABASE_URL === 'undefined' || !_accessToken) {
-    // Token not yet cached — fall back to the normal async path and hope the
-    // browser keeps the tab alive long enough (e.g. tab switch, not close).
-    syncToCloud();
-    return;
-  }
-  try {
-    fetch(`${SUPABASE_URL}/rest/v1/user_data`, {
-      method:    'POST',
-      keepalive: true,
-      headers: {
-        'apikey':        SUPABASE_ANON,
-        'Authorization': `Bearer ${_accessToken}`,
-        'Content-Type':  'application/json',
-        'Prefer':        'resolution=merge-duplicates',
-      },
-      body: JSON.stringify({ user_id: _user.id, data: state }),
-    });
-  } catch(e) {}
 }
 
 // Writes the impersonated user's state back to their DB row.
@@ -90,48 +60,29 @@ async function syncToCloud() {
   }
 }
 
-// Returns: true  = data loaded from Supabase
-//          false = no row exists (genuinely new user, safe to seed)
-//          null  = query error (do NOT overwrite Supabase with empty state)
 async function loadFromCloud() {
   if (!_supabaseReady() || !_user) return false;
   try {
     const { data, error } = await _sb.from('user_data')
-      .select('*').eq('user_id', _user.id).maybeSingle();
-    // maybeSingle: error=null+data=null means no row; error!=null means real query failure
-    if (error) { console.error('[loadFromCloud] query error:', error.message); return null; }
-    if (!data?.data) return false; // no row — genuinely new user
+      .select('data,is_supporter,is_ambassador,supporter_since,updated_at').eq('user_id', _user.id).single();
+    if (error || !data?.data) return false;
     _isSupporter    = !!data.is_supporter;
     _isAmbassador   = !!data.is_ambassador;
     _supporterSince = data.supporter_since || null;
-    // One-time migration: if a localStorage copy exists and is newer than Supabase
-    // (unsync'd changes from before the Supabase-only model), push it up first.
-    // Only runs when trailkit_v1 was written by the OLD system — loadState() no longer
-    // writes it on initialization, so this can never fire on fresh demo data.
-    try {
-      const localRaw = localStorage.getItem('trailkit_v1');
-      if (localRaw) {
-        const localData = JSON.parse(localRaw);
-        const localTs   = localData?._savedAt || 0;
-        const cloudTs   = data.data?._savedAt  || 0;
-        if (localTs > cloudTs) {
-          state = localData;
-          applyMigrations();
-          // Only remove localStorage after Supabase confirms the write succeeded.
-          const { error: pushErr } = await _sb.from('user_data').upsert(
-            { user_id: _user.id, data: state }, { onConflict: 'user_id' }
-          );
-          if (!pushErr) localStorage.removeItem('trailkit_v1');
-          if (typeof loadProfile === 'function') loadProfile().catch(() => {});
-          return true;
-        }
-        // Cloud is newer — local copy is stale, safe to discard.
-        localStorage.removeItem('trailkit_v1');
-      }
-    } catch(e) {}
-    // Supabase is the sole source of truth — always use cloud data.
+    // Compare _savedAt embedded in both copies — both are client-clock timestamps,
+    // so there's no server/client clock-skew. updated_at is a server trigger timestamp
+    // and can be ahead of the client clock, causing cloud to falsely "win" when local
+    // is actually newer (e.g. a deletion that hasn't synced yet).
+    const localTs  = state._savedAt || 0;
+    const cloudTs  = data.data?._savedAt || 0;
+    if (localTs > cloudTs) {
+      syncToCloud();
+      return true;
+    }
     state = data.data;
     applyMigrations();
+    try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
+    // Load public profile in background (non-blocking)
     if (typeof loadProfile === 'function') loadProfile().catch(() => {});
     return true;
   } catch(e) { return false; }
@@ -142,7 +93,7 @@ async function loadSupporterStatus() {
   if (!_supabaseReady() || !_user) return;
   try {
     const { data } = await _sb.from('user_data')
-      .select('*').eq('user_id', _user.id).single();
+      .select('is_supporter,is_ambassador,supporter_since').eq('user_id', _user.id).single();
     _isSupporter    = !!(data?.is_supporter);
     _isAmbassador   = !!(data?.is_ambassador);
     _supporterSince = data?.supporter_since || null;
@@ -293,12 +244,7 @@ function loadState() {
     recipes:       JSON.parse(JSON.stringify(SEED_DATA.recipes)),
     custom_fields: [],
   };
-  // Do NOT call saveState() here. Demo data lives in memory only.
-  // Guests write to localStorage naturally on their first real interaction.
-  // Signed-in users get this overwritten by loadFromCloud() immediately.
-  // Calling saveState() here would write demo data to localStorage with a fresh
-  // _savedAt timestamp, causing the migration guard in loadFromCloud() to mistake
-  // it for real user data newer than Supabase and push it to the cloud.
+  saveState();
 }
 
 function exportData() {
