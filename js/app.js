@@ -2579,6 +2579,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (event === 'SIGNED_IN' && session?.user) {
       _user = session.user;
       hideAuthModal();
+      updateHeaderAuth(); // update immediately before any async work
       hideSavePromptBanner();
       const cloudLoaded = await loadFromCloud(); // also sets _isSupporter
       if (!cloudLoaded) {
