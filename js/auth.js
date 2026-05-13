@@ -83,8 +83,12 @@ const _authVP = (() => {
     const el = document.getElementById('auth-modal-overlay');
     if (!el || el.style.display === 'none') return;
     const vv = window.visualViewport;
+    // Shrink the overlay to the visual viewport so the abs-centered card
+    // stays centered in the area above the keyboard, not the full page.
     el.style.height = vv.height + 'px';
-    el.style.top    = (vv.offsetTop || 0) + 'px';
+    el.style.top    = (vv.offsetTop  || 0) + 'px';
+    el.style.left   = (vv.offsetLeft || 0) + 'px';
+    el.style.width  = vv.width + 'px';
   }
   return {
     start() {
@@ -98,7 +102,7 @@ const _authVP = (() => {
       window.visualViewport.removeEventListener('resize', update);
       window.visualViewport.removeEventListener('scroll', update);
       const el = document.getElementById('auth-modal-overlay');
-      if (el) { el.style.height = ''; el.style.top = ''; }
+      if (el) { el.style.height = ''; el.style.top = ''; el.style.left = ''; el.style.width = ''; }
     }
   };
 })();

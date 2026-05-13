@@ -2267,12 +2267,15 @@ function routeOnLoad() {
   // Don't hijack the share overlay or admin impersonation view
   if (window.location.hash.startsWith('#share=') || window._adminImpersonateMode) return;
 
-  if (state.items.length === 0) {
-    // New user: create My Kit and open it in the loadout builder
+  window.scrollTo(0, 0);
+
+  if (state.items.length === 0 && state.templates.length === 0 && !_cloudLoaded) {
+    // Genuinely new user — Supabase had no row. Create My Kit for onboarding.
     const kit = getOrCreateMyKit();
     _myKitId = kit.id;
     showTab('templates');
-    setTimeout(() => openTemplateDetail(kit.id), 50);
+    // No scroll — page should stay at top on init
+    setTimeout(() => openTemplateDetail(kit.id, false), 50);
   } else if (state.templates.length > 0) {
     // Returning user: open the most recently modified loadout
     const lastId = localStorage.getItem('gn_last_loadout_id');
@@ -2281,7 +2284,8 @@ function routeOnLoad() {
            (b.updated_at || b.created_at || '').localeCompare(a.updated_at || a.created_at || '')
          )[0];
     showTab('templates');
-    setTimeout(() => openTemplateDetail(target.id), 50);
+    // No scroll — page should stay at top on init
+    setTimeout(() => openTemplateDetail(target.id, false), 50);
   } else {
     // Gear exists but no loadouts yet — show empty loadout builder
     showTab('templates');

@@ -673,14 +673,14 @@ function templateCard(tmpl) {
 }
 
 // ── Detail view ────────────────────────────────────────────
-function openTemplateDetail(id) {
+function openTemplateDetail(id, scroll = true) {
   activeTemplateId = id;
   localStorage.setItem('gn_last_loadout_id', id);
   const tmpl = state.templates.find(t => t.id === id);
   if (!tmpl) return;
   renderTemplates();
   renderTemplateDetail(tmpl);
-  setTimeout(() => document.getElementById('template-detail-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+  if (scroll) setTimeout(() => document.getElementById('template-detail-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
 }
 
 function closeTemplateDetail() {
@@ -726,7 +726,7 @@ function renderTemplateDetail(tmpl) {
       <div>
         <span class="card-title" style="font-size:17px;font-family:var(--font-disp)">${esc(tmpl.name)}</span>
       </div>
-      <div style="display:flex;gap:6px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Attach to trip…</button>
         <button class="btn btn-sm" onclick="copyGearMarkdown('${tmpl.id}','template')" title="Copy as markdown for Reddit">Copy as markdown</button>
         <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template')" title="Share via link">Share ↗</button>
