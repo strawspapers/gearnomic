@@ -15,7 +15,9 @@
       "Bash(git -C \"c:/Users/brian/Documents/GitHub/gearnomic\" checkout 60d7726 -- js/sync.js js/app.js js/auth.js js/gear.js js/trips.js js/drawers.js)",
       "Bash(git -C \"c:/Users/brian/Documents/GitHub/gearnomic\" add js/sync.js js/app.js js/auth.js js/gear.js js/trips.js js/drawers.js)",
       "Bash(git -C \"c:/Users/brian/Documents/GitHub/gearnomic\" commit -m \"revert to last known working state \\(60d7726\\)\")",
-      "Bash(git -C \"c:/Users/brian/Documents/GitHub/gearnomic\" push)"
+      "Bash(git -C \"c:/Users/brian/Documents/GitHub/gearnomic\" push)",
+      "Bash(git -C \"c:/Users/brian/Documents/GitHub/gearnomic\" add js/sync.js)",
+      "Bash(git -C \"c:/Users/brian/Documents/GitHub/gearnomic\" commit -m \"fix sign-in: remove is_ambassador from user_data query\")"
     ]
   }
 }
