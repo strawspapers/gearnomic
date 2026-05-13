@@ -218,10 +218,11 @@ async function submitAuth() {
   // Abort after 15 s so the button never stays frozen indefinitely
   const _authAbort = new AbortController();
   const _authTimeout = setTimeout(() => {
+    if (_user) return; // auth already succeeded via onAuthStateChange — do not show error
     _authAbort.abort();
     if (btn) { btn.textContent = isSignup ? 'Create account' : 'Sign in'; btn.disabled = false; }
     setAuthError('Sign-in is taking too long. Please check your connection and try again.');
-  }, 10000);
+  }, 15000);
 
   try {
     const { data, error } = isSignup
