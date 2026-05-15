@@ -590,6 +590,7 @@ function saveTrip(id) {
   }
 
   saveState(); closeModal();
+  if (typeof _refreshProfileSnaps === 'function') _refreshProfileSnaps();
   if (currentTab === 'trips') { activeTripId = data.id; renderTrips(); }
   if (currentTab === 'dashboard') renderDashboard();
   toast(id ? 'Trip updated!' : 'Trip created!');
@@ -599,6 +600,7 @@ function deleteTrip(id) {
   if (!confirm('Delete this trip?')) return;
   state.trips = state.trips.filter(t => t.id !== id);
   saveState(); closeTripDetail(); renderTrips();
+  if (typeof _refreshProfileSnaps === 'function') _refreshProfileSnaps();
   if (currentTab === 'dashboard') renderDashboard();
   toast('Trip deleted.');
 }
