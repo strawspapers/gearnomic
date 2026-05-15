@@ -49,13 +49,16 @@ create trigger trg_user_data_updated
 -- ── Next steps ────────────────────────────────────────────────
 -- Run supabase/02_shared_lists.sql to enable trip/template sharing via URL.
 
+-- Fix billing trigger to allow service role writes
 CREATE OR REPLACE FUNCTION _block_billing_column_writes()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
-  IF (NEW.is_supporter IS DISTINCT FROM OLD.is_supporter OR
-      NEW.supporter_since IS DISTINCT FROM OLD.supporter_since OR
-      NEW.stripe_customer_id IS DISTINCT FROM OLD.stripe_customer_id) THEN
-    RAISE EXCEPTION 'billing columns are read-only for client requests';
+  IF auth.role() = 'authenticated' THEN
+    IF (NEW.is_supporter IS DISTINCT FROM OLD.is_supporter OR
+        NEW.supporter_since IS DISTINCT FROM OLD.supporter_since OR
+        NEW.stripe_customer_id IS DISTINCT FROM OLD.stripe_customer_id) THEN
+      RAISE EXCEPTION 'billing columns are read-only for client requests';
+    END IF;
   END IF;
   RETURN NEW;
 END;

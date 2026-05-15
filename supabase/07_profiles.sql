@@ -94,13 +94,16 @@ CREATE TRIGGER trg_profiles_updated_at
   BEFORE UPDATE ON profiles
   FOR EACH ROW EXECUTE FUNCTION _profiles_set_updated_at();
 
+-- Fix badge trigger to allow service role writes
 CREATE OR REPLACE FUNCTION _block_profile_badge_writes()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
-  IF (NEW.is_supporter IS DISTINCT FROM OLD.is_supporter OR
-      NEW.is_ambassador IS DISTINCT FROM OLD.is_ambassador OR
-      NEW.supporter_since IS DISTINCT FROM OLD.supporter_since) THEN
-    RAISE EXCEPTION 'badge columns are read-only for client requests';
+  IF auth.role() = 'authenticated' THEN
+    IF (NEW.is_supporter IS DISTINCT FROM OLD.is_supporter OR
+        NEW.is_ambassador IS DISTINCT FROM OLD.is_ambassador OR
+        NEW.supporter_since IS DISTINCT FROM OLD.supporter_since) THEN
+      RAISE EXCEPTION 'badge columns are read-only for client requests';
+    END IF;
   END IF;
   RETURN NEW;
 END;
@@ -110,6 +113,24 @@ DROP TRIGGER IF EXISTS trg_block_profile_badge_writes ON profiles;
 CREATE TRIGGER trg_block_profile_badge_writes
   BEFORE UPDATE ON profiles
   FOR EACH ROW EXECUTE FUNCTION _block_profile_badge_writes();
+
+-- Auto-sync badge columns from user_data to profiles when changed
+CREATE OR REPLACE FUNCTION _sync_badges_to_profile()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  UPDATE profiles SET
+    is_supporter    = NEW.is_supporter,
+    is_ambassador   = NEW.is_ambassador,
+    supporter_since = NEW.supporter_since
+  WHERE id = NEW.user_id;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_sync_badges_to_profile ON user_data;
+CREATE TRIGGER trg_sync_badges_to_profile
+  AFTER UPDATE OF is_supporter, is_ambassador, supporter_since ON user_data
+  FOR EACH ROW EXECUTE FUNCTION _sync_badges_to_profile();
 
 -- Public-safe view: conditionally exposes content based on user visibility flags
 CREATE OR REPLACE VIEW public_profiles AS

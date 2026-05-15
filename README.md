@@ -124,7 +124,7 @@ start index.html  # Windows
 
 ## Admin panel
 
-Open `admin.html` locally (it's in `.gitignore` — never pushed to GitHub). Log in with your Supabase Project URL and service role key. Grants, revokes, and deletes take effect immediately.
+Open `admin.html`. Log in with your Supabase Project URL and service role key. Grants, revokes, and deletes take effect immediately.
 
 ---
 
@@ -133,7 +133,7 @@ Open `admin.html` locally (it's in `.gitignore` — never pushed to GitHub). Log
 ```
 gearnomic/
 ├── index.html                          # App shell, nav, all panels, auth modal, footer
-├── admin.html                          # Local-only admin panel (gitignored)
+├── admin.html                          # Admin panel
 ├── css/style.css                       # Full design system (Fraunces + DM Sans)
 ├── js/
 │   ├── config.js                       # Supabase credentials (edit this)
