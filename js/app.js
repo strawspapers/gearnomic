@@ -2364,7 +2364,7 @@ async function renderPublicProfile(slug) {
   if (!_supabaseReady()) { root.innerHTML = '<p>Could not connect.</p>'; return; }
 
   const { data: p } = await Promise.race([
-    _sb.from('profiles').select('*').eq('username', slug).single(),
+    _sb.from('public_profiles').select('*').eq('username', slug).single(),
     new Promise(r => setTimeout(() => r({ data: null }), 8000)),
   ]).catch(() => ({ data: null }));
 
