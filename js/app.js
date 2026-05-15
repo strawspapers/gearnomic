@@ -1436,6 +1436,35 @@ async function _saveProfileInner(usernameToSet) {
   return true;
 }
 
+// Refresh public-profile snapshots after template/gear changes without
+// requiring the user to manually re-save their profile.
+async function _refreshProfileSnaps() {
+  if (!_supabaseReady() || !_user || !_profile?.username) return;
+  if (!_profile.public_loadouts && !_profile.public_gear) return;
+  const patch = {};
+  if (_profile.public_loadouts) {
+    patch.snap_loadouts = (state.templates || []).map(t => ({
+      name: t.name, description: t.description || '',
+      items_count:    (t.gear_ids || []).filter(id => state.items.find(i => i.id === id)).length,
+      total_weight_g: (t.gear_ids || []).reduce((s, id) => {
+        const item = state.items.find(i => i.id === id);
+        return s + (item?.weight_g || 0);
+      }, 0),
+    }));
+  }
+  if (_profile.public_gear) {
+    patch.snap_gear = (state.items || []).map(i => ({
+      name: i.name, brand: i.brand || '', category: i.category, weight_g: i.weight_g || 0,
+    }));
+  }
+  try {
+    await _sb.from('profiles').update(patch).eq('id', _user.id);
+    // Keep local _profile in sync so a subsequent manual save doesn't revert
+    if (patch.snap_loadouts !== undefined) _profile.snap_loadouts = patch.snap_loadouts;
+    if (patch.snap_gear     !== undefined) _profile.snap_gear     = patch.snap_gear;
+  } catch(e) {}
+}
+
 async function changePassword() {
   const pw1 = document.getElementById('s-new-pw')?.value;
   const pw2 = document.getElementById('s-confirm-pw')?.value;

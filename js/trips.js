@@ -856,6 +856,7 @@ function saveTemplate(id) {
   renderTemplates();
   if (isNew) setTimeout(() => openTemplateDetail(data.id), 50);
   else if (document.getElementById('template-detail-wrap')?.style.display !== 'none') renderTemplateDetail(data);
+  if (typeof _refreshProfileSnaps === 'function') _refreshProfileSnaps();
   toast(isNew ? 'Loadout created!' : 'Loadout updated!');
 }
 
@@ -863,6 +864,7 @@ function deleteTemplate(id) {
   if (!confirm('Delete this template?')) return;
   state.templates = state.templates.filter(t => t.id !== id);
   saveState();
+  if (typeof _refreshProfileSnaps === 'function') _refreshProfileSnaps();
   if (activeTemplateId === id) closeTemplateDetail();
   else renderTemplates();
   toast('Loadout deleted.');
