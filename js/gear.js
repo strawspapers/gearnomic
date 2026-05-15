@@ -891,6 +891,7 @@ function saveItem(id) {
   }
 
   saveState(); closeModal(); renderGear();
+  if (typeof _refreshProfileSnaps === 'function') _refreshProfileSnaps();
   if (currentTab === 'dashboard') renderDashboard();
   if (currentTab === 'templates') renderTemplates();
   toast(id ? 'Item updated!' : 'Item added!');
@@ -1128,6 +1129,7 @@ function deleteItem(id) {
     if (t.carry_types) delete t.carry_types[id];
   });
   saveState(); closeModal(); renderGear();
+  if (typeof _refreshProfileSnaps === 'function') _refreshProfileSnaps();
   if (currentTab === 'dashboard') renderDashboard();
   toast('Item deleted.');
 }

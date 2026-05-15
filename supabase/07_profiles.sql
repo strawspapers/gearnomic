@@ -93,3 +93,20 @@ DROP TRIGGER IF EXISTS trg_profiles_updated_at ON profiles;
 CREATE TRIGGER trg_profiles_updated_at
   BEFORE UPDATE ON profiles
   FOR EACH ROW EXECUTE FUNCTION _profiles_set_updated_at();
+
+CREATE OR REPLACE FUNCTION _block_profile_badge_writes()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  IF (NEW.is_supporter IS DISTINCT FROM OLD.is_supporter OR
+      NEW.is_ambassador IS DISTINCT FROM OLD.is_ambassador OR
+      NEW.supporter_since IS DISTINCT FROM OLD.supporter_since) THEN
+    RAISE EXCEPTION 'badge columns are read-only for client requests';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_block_profile_badge_writes ON profiles;
+CREATE TRIGGER trg_block_profile_badge_writes
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION _block_profile_badge_writes();

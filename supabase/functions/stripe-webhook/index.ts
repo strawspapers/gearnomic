@@ -77,6 +77,15 @@ serve(async (req: Request) => {
           .eq('user_id', userId);
 
         if (error) throw error;
+        const { error: supporterError } = await supabase
+          .from('user_data')
+          .update({
+            is_supporter:    true,
+            supporter_since: new Date().toISOString(),
+          })
+          .eq('user_id', userId);
+
+        if (supporterError) console.error('Failed to set supporter status on checkout:', supporterError);
         console.log(`Linked Stripe customer ${customerId} to user ${userId}`);
         break;
       }

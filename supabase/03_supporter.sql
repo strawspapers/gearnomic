@@ -13,3 +13,5 @@ create index if not exists idx_user_data_stripe_customer on user_data(stripe_cus
 
 -- Supporters can read their own supporter status via normal RLS (already covered by existing policy)
 -- The Stripe webhook Edge Function uses the service role key to bypass RLS
+
+alter table user_data add column if not exists is_ambassador boolean not null default false;

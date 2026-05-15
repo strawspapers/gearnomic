@@ -1418,9 +1418,6 @@ async function _saveProfileInner(usernameToSet) {
     snap_loadouts,
     snap_trips,
     snap_gear,
-    is_supporter:    _isSupporter,
-    is_ambassador:   _isAmbassador,
-    supporter_since: _supporterSince,
   };
 
   if (usernameToSet) payload.username = usernameToSet;
@@ -2422,7 +2419,7 @@ async function renderPublicProfile(slug) {
       <div class="pp-stats">
         ${p.snap_trips.total_trips!=null?`<div class="pp-stat"><div class="pp-stat-val">${p.snap_trips.total_trips}</div><div class="pp-stat-lbl">Trips</div></div>`:''}
         ${p.snap_trips.completed!=null?`<div class="pp-stat"><div class="pp-stat-val">${p.snap_trips.completed}</div><div class="pp-stat-lbl">Completed</div></div>`:''}
-        ${p.snap_trips.total_distance?`<div class="pp-stat"><div class="pp-stat-val">${p.snap_trips.total_distance}</div><div class="pp-stat-lbl">km hiked</div></div>`:''}
+        ${p.snap_trips.total_distance?`<div class="pp-stat"><div class="pp-stat-val">${p.snap_trips.total_distance}</div><div class="pp-stat-lbl">distance</div></div>`:''}
       </div>
     </div>` : '';
 

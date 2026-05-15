@@ -1,4 +1,5 @@
 // Gearnomic � State persistence, cloud sync, migrations, and data import/export
+let _cloudLoaded = false;
 // ── Persistence ────────────────────────────────────────────
 function saveState() {
   state._savedAt = Date.now();
@@ -64,7 +65,7 @@ async function loadFromCloud() {
   if (!_supabaseReady() || !_user) return false;
   try {
     const { data, error } = await _sb.from('user_data')
-      .select('data,is_supporter,supporter_since,updated_at').eq('user_id', _user.id).single();
+      .select('data,is_supporter,is_ambassador,supporter_since,updated_at').eq('user_id', _user.id).single();
     if (error || !data?.data) return false;
     _isSupporter    = !!data.is_supporter;
     _isAmbassador   = !!data.is_ambassador;
@@ -80,6 +81,7 @@ async function loadFromCloud() {
       return true;
     }
     state = data.data;
+    _cloudLoaded = true;
     applyMigrations();
     try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
     // Load public profile in background (non-blocking)
@@ -244,7 +246,6 @@ function loadState() {
     recipes:       JSON.parse(JSON.stringify(SEED_DATA.recipes)),
     custom_fields: [],
   };
-  saveState();
 }
 
 function exportData() {

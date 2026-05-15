@@ -290,6 +290,7 @@ function toggleClosetItem(itemId) {
   }
 
   saveState();
+  if (typeof _refreshProfileSnaps === 'function') _refreshProfileSnaps();
   renderTemplateDetail(tmpl);
   renderDrawerCloset();
 }
