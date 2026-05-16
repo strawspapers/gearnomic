@@ -24,7 +24,9 @@
       "Bash(npx supabase *)",
       "Bash(SUPABASE_ACCESS_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZoc3R1ZG9zZ21kbXdrc3JxeWRnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODYzNjc2OSwiZXhwIjoyMDk0MjEyNzY5fQ.mV1GPz_KlNR-MGlTwf_w7hvL67VMNl90eA-y6EgR4_Y\" npx supabase db query --project-ref vhstudosgmdmwksrqydg \"SELECT 1\")",
       "Bash(cat /tmp/staging_schema.sql)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(grep -n \"Fraunces\\\\|fraunces\" css/style.css index.html js/food.js)",
+      "Bash(grep -n \"2A4032\\\\|1E3025\" css/style.css index.html)"
     ]
   }
 }

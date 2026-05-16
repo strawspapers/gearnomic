@@ -771,10 +771,10 @@ function renderRecipeLibrary() {
   const fb = document.getElementById('recipe-filter-bar');
   if (fb) {
     const chip = (label, active, onclick) =>
-      '<span style="display:inline-block;padding:4px 10px;border-radius:99px;font-size:12px;cursor:pointer;border:1px solid;user-select:none;' + (active ? 'background:var(--primary);color:#fff;border-color:var(--primary);' : 'background:var(--surface);color:var(--text-2);border-color:var(--border);') + '" onclick="' + onclick + '">' + label + '</span>';
+      '<span style="display:inline-block;padding:3px 10px;font-size:11px;cursor:pointer;border:1.5px solid;user-select:none;' + (active ? 'background:var(--text-1);color:var(--bg);border-color:var(--text-1);' : 'background:transparent;color:var(--text-2);border-color:var(--border-2);') + '" onclick="' + onclick + '">' + label + '</span>';
     fb.innerHTML =
-      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
-      '<input class="input" id="rf-search" placeholder="Search recipes…" style="width:180px;height:30px;font-size:12px" value="' + esc(_rfSearch) + '" oninput="rfSetSearch(this.value)">' +
+      '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
+      '<input class="input" id="rf-search" placeholder="Search recipes…" style="width:180px;height:28px;font-size:12px" value="' + esc(_rfSearch) + '" oninput="rfSetSearch(this.value)">' +
       '<span style="font-size:11px;color:var(--text-3)">Meal:</span>' +
       MEAL_TIMES.map(mt => chip(MEAL_LABELS[mt], _rfMealFilter.has(mt), "rfToggleMeal('" + mt + "')")).join('') +
       '<span style="font-size:11px;color:var(--text-3)">Prep:</span>' +
@@ -799,25 +799,25 @@ function renderRecipeLibrary() {
   }
 
   const prepBadge = pm => pm
-    ? '<span style="display:inline-block;padding:1px 6px;border-radius:99px;font-size:10px;font-weight:500;background:var(--surface-2);color:var(--text-2);margin-left:5px">' + esc(PREP_LABELS[pm] || pm) + '</span>'
+    ? '<span style="display:inline-block;padding:1px 6px;font-size:10px;font-weight:500;background:var(--surface-2);color:var(--text-2);margin-left:5px">' + esc(PREP_LABELS[pm] || pm) + '</span>'
     : '';
 
-  grid.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.875rem">' +
+  grid.innerHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.875rem">' +
     recipes.map(r =>
-      '<div class="card" style="margin-bottom:0">' +
-      '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:.5rem">' +
+      '<div style="border:1px solid var(--border-2);padding:1.125rem;background:transparent">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem">' +
       '<div style="min-width:0">' +
-      '<div style="font-weight:500;font-size:14px">' + esc(r.name) + '</div>' +
-      (r.description ? '<div style="font-size:12px;color:var(--text-2);margin-top:2px;line-height:1.4">' + esc(r.description) + '</div>' : '') +
-      '<div style="font-size:11px;color:var(--text-3);margin-top:3px">' +
-      (MEAL_LABELS[r.meal_time] || r.meal_time) + prepBadge(r.prep_method) +
+      '<div style="font-weight:600;font-size:14px;letter-spacing:-.005em">' + esc(r.name) + '</div>' +
+      '<div style="font-size:11px;color:var(--text-3);margin-top:3px;text-transform:uppercase;letter-spacing:.05em">' +
+      (MEAL_LABELS[r.meal_time] || r.meal_time || '') + prepBadge(r.prep_method) +
       (r.source ? ' · ' + esc(r.source) : '') +
       '</div></div>' +
-      '<div style="display:flex;gap:5px;flex-shrink:0;margin-left:8px">' +
+      '<div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px">' +
       '<button class="btn btn-xs" onclick="openRecipeForm(\'' + r.id + '\')">Edit</button>' +
       '<button class="btn btn-xs btn-danger" onclick="deleteRecipe(\'' + r.id + '\')">Remove</button>' +
       '</div></div>' +
-      '<div style="display:flex;gap:16px;font-size:12.5px;margin-bottom:.625rem">' +
+      (r.description ? '<div style="font-size:12px;color:var(--text-2);margin-bottom:.5rem;line-height:1.4">' + esc(r.description) + '</div>' : '') +
+      '<div style="display:flex;gap:16px;font-size:12.5px;border-top:1px solid var(--border-2);padding-top:.5rem;margin-bottom:.5rem">' +
       '<span><strong>' + r.cal_per_serving + '</strong> cal</span>' +
       '<span><strong>' + wg(r.weight_g_per_serving) + '</strong></span>' +
       '<span style="color:var(--text-3)">' + (r.cal_per_serving / (r.weight_g_per_serving || 1)).toFixed(1) + ' cal/g</span>' +
@@ -827,12 +827,12 @@ function renderRecipeLibrary() {
           const qtyPart = [i.qty, i.unit].filter(Boolean).join(' ');
           return '<div style="padding:1px 0">' + (qtyPart ? '<span style="color:var(--text-3)">' + esc(qtyPart) + '</span> ' : '') + esc(i.name) + '</div>';
         }).join('') + '</div>' : '') +
-      (r.prep_notes ? '<div style="font-size:11.5px;color:var(--text-3);font-style:italic;margin-top:.25rem">' + esc(r.prep_notes) + '</div>' : '') +
+      (r.prep_notes ? '<div style="font-size:11.5px;color:var(--text-3);font-style:italic;margin-bottom:.25rem">' + esc(r.prep_notes) + '</div>' : '') +
       (!_user ? '' :
         r.submitted_to_catalog === 'approved'
-          ? '<div style="margin-top:.5rem"><span style="display:inline-block;font-size:10px;padding:2px 7px;border-radius:99px;background:#e8f5e9;color:#2e7d32;font-weight:500">In database</span></div>'
+          ? '<div style="margin-top:.5rem"><span style="display:inline-block;font-size:10px;padding:2px 7px;background:#e8f5e9;color:#2e7d32;font-weight:500">In database</span></div>'
           : r.submitted_to_catalog === 'pending'
-            ? '<div style="margin-top:.5rem"><span style="display:inline-block;font-size:10px;padding:2px 7px;border-radius:99px;background:var(--accent-l);color:var(--accent);font-weight:500">In review</span></div>'
+            ? '<div style="margin-top:.5rem"><span style="display:inline-block;font-size:10px;padding:2px 7px;background:var(--surface-2);color:var(--text-3);font-weight:500">In review</span></div>'
             : '<div style="margin-top:.5rem"><button class="btn btn-xs" onclick="submitRecipeToCatalog(\'' + r.id + '\')">Submit to database</button></div>') +
       '</div>'
     ).join('') + '</div>';
@@ -1075,7 +1075,7 @@ function renderRecipeDbInline() {
   // Filter chips
   if (filterBar) {
     const chip = (label, active, fn) =>
-      `<span style="display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;cursor:pointer;border:1px solid;user-select:none;${active ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : 'background:var(--surface);color:var(--text-2);border-color:var(--border)'}" onclick="${fn}">${label}</span>`;
+      `<span style="display:inline-block;padding:3px 10px;font-size:11px;cursor:pointer;border:1.5px solid;user-select:none;${active ? 'background:var(--text-1);color:var(--bg);border-color:var(--text-1)' : 'background:transparent;color:var(--text-2);border-color:var(--border-2)'}" onclick="${fn}">${label}</span>`;
     filterBar.innerHTML =
       '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
       '<span style="font-size:11px;color:var(--text-3)">Meal:</span>' +

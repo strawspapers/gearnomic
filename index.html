@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <!-- Supabase JS client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -556,7 +556,7 @@
       <span>© <span id="footer-year"></span> Gearnomic. All rights reserved.</span>
       <span style="display:flex;align-items:center;gap:12px">
         <span style="color:var(--text-3)">Built for the trail</span>
-<span style="color:var(--text-3);font-size:11px;font-family:monospace" title="Build commit">2026-05-16 0652Z</span>
+<span style="color:var(--text-3);font-size:11px;font-family:monospace" title="Build commit">2026-05-16 0727Z</span>
       </span>
     </div>
   </footer>
@@ -572,70 +572,75 @@
 
   <!-- AUTH MODAL -->
   <div id="auth-modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;backdrop-filter:blur(3px)">
-    <div id="auth-modal-card" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface,#fff);border-radius:16px;box-shadow:0 24px 48px rgba(0,0,0,.15);width:calc(100% - 2rem);max-width:480px;max-height:90vh;overflow-y:auto">
+    <div id="auth-modal-card" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg,#F4F4F1);border:1.5px solid #0F0F10;width:calc(100% - 2rem);max-width:480px;max-height:90vh;overflow-y:auto">
       <div style="padding:2rem 2rem 0">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.5rem">
-          <div style="width:36px;height:36px;background:#2A4032;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:13px;font-weight:600;color:#fff">GN</div>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="1"  y="18" width="22" height="4" fill="#0F0F10"/>
+            <rect x="4"  y="12" width="16" height="4" fill="#0F0F10"/>
+            <rect x="7"  y="6"  width="10" height="4" fill="#0F0F10"/>
+            <rect x="9"  y="1"  width="6"  height="3" fill="#0F0F10"/>
+          </svg>
           <div>
-            <div style="font-family:Georgia,serif;font-size:20px;font-weight:600;color:#18181A">Gearnomic</div>
-            <div style="font-size:12px;color:#888">Gear management for the trail</div>
+            <div style="font-size:20px;font-weight:600;color:#0F0F10;letter-spacing:-.015em">Gearnomic</div>
+            <div style="font-size:12px;color:#7E7E80">Gear management for the trail</div>
           </div>
         </div>
-        <div style="display:flex;border-bottom:1px solid #eee;margin-bottom:1.25rem">
+        <div style="display:flex;border-bottom:1.5px solid #0F0F10;margin-bottom:1.25rem">
           <button id="auth-tab-signin" onclick="switchAuthTab('signin')"
-            style="flex:1;padding:8px;font-size:14px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2px solid #2A4032;color:#2A4032">Sign in</button>
+            style="flex:1;padding:8px;font-size:14px;font-weight:600;border:none;background:#0F0F10;cursor:pointer;color:#F4F4F1">Sign in</button>
           <button id="auth-tab-signup" onclick="switchAuthTab('signup')"
-            style="flex:1;padding:8px;font-size:14px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#888">Create account</button>
+            style="flex:1;padding:8px;font-size:14px;border:none;background:none;cursor:pointer;color:#7E7E80">Create account</button>
         </div>
       </div>
       <div style="padding:0 2rem 2rem">
-        <div id="auth-error" style="display:none;background:#fdeaea;color:#8c2020;font-size:13px;padding:8px 12px;border-radius:8px;margin-bottom:.875rem"></div>
+        <div id="auth-error" style="display:none;background:#FDEAEA;color:#8C2020;font-size:13px;padding:8px 12px;margin-bottom:.875rem"></div>
         <form id="auth-form" onsubmit="event.preventDefault();submitAuth()" autocomplete="on">
         <div class="form-row" style="margin-bottom:.75rem">
-          <label for="auth-email" style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#666;font-weight:500;margin-bottom:5px">Email</label>
+          <label for="auth-email" style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#3A3A3D;font-weight:500;margin-bottom:5px">Email</label>
           <input id="auth-email" name="email" type="email" autocomplete="email" placeholder="you@example.com"
-            style="width:100%;height:40px;padding:0 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;font-family:inherit">
+            style="width:100%;height:40px;padding:0 12px;border:1.5px solid #0F0F10;font-size:14px;outline:none;font-family:inherit;background:#F4F4F1">
         </div>
         <div class="form-row" style="margin-bottom:1.25rem">
-          <label for="auth-password" style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#666;font-weight:500;margin-bottom:5px">Password</label>
+          <label for="auth-password" style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#3A3A3D;font-weight:500;margin-bottom:5px">Password</label>
           <input id="auth-password" name="password" type="password" autocomplete="current-password" placeholder="Min. 6 characters"
-            style="width:100%;height:40px;padding:0 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;font-family:inherit">
+            style="width:100%;height:40px;padding:0 12px;border:1.5px solid #0F0F10;font-size:14px;outline:none;font-family:inherit;background:#F4F4F1">
         </div>
         <button id="auth-submit-btn" type="submit"
-          style="width:100%;height:42px;background:#2A4032;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:.75rem">
+          style="width:100%;height:42px;background:#0F0F10;color:#F4F4F1;border:none;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:.75rem">
           Sign in
         </button>
         </form>
         <div style="text-align:right;margin-bottom:.625rem">
-          <a href="#" onclick="event.preventDefault();showForgotPassword()" style="font-size:12px;color:#888;text-decoration:underline">Forgot password?</a>
+          <a href="#" onclick="event.preventDefault();showForgotPassword()" style="font-size:12px;color:#7E7E80;text-decoration:underline">Forgot password?</a>
         </div>
         <button onclick="continueWithoutAccount()"
-          style="width:100%;height:38px;background:none;border:1px solid #ddd;border-radius:8px;font-size:13px;color:#666;cursor:pointer;font-family:inherit">
+          style="width:100%;height:38px;background:none;border:1.5px solid #CFCEC8;font-size:13px;color:#3A3A3D;cursor:pointer;font-family:inherit">
           Continue without account
         </button>
 
         <!-- Forgot password panel (hidden by default) -->
-        <div id="forgot-panel" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid #eee">
+        <div id="forgot-panel" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid #CFCEC8">
           <div style="font-size:13px;font-weight:500;margin-bottom:.5rem">Reset your password</div>
-          <p style="font-size:12px;color:#888;margin-bottom:.75rem">Enter your email and we'll send you a reset link.</p>
+          <p style="font-size:12px;color:#7E7E80;margin-bottom:.75rem">Enter your email and we'll send you a reset link.</p>
           <input id="forgot-email" type="email" placeholder="you@example.com"
-            style="width:100%;height:40px;padding:0 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;font-family:inherit;margin-bottom:.625rem"
+            style="width:100%;height:40px;padding:0 12px;border:1.5px solid #0F0F10;font-size:14px;outline:none;font-family:inherit;background:#F4F4F1;margin-bottom:.625rem"
             onkeydown="if(event.key==='Enter')sendPasswordReset()">
           <button onclick="sendPasswordReset()"
-            style="width:100%;height:38px;background:#2A4032;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
+            style="width:100%;height:38px;background:#0F0F10;color:#F4F4F1;border:none;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
             Send reset link
           </button>
-          <a href="#" onclick="event.preventDefault();hideForgotPassword()" style="display:block;text-align:center;margin-top:.625rem;font-size:12px;color:#888;text-decoration:underline">Back to sign in</a>
+          <a href="#" onclick="event.preventDefault();hideForgotPassword()" style="display:block;text-align:center;margin-top:.625rem;font-size:12px;color:#7E7E80;text-decoration:underline">Back to sign in</a>
         </div>
 
         <!-- Password recovery panel (shown when landing from reset email) -->
-        <div id="recovery-panel" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid #eee">
+        <div id="recovery-panel" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid #CFCEC8">
           <div style="font-size:13px;font-weight:500;margin-bottom:.5rem">Set a new password</div>
           <input id="new-password" type="password" placeholder="New password (min. 6 characters)"
-            style="width:100%;height:40px;padding:0 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;font-family:inherit;margin-bottom:.625rem"
+            style="width:100%;height:40px;padding:0 12px;border:1.5px solid #0F0F10;font-size:14px;outline:none;font-family:inherit;background:#F4F4F1;margin-bottom:.625rem"
             onkeydown="if(event.key==='Enter')submitNewPassword()">
           <button onclick="submitNewPassword()"
-            style="width:100%;height:38px;background:#2A4032;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
+            style="width:100%;height:38px;background:#0F0F10;color:#F4F4F1;border:none;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
             Update password
           </button>
         </div>
