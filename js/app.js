@@ -244,6 +244,7 @@ function toast(msg) {
 
 // ── Navigation ─────────────────────────────────────────────
 let currentTab = 'gear';
+let currentGearSubTab = 'closet';
 
 function showTab(name) {
   if (currentTab === 'gear' && name !== 'gear' && _bulkMode) {
@@ -254,10 +255,52 @@ function showTab(name) {
   currentTab = name;
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
-  // Sync mobile bottom nav
   document.querySelectorAll('.mob-tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-  const renders = { dashboard: renderDashboard, gear: renderGear, trips: renderTrips, templates: renderTemplates, wishlist: renderWishlist, food: renderFood, analytics: renderAnalytics };
+  const renders = {
+    gear:      () => showGearSubTab(currentGearSubTab),
+    templates: renderTemplates,
+    trips:     () => { renderTrips(); renderDashboard(); },
+    food:      renderFood,
+    stats:     () => { renderDashboard(); renderAnalytics(); },
+  };
   if (renders[name]) renders[name]();
+}
+
+function showGearSubTab(name) {
+  currentGearSubTab = name;
+  document.querySelectorAll('#gear-sub-nav .sub-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.sub === name);
+  });
+  ['closet', 'wishlist', 'db'].forEach(sub => {
+    const el = document.getElementById('gear-sub-' + sub);
+    if (el) el.style.display = sub === name ? '' : 'none';
+  });
+  if (name === 'closet')   renderGear();
+  else if (name === 'wishlist') renderWishlist();
+  else if (name === 'db')       renderGearDbInline();
+}
+
+function renderGearDbInline() {
+  if (!_gearDbCache && !_gearDbError) {
+    if (typeof fetchGearDb === 'function') fetchGearDb();
+  }
+  if (typeof renderDrawerDb === 'function') {
+    renderDrawerDb({
+      body:      document.getElementById('gear-db-body'),
+      foot:      document.getElementById('gear-db-foot'),
+      searchVal: document.getElementById('gear-db-search')?.value,
+    });
+  }
+}
+
+function gearDbInlineSearch() {
+  if (typeof renderDrawerDb === 'function') {
+    renderDrawerDb({
+      body:      document.getElementById('gear-db-body'),
+      foot:      document.getElementById('gear-db-foot'),
+      searchVal: document.getElementById('gear-db-search')?.value,
+    });
+  }
 }
 
 function openMobileMore() {

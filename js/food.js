@@ -23,12 +23,13 @@ function setFoodView(view) {
   foodView = view;
   document.getElementById('food-plans-view').style.display    = view === 'plans'   ? '' : 'none';
   document.getElementById('food-recipes-view').style.display  = view === 'recipes' ? '' : 'none';
-  const btnPlan    = document.getElementById('btn-food-plan');
-  const btnRecipes = document.getElementById('btn-food-recipes');
-  if (btnPlan)    btnPlan.textContent    = view === 'plans' ? '+ New plan' : 'Meal plans';
-  if (btnRecipes) btnRecipes.textContent = view === 'recipes' ? 'Meal plans' : 'Recipe library';
-  if (btnPlan)    btnPlan.onclick    = view === 'plans' ? () => { setFoodView('plans'); openNewFoodPlan(); } : () => setFoodView('plans');
-  if (btnRecipes) btnRecipes.onclick = view === 'recipes' ? () => setFoodView('plans') : () => setFoodView('recipes');
+  // Sync sub-nav active state
+  document.querySelectorAll('#food-sub-nav .sub-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.sub === view);
+  });
+  // Show + New plan button only in plans view
+  const btnPlan = document.getElementById('btn-food-plan');
+  if (btnPlan) btnPlan.style.display = view === 'plans' ? '' : 'none';
 
   // Show upgrade nudge for free users who've used their 1-plan slot
   let banner = document.getElementById('food-free-banner');

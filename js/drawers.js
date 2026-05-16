@@ -96,18 +96,21 @@ async function fetchGearDb() {
     _gearDbCache = data || [];
   }
   renderDrawerDb();
+  if (typeof renderGearDbInline === 'function') renderGearDbInline();
 }
 
 function retryGearDb() {
   _gearDbCache = null;
   _gearDbError = null;
   renderDrawerDb();
+  if (typeof renderGearDbInline === 'function') renderGearDbInline();
   fetchGearDb();
 }
 
-function renderDrawerDb() {
-  const body = document.getElementById('drawer-db-body');
-  const foot = document.getElementById('drawer-db-foot');
+// opts: { body, foot, searchVal } — omit to render into the slideout drawer
+function renderDrawerDb(opts) {
+  const body = (opts && opts.body) || document.getElementById('drawer-db-body');
+  const foot = (opts && opts.foot) || document.getElementById('drawer-db-foot');
   if (!body) return;
 
   if (!_sb) {
@@ -123,7 +126,9 @@ function renderDrawerDb() {
     return;
   }
 
-  const q = (document.getElementById('drawer-db-search')?.value || '').toLowerCase();
+  const q = opts
+    ? ((opts.searchVal || '')).toLowerCase()
+    : (document.getElementById('drawer-db-search')?.value || '').toLowerCase();
   const closetCatalogIds = new Set(
     (state.items || []).map(i => i.catalog_item_id).filter(Boolean)
   );
@@ -181,6 +186,7 @@ function toggleDbItem(catalogId) {
     saveState();
     renderGear();
     renderDrawerDb();
+    if (typeof renderGearDbInline === 'function') renderGearDbInline();
     showUndoToast(existing.name, existing, idx);
   } else {
     if (!checkLimit('items')) return;
@@ -204,6 +210,7 @@ function toggleDbItem(catalogId) {
     saveState();
     renderGear();
     renderDrawerDb();
+    if (typeof renderGearDbInline === 'function') renderGearDbInline();
   }
 }
 
