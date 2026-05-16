@@ -23,6 +23,8 @@ function setFoodView(view) {
   foodView = view;
   document.getElementById('food-plans-view').style.display    = view === 'plans'   ? '' : 'none';
   document.getElementById('food-recipes-view').style.display  = view === 'recipes' ? '' : 'none';
+  const dbView = document.getElementById('food-sub-db');
+  if (dbView) dbView.style.display = view === 'db' ? '' : 'none';
   // Sync sub-nav active state
   document.querySelectorAll('#food-sub-nav .sub-tab').forEach(t => {
     t.classList.toggle('active', t.dataset.sub === view);
@@ -53,6 +55,7 @@ function setFoodView(view) {
   }
 
   if (view === 'recipes') renderRecipeLibrary();
+  else if (view === 'db') renderRecipeDbInline();
   else renderFoodPlanGrid();
 }
 
@@ -825,6 +828,12 @@ function renderRecipeLibrary() {
           return '<div style="padding:1px 0">' + (qtyPart ? '<span style="color:var(--text-3)">' + esc(qtyPart) + '</span> ' : '') + esc(i.name) + '</div>';
         }).join('') + '</div>' : '') +
       (r.prep_notes ? '<div style="font-size:11.5px;color:var(--text-3);font-style:italic;margin-top:.25rem">' + esc(r.prep_notes) + '</div>' : '') +
+      (!_user ? '' :
+        r.submitted_to_catalog === 'approved'
+          ? '<div style="margin-top:.5rem"><span style="display:inline-block;font-size:10px;padding:2px 7px;border-radius:99px;background:#e8f5e9;color:#2e7d32;font-weight:500">In database</span></div>'
+          : r.submitted_to_catalog === 'pending'
+            ? '<div style="margin-top:.5rem"><span style="display:inline-block;font-size:10px;padding:2px 7px;border-radius:99px;background:var(--accent-l);color:var(--accent);font-weight:500">In review</span></div>'
+            : '<div style="margin-top:.5rem"><button class="btn btn-xs" onclick="submitRecipeToCatalog(\'' + r.id + '\')">Submit to database</button></div>') +
       '</div>'
     ).join('') + '</div>';
 }
@@ -960,5 +969,197 @@ function deleteRecipe(id) {
   state.recipes = state.recipes.filter(r => r.id !== id);
   saveState(); renderRecipeLibrary();
   toast('Recipe deleted.');
+}
+
+// ── Submit recipe to community database ───────────────────
+async function submitRecipeToCatalog(id) {
+  if (!_sb || !_user) {
+    alert('Sign in to submit recipes to the community database.');
+    return;
+  }
+  const r = state.recipes.find(rec => rec.id === id);
+  if (!r) return;
+
+  const payload = {
+    name:         r.name,
+    description:  r.description || null,
+    meal_time:    r.meal_time   || null,
+    prep_method:  r.prep_method || null,
+    servings:     null,
+    ingredients:  (r.ingredients && r.ingredients.length) ? r.ingredients : null,
+    prep_notes:   r.prep_notes  || null,
+    source:       r.source      || null,
+    status:       'pending',
+    submitted_by: _user.id,
+  };
+
+  try {
+    const { error } = await _sb.from('recipes_catalog').insert(payload);
+    if (error) { alert('Submit failed: ' + error.message); return; }
+  } catch (e) {
+    alert('Submit failed: ' + (e.message || 'Unknown error'));
+    return;
+  }
+
+  r.submitted_to_catalog = 'pending';
+  saveState();
+  renderRecipeLibrary();
+  toast('Recipe submitted for review — thanks!');
+}
+
+// ── Recipe database (community, inline panel) ─────────────
+let _recipeCatalogCache = null;
+let _recipeCatalogError = null;
+let _rdbMealFilter = new Set();
+let _rdbPrepFilter = new Set();
+
+async function fetchRecipeDb() {
+  if (!_sb) { renderRecipeDbInline(); return; }
+  _recipeCatalogError = null;
+  const { data, error } = await _sb
+    .from('recipes_catalog')
+    .select('id, name, description, meal_time, prep_method, servings, ingredients, prep_notes, source')
+    .eq('status', 'approved')
+    .order('meal_time')
+    .order('name');
+  if (error) {
+    _recipeCatalogError = error.message || 'Failed to load recipes';
+    _recipeCatalogCache = [];
+  } else {
+    _recipeCatalogCache = data || [];
+  }
+  renderRecipeDbInline();
+}
+
+function retryRecipeDb() {
+  _recipeCatalogCache = null;
+  _recipeCatalogError = null;
+  renderRecipeDbInline();
+  fetchRecipeDb();
+}
+
+function rdbToggleMeal(mt) {
+  if (_rdbMealFilter.has(mt)) _rdbMealFilter.delete(mt); else _rdbMealFilter.add(mt);
+  renderRecipeDbInline();
+}
+
+function rdbTogglePrep(pm) {
+  if (_rdbPrepFilter.has(pm)) _rdbPrepFilter.delete(pm); else _rdbPrepFilter.add(pm);
+  renderRecipeDbInline();
+}
+
+function recipeDbInlineSearch() {
+  renderRecipeDbInline();
+}
+
+function renderRecipeDbInline() {
+  const body      = document.getElementById('food-db-body');
+  const foot      = document.getElementById('food-db-foot');
+  const filterBar = document.getElementById('food-db-filter-bar');
+  if (!body) return;
+
+  if (!_sb) {
+    body.innerHTML = '<div style="padding:20px 0;font-size:12px;color:var(--text-3)">Sign in to browse the recipe database.</div>';
+    return;
+  }
+  if (_recipeCatalogError) {
+    body.innerHTML = `<div style="padding:20px 0;font-size:12px;color:var(--text-3)">Could not load recipes.<br><button onclick="retryRecipeDb()" style="margin-top:8px;font-size:11px;padding:4px 10px;cursor:pointer;border:1px solid var(--border);border-radius:4px;background:var(--bg-2)">Retry</button></div>`;
+    return;
+  }
+  if (!_recipeCatalogCache) {
+    body.innerHTML = '<div style="padding:20px 0;font-size:12px;color:var(--text-3)">Loading…</div>';
+    fetchRecipeDb();
+    return;
+  }
+
+  // Filter chips
+  if (filterBar) {
+    const chip = (label, active, fn) =>
+      `<span style="display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;cursor:pointer;border:1px solid;user-select:none;${active ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : 'background:var(--surface);color:var(--text-2);border-color:var(--border)'}" onclick="${fn}">${label}</span>`;
+    filterBar.innerHTML =
+      '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
+      '<span style="font-size:11px;color:var(--text-3)">Meal:</span>' +
+      MEAL_TIMES.map(mt => chip(MEAL_LABELS[mt], _rdbMealFilter.has(mt), `rdbToggleMeal('${mt}')`)).join('') +
+      '<span style="font-size:11px;color:var(--text-3)">Prep:</span>' +
+      PREP_METHODS.map(pm => chip(PREP_LABELS[pm], _rdbPrepFilter.has(pm), `rdbTogglePrep('${pm}')`)).join('') +
+      ((_rdbMealFilter.size || _rdbPrepFilter.size) ? ' <button class="btn btn-xs btn-ghost" onclick="_rdbMealFilter.clear();_rdbPrepFilter.clear();renderRecipeDbInline()">Clear</button>' : '') +
+      '</div>';
+  }
+
+  const q = (document.getElementById('food-db-search')?.value || '').toLowerCase();
+  const myRecipeCatalogIds = new Set(
+    (state.recipes || []).map(r => r.catalog_recipe_id).filter(Boolean)
+  );
+
+  let items = _recipeCatalogCache;
+  if (_rdbMealFilter.size) items = items.filter(i => _rdbMealFilter.has(i.meal_time));
+  if (_rdbPrepFilter.size) items = items.filter(i => _rdbPrepFilter.has(i.prep_method || ''));
+  if (q) items = items.filter(i =>
+    `${i.name} ${i.description || ''} ${i.meal_time || ''} ${i.prep_method || ''}`.toLowerCase().includes(q)
+  );
+
+  if (!items.length) {
+    body.innerHTML = '<div style="padding:20px 0;font-size:12px;color:var(--text-3)">No recipes found.</div>';
+    if (foot) foot.innerHTML = '';
+    return;
+  }
+
+  const byMeal = {};
+  items.forEach(i => {
+    const c = MEAL_LABELS[i.meal_time] || i.meal_time || 'Other';
+    (byMeal[c] = byMeal[c] || []).push(i);
+  });
+  const mealOrder = MEAL_TIMES.map(mt => MEAL_LABELS[mt]);
+  const sortedMeals = Object.keys(byMeal).sort((a, b) => {
+    const ai = mealOrder.indexOf(a), bi = mealOrder.indexOf(b);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1; if (bi === -1) return -1;
+    return ai - bi;
+  });
+
+  body.innerHTML = sortedMeals.map(meal => `
+    <div class="drawer-cat-lbl">${esc(meal)}</div>
+    ${byMeal[meal].map(item => {
+      const already    = myRecipeCatalogIds.has(item.id);
+      const prepLabel  = PREP_LABELS[item.prep_method] || '';
+      const sub        = [prepLabel, item.description].filter(Boolean).join(' · ');
+      return `<div class="drawer-item${already ? ' checked' : ''}" onclick="${already ? '' : "addRecipeFromDb('" + item.id + "')"}">
+        <span class="d-toggle">${already ? '✓' : '+'}</span>
+        <div class="d-info">
+          <div class="d-name">${esc(item.name)}</div>
+          ${sub ? `<div class="d-sub">${esc(sub)}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('')}`).join('');
+
+  if (foot) {
+    const addedCount = myRecipeCatalogIds.size;
+    foot.innerHTML = `
+      <div class="drawer-foot-count">${addedCount} recipe${addedCount !== 1 ? 's' : ''} from database</div>
+      <div class="drawer-foot-sub">added recipes go to your library</div>`;
+  }
+}
+
+function addRecipeFromDb(catalogId) {
+  const dbItem = _recipeCatalogCache?.find(i => i.id === catalogId);
+  if (!dbItem) return;
+  if ((state.recipes || []).find(r => r.catalog_recipe_id === catalogId)) return;
+
+  state.recipes.push({
+    id:                   uid('rec'),
+    name:                 dbItem.name,
+    description:          dbItem.description || '',
+    meal_time:            dbItem.meal_time    || 'dinner',
+    prep_method:          dbItem.prep_method  || '',
+    cal_per_serving:      0,
+    weight_g_per_serving: 0,
+    source:               dbItem.source    || '',
+    prep_notes:           dbItem.prep_notes || '',
+    ingredients:          dbItem.ingredients || [],
+    catalog_recipe_id:    catalogId,
+  });
+  saveState();
+  renderRecipeDbInline();
+  toast('Recipe added to your library.');
 }
 

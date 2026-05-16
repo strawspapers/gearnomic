@@ -342,6 +342,7 @@
       <nav class="sub-nav" id="food-sub-nav">
         <button class="sub-tab active" data-sub="plans" onclick="setFoodView('plans')">My plans</button>
         <button class="sub-tab" data-sub="recipes" onclick="setFoodView('recipes')">My recipes</button>
+        <button class="sub-tab" data-sub="db" onclick="setFoodView('db')">Recipe database</button>
       </nav>
 
       <!-- Plans view -->
@@ -363,6 +364,22 @@
         </div>
         <div id="recipe-filter-bar" style="margin-bottom:.875rem"></div>
         <div id="recipes-grid"></div>
+      </div>
+
+      <!-- Recipe database sub-panel -->
+      <div id="food-sub-db" style="display:none">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Recipe Database</h1>
+            <p class="page-sub">Browse community-contributed trail recipes</p>
+          </div>
+        </div>
+        <div style="max-width:540px">
+          <input type="text" id="food-db-search" class="input" placeholder="Search recipes…" style="width:100%;margin-bottom:.625rem" oninput="recipeDbInlineSearch()">
+          <div id="food-db-filter-bar" style="margin-bottom:.875rem"></div>
+          <div id="food-db-body"><div style="padding:20px 0;font-size:12px;color:var(--text-3)">Loading…</div></div>
+          <div id="food-db-foot" style="margin-top:.75rem"></div>
+        </div>
       </div>
     </section>
 
@@ -531,7 +548,7 @@
       <span>© <span id="footer-year"></span> Gearnomic. All rights reserved.</span>
       <span style="display:flex;align-items:center;gap:12px">
         <span style="color:var(--text-3)">Built for the trail</span>
-<span style="color:var(--text-3);font-size:11px;font-family:monospace" title="Build commit">2026-05-16 0535Z</span>
+<span style="color:var(--text-3);font-size:11px;font-family:monospace" title="Build commit">2026-05-16 0610Z</span>
       </span>
     </div>
   </footer>

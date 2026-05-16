@@ -174,6 +174,7 @@
       <button class="tab-btn" onclick="switchTab('catalog')">Catalog Queue<span id="catalog-badge" class="queue-badge" style="display:none">0</span></button>
       <button class="tab-btn" onclick="switchTab('database')">Gear Database</button>
       <button class="tab-btn" onclick="switchTab('specs')">Spec Fields</button>
+      <button class="tab-btn" onclick="switchTab('recipes')">Recipe Submissions<span id="recipes-badge" class="queue-badge" style="display:none">0</span></button>
       <button class="tab-btn" onclick="switchTab('audit')">Audit log</button>
     </div>
 
@@ -271,6 +272,17 @@
       </div>
     </div>
 
+    <!-- Recipe Submissions tab -->
+    <div class="tab-pane" id="tab-recipes">
+      <div class="toolbar">
+        <span style="font-size:13px;color:#888" id="recipes-queue-meta"></span>
+        <button class="btn-ghost" onclick="loadRecipeQueue()" style="margin-left:auto">Refresh</button>
+      </div>
+      <div id="recipes-loading" class="loading" style="display:none">Loading queue…</div>
+      <div id="recipes-empty"   class="loading" style="display:none">No pending submissions.</div>
+      <div id="recipes-list"></div>
+    </div>
+
     <!-- Audit log tab -->
     <div class="tab-pane" id="tab-audit">
       <div class="card">
@@ -358,6 +370,8 @@ let _inspectUser = null;
 let _inspectData = null;
 let _catalogItems    = [];
 let _editingCatalogId = null;
+let _recipeItems     = [];
+let _editingRecipeId  = null;
 let _adminUserId     = null;  // auth.users id of the signed-in admin
 
 // ── Auth ──────────────────────────────────────────────────
@@ -412,7 +426,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // ── Tabs ──────────────────────────────────────────────────
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    b.classList.toggle('active', ['users','catalog','database','specs','audit'][i] === name);
+    b.classList.toggle('active', ['users','catalog','database','specs','recipes','audit'][i] === name);
   });
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
@@ -423,7 +437,11 @@ function switchTab(name) {
   if (name === 'database' && !document.getElementById('db-table').style.display.includes('table')) {
     loadGearDatabase();
   }
-  if (name === 'specs' && !_specFields.length) loadSpecFields();
+  if (name === 'specs'    && !_specFields.length) loadSpecFields();
+  if (name === 'recipes'  && !document.getElementById('recipes-list').children.length
+      && document.getElementById('recipes-empty').style.display === 'none') {
+    loadRecipeQueue();
+  }
 }
 
 // ── Load & render users ───────────────────────────────────
@@ -1238,6 +1256,259 @@ async function rejectCatalogItem(id) {
     renderCatalogQueue();
   }
   toast(`Rejected: ${item.brand} ${item.name}`);
+}
+
+// ── Recipe Queue ─────────────────────────────────────────
+
+function updateRecipesBadge(n) {
+  const el = document.getElementById('recipes-badge');
+  if (!el) return;
+  el.textContent = n;
+  el.style.display = n > 0 ? 'inline-block' : 'none';
+}
+
+async function loadRecipeQueue() {
+  if (!_sb) return;
+  _editingRecipeId = null;
+  const loading = document.getElementById('recipes-loading');
+  const empty   = document.getElementById('recipes-empty');
+  const list    = document.getElementById('recipes-list');
+  loading.style.display = 'block';
+  empty.style.display   = 'none';
+  list.innerHTML        = '';
+
+  const { data, error } = await _sb.from('recipes_catalog')
+    .select('*')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true });
+
+  loading.style.display = 'none';
+
+  if (error) { toast('Failed to load queue: ' + error.message); return; }
+
+  _recipeItems = data || [];
+  updateRecipesBadge(_recipeItems.length);
+
+  const meta = document.getElementById('recipes-queue-meta');
+  meta.textContent = _recipeItems.length
+    ? `${_recipeItems.length} pending submission${_recipeItems.length !== 1 ? 's' : ''}`
+    : '';
+
+  if (!_recipeItems.length) { empty.style.display = 'block'; return; }
+
+  renderRecipeQueue();
+}
+
+function renderRecipeQueue() {
+  const list = document.getElementById('recipes-list');
+  const MEAL_LABELS = { breakfast: 'Breakfast', snack: 'Snack', lunch: 'Lunch', dinner: 'Dinner' };
+  const PREP_LABELS = { hot: 'Hot', 'cold-soak': 'Cold soak', 'no-cook': 'No cook' };
+
+  list.innerHTML = _recipeItems.map(item => {
+    const isEditing = _editingRecipeId === item.id;
+
+    if (isEditing) {
+      const ings = (item.ingredients || []).map(i =>
+        `<div class="ce-attr-row" style="display:flex;gap:6px;margin-bottom:5px">
+          <input class="catalog-edit-input" style="width:58px;flex-shrink:0" placeholder="#" value="${esc(String(i.qty||''))}">
+          <input class="catalog-edit-input" style="width:70px;flex-shrink:0" placeholder="unit" value="${esc(i.unit||'')}">
+          <input class="catalog-edit-input" style="flex:1" placeholder="ingredient" value="${esc(i.name||'')}">
+          <button type="button" class="btn-ghost" style="padding:4px 10px;border-radius:6px" onclick="this.closest('.ce-attr-row').remove()">×</button>
+        </div>`).join('');
+
+      return `
+      <div class="catalog-item editing" id="ri-${esc(item.id)}">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#2A4032;margin-bottom:.875rem">Editing — normalize before approving</div>
+        <div class="catalog-edit-grid">
+          <div class="catalog-edit-field">
+            <label>Recipe name</label>
+            <input class="catalog-edit-input" id="re-name-${esc(item.id)}" value="${esc(item.name)}">
+          </div>
+          <div class="catalog-edit-field">
+            <label>Meal time</label>
+            <select class="catalog-edit-input" id="re-meal-${esc(item.id)}">
+              <option value="">—</option>
+              ${['breakfast','snack','lunch','dinner'].map(m => `<option value="${m}" ${item.meal_time===m?'selected':''}>${MEAL_LABELS[m]}</option>`).join('')}
+            </select>
+          </div>
+          <div class="catalog-edit-field">
+            <label>Prep method</label>
+            <select class="catalog-edit-input" id="re-prep-${esc(item.id)}">
+              <option value="">—</option>
+              ${['hot','cold-soak','no-cook'].map(p => `<option value="${p}" ${item.prep_method===p?'selected':''}>${PREP_LABELS[p]}</option>`).join('')}
+            </select>
+          </div>
+          <div class="catalog-edit-field">
+            <label>Source / credit</label>
+            <input class="catalog-edit-input" id="re-src-${esc(item.id)}" value="${esc(item.source||'')}">
+          </div>
+        </div>
+        <div class="catalog-edit-field">
+          <label>Description</label>
+          <input class="catalog-edit-input" id="re-desc-${esc(item.id)}" value="${esc(item.description||'')}">
+        </div>
+        <div class="catalog-edit-field">
+          <label>Ingredients</label>
+          <div id="re-ings-${esc(item.id)}">${ings}</div>
+          <button type="button" class="btn-ghost" style="font-size:12px;padding:4px 12px;border-radius:6px;margin-top:2px" onclick="reAddIngRow('${esc(item.id)}')">+ Add row</button>
+        </div>
+        <div class="catalog-edit-field">
+          <label>Prep notes</label>
+          <textarea class="catalog-edit-input" id="re-notes-${esc(item.id)}" rows="3">${esc(item.prep_notes||'')}</textarea>
+        </div>
+        <div class="actions" style="margin-top:.5rem">
+          <button class="btn-success" onclick="saveRecipeEdit('${esc(item.id)}')">Save</button>
+          <button class="btn-ghost"   onclick="cancelRecipeEdit()">Cancel</button>
+        </div>
+      </div>`;
+    }
+
+    const ingsDisplay = (item.ingredients || []).filter(i => i.name).slice(0, 5)
+      .map(i => [i.qty, i.unit, i.name].filter(Boolean).join(' ')).join(', ');
+
+    return `
+    <div class="catalog-item" id="ri-${esc(item.id)}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:.75rem">
+        <div>
+          <span style="font-size:16px;font-weight:600">${esc(item.name)}</span>
+          ${item.meal_time  ? `<span style="background:#f0f0f0;color:#666;font-size:10px;padding:1px 6px;border-radius:99px;margin-left:6px">${esc(MEAL_LABELS[item.meal_time]||item.meal_time)}</span>` : ''}
+          ${item.prep_method ? `<span style="background:#f0f0f0;color:#666;font-size:10px;padding:1px 6px;border-radius:99px;margin-left:4px">${esc(PREP_LABELS[item.prep_method]||item.prep_method)}</span>` : ''}
+        </div>
+        <span style="font-size:11px;color:#aaa;white-space:nowrap;flex-shrink:0">${fmtDate(item.created_at)}</span>
+      </div>
+      ${item.description ? `<div style="font-size:12px;color:#555;margin-bottom:.5rem">${esc(item.description)}</div>` : ''}
+      <div class="catalog-fields">
+        <div>
+          <div class="catalog-field-key">Submitted by</div>
+          <div class="catalog-field-val">${catalogUserEmail(item.submitted_by)}</div>
+        </div>
+        ${item.source ? `<div>
+          <div class="catalog-field-key">Source</div>
+          <div class="catalog-field-val">${esc(item.source)}</div>
+        </div>` : ''}
+        ${ingsDisplay ? `<div>
+          <div class="catalog-field-key">Ingredients</div>
+          <div class="catalog-field-val" style="font-size:11px">${esc(ingsDisplay)}${(item.ingredients||[]).length > 5 ? ' …' : ''}</div>
+        </div>` : ''}
+        ${item.prep_notes ? `<div>
+          <div class="catalog-field-key">Prep notes</div>
+          <div class="catalog-field-val" style="font-size:11px;font-style:italic">${esc(item.prep_notes.slice(0,120))}${item.prep_notes.length > 120 ? '…' : ''}</div>
+        </div>` : ''}
+      </div>
+      <div class="actions">
+        <button class="btn-success" onclick="approveRecipeItem('${esc(item.id)}')">Approve</button>
+        <button class="btn-danger"  onclick="rejectRecipeItem('${esc(item.id)}')">Reject</button>
+        <button class="btn-ghost"   onclick="startRecipeEdit('${esc(item.id)}')">Edit</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function reAddIngRow(id) {
+  const list = document.getElementById('re-ings-' + id);
+  if (!list) return;
+  const row = document.createElement('div');
+  row.className = 'ce-attr-row';
+  row.style.cssText = 'display:flex;gap:6px;margin-bottom:5px';
+  row.innerHTML = `
+    <input class="catalog-edit-input" style="width:58px;flex-shrink:0" placeholder="#">
+    <input class="catalog-edit-input" style="width:70px;flex-shrink:0" placeholder="unit">
+    <input class="catalog-edit-input" style="flex:1" placeholder="ingredient">
+    <button type="button" class="btn-ghost" style="padding:4px 10px;border-radius:6px" onclick="this.closest('.ce-attr-row').remove()">×</button>`;
+  list.appendChild(row);
+  row.querySelector('input').focus();
+}
+
+function startRecipeEdit(id) {
+  _editingRecipeId = id;
+  renderRecipeQueue();
+  document.getElementById('ri-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function cancelRecipeEdit() {
+  _editingRecipeId = null;
+  renderRecipeQueue();
+}
+
+async function saveRecipeEdit(id) {
+  const item = _recipeItems.find(i => i.id === id);
+  if (!item) return;
+
+  const ingredients = [];
+  document.querySelectorAll('#re-ings-' + id + ' .ce-attr-row').forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const name = inputs[2]?.value.trim();
+    if (name) ingredients.push({ qty: inputs[0]?.value.trim() || '', unit: inputs[1]?.value.trim() || '', name });
+  });
+
+  const patch = {
+    name:        document.getElementById('re-name-' + id)?.value.trim() || item.name,
+    description: document.getElementById('re-desc-' + id)?.value.trim() || null,
+    meal_time:   document.getElementById('re-meal-' + id)?.value || null,
+    prep_method: document.getElementById('re-prep-' + id)?.value || null,
+    source:      document.getElementById('re-src-'  + id)?.value.trim() || null,
+    prep_notes:  document.getElementById('re-notes-'+ id)?.value.trim() || null,
+    ingredients: ingredients.length ? ingredients : null,
+  };
+
+  const { error } = await _sb.from('recipes_catalog').update(patch).eq('id', id);
+  if (error) { toast('Save failed: ' + error.message); return; }
+
+  Object.assign(item, patch);
+  audit('RECIPE_EDIT', `Edited recipe: ${item.name}`);
+  _editingRecipeId = null;
+  renderRecipeQueue();
+  toast('Changes saved.');
+}
+
+async function approveRecipeItem(id) {
+  const item = _recipeItems.find(i => i.id === id);
+  if (!item) return;
+  if (!confirm(`Approve "${item.name}"?`)) return;
+
+  const { error } = await _sb.from('recipes_catalog')
+    .update({ status: 'approved', approved_by: _adminUserId || null })
+    .eq('id', id);
+  if (error) { toast('Approve failed: ' + error.message); return; }
+
+  audit('RECIPE_APPROVE', `Approved recipe: ${item.name}`);
+  _recipeItems = _recipeItems.filter(i => i.id !== id);
+  updateRecipesBadge(_recipeItems.length);
+  document.getElementById('recipes-queue-meta').textContent = _recipeItems.length
+    ? `${_recipeItems.length} pending submission${_recipeItems.length !== 1 ? 's' : ''}`
+    : '';
+  if (!_recipeItems.length) {
+    document.getElementById('recipes-list').innerHTML = '';
+    document.getElementById('recipes-empty').style.display = 'block';
+  } else {
+    renderRecipeQueue();
+  }
+  toast(`Approved: ${item.name}`);
+}
+
+async function rejectRecipeItem(id) {
+  const item = _recipeItems.find(i => i.id === id);
+  if (!item) return;
+  if (!confirm(`Reject "${item.name}"? This cannot be undone.`)) return;
+
+  const { error } = await _sb.from('recipes_catalog')
+    .update({ status: 'rejected' })
+    .eq('id', id);
+  if (error) { toast('Reject failed: ' + error.message); return; }
+
+  audit('RECIPE_REJECT', `Rejected recipe: ${item.name}`);
+  _recipeItems = _recipeItems.filter(i => i.id !== id);
+  updateRecipesBadge(_recipeItems.length);
+  document.getElementById('recipes-queue-meta').textContent = _recipeItems.length
+    ? `${_recipeItems.length} pending submission${_recipeItems.length !== 1 ? 's' : ''}`
+    : '';
+  if (!_recipeItems.length) {
+    document.getElementById('recipes-list').innerHTML = '';
+    document.getElementById('recipes-empty').style.display = 'block';
+  } else {
+    renderRecipeQueue();
+  }
+  toast(`Rejected: ${item.name}`);
 }
 
 // ── Spec Fields ───────────────────────────────────────────
