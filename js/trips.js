@@ -723,7 +723,9 @@ function renderTemplateDetail(tmpl) {
     </span>`
   ).join('');
 
-  document.getElementById('template-detail').innerHTML = `
+  const detailEl = document.getElementById('template-detail');
+  detailEl.dataset.tmplId = tmpl.id;
+  detailEl.innerHTML = `
     <div class="card-header" style="margin-bottom:.75rem">
       <div>
         <span class="card-title" style="font-size:17px;font-family:var(--font-disp)">${esc(tmpl.name)}</span>
@@ -749,7 +751,10 @@ function renderTemplateDetail(tmpl) {
       ${tmpl.created_at ? `<span style="color:var(--text-3)">Created: ${tmpl.created_at}</span>` : ''}
     </div>
 
-    <div class="cat-pills" style="margin-bottom:1.25rem">${catPills}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;gap:8px;flex-wrap:wrap">
+      <div class="cat-pills" style="margin:0">${catPills}</div>
+      <button class="btn btn-ghost btn-sm" onclick="openManageCategories()" style="font-size:12px;white-space:nowrap;flex-shrink:0">Manage categories</button>
+    </div>
 
     ${validIds.length >= 3
       && !tmpl.name

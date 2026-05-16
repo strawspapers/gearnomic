@@ -1451,7 +1451,7 @@ function catGroupedGearTable(ids, containerId, isTemplate, cols) {
           title="Drag to move category · Tap on mobile">
           <span class="gear-handle">⠿</span>
         </td>
-        <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand||'')}${item.brand ? ' · ' : ''}${item.model ? esc(item.model) + ' · ' : ''}${badge('badge-gray', item.category)}</div></td>
+        <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand||'')}${item.brand ? ' · ' : ''}${item.model ? esc(item.model) + ' · ' : ''}<span class="badge badge-gray" style="cursor:pointer" onclick="event.stopPropagation();openCategoryPopover('${item.id}',this)" title="Reassign category">${esc(item.category)}</span></div></td>
         <td class="mono">${wg(effectiveW)}${ov!=null?` <span style="font-size:10px;color:var(--accent)">(override)</span>`:''}</td>
         ${container ? carryCell(containerId, id, isTemplate) : '<td></td>'}
         <td>${usd(item.cost_usd)}</td>
@@ -1468,6 +1468,70 @@ const CAT_COLORS = [
 ];
 
 let _catDragIdx = null;
+
+// ── Category reassignment popover ────────────────────────
+
+function openCategoryPopover(itemId, anchorEl) {
+  closeCategoryPopover();
+  const item = state.items.find(i => i.id === itemId);
+  if (!item) return;
+
+  const knownNames = (state.categories || []).map(c => c.name);
+  const currentCat = item.category;
+  const isOrphan   = currentCat && !knownNames.includes(currentCat);
+
+  const pop = document.createElement('div');
+  pop.id = 'cat-popover';
+  pop.style.cssText = 'position:fixed;z-index:300;background:var(--bg);border:1.5px solid var(--border);min-width:160px;max-height:280px;overflow-y:auto;font-size:13px;';
+
+  const allNames = isOrphan ? [currentCat, ...knownNames] : knownNames;
+  pop.innerHTML = allNames.map(name => {
+    const isCurrent = name === currentCat;
+    const isOrphanItem = isOrphan && name === currentCat;
+    return `<div onclick="reassignItemCategory('${esc(itemId)}','${esc(name)}')"
+      style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;
+             background:${isCurrent ? 'var(--surface-2)' : 'transparent'};
+             ${isOrphanItem ? 'font-style:italic;color:var(--text-3)' : ''}"
+      onmouseenter="this.style.background='var(--surface-2)'"
+      onmouseleave="this.style.background='${isCurrent ? 'var(--surface-2)' : 'transparent'}'">
+      <span>${esc(name)}</span>
+      ${isCurrent ? '<span style="font-size:10px;color:var(--text-3)">current</span>' : ''}
+    </div>`;
+  }).join('');
+
+  document.body.appendChild(pop);
+
+  // Position anchored to the badge
+  const r = anchorEl.getBoundingClientRect();
+  const popH = Math.min(280, allNames.length * 37 + 4);
+  const spaceBelow = window.innerHeight - r.bottom;
+  const top = spaceBelow >= popH ? r.bottom + 4 : r.top - popH - 4;
+  pop.style.top  = Math.max(4, top) + 'px';
+  pop.style.left = Math.min(r.left, window.innerWidth - 170) + 'px';
+
+  setTimeout(() => document.addEventListener('click', closeCategoryPopover, { once: true }), 0);
+}
+
+function closeCategoryPopover() {
+  document.getElementById('cat-popover')?.remove();
+}
+
+function reassignItemCategory(itemId, newCat) {
+  closeCategoryPopover();
+  const item = state.items.find(i => i.id === itemId);
+  if (!item || item.category === newCat) return;
+  item.category = newCat;
+  saveState();
+  // Re-render whichever detail panel is open
+  const tmplWrap = document.getElementById('template-detail-wrap');
+  if (tmplWrap?.style.display !== 'none') {
+    const tmplId = tmplWrap.querySelector('[data-tmpl-id]')?.dataset.tmplId;
+    const tmpl = tmplId
+      ? state.templates.find(t => t.id === tmplId)
+      : state.templates.find(t => (t.gear_ids || []).includes(itemId));
+    if (tmpl) renderTemplateDetail(tmpl);
+  }
+}
 
 function openManageCategories() {
   const rows = state.categories.map((cat, idx) => `
