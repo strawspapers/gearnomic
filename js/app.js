@@ -599,7 +599,7 @@ function renderDashboard() {
 
   // Upcoming trips list
   document.getElementById('dash-trips').innerHTML = !upcoming.length
-    ? `<div class="empty-state"><p>No upcoming trips.</p><button class="btn btn-sm btn-primary" onclick="showTab('trips')">Plan a trip</button></div>`
+    ? `<div class="empty-state"><p>No upcoming trips.</p><button class="btn btn-sm btn-primary" onclick="showTab('trips');document.getElementById('btn-add-trip').click()">Plan a trip</button></div>`
     : upcoming.map(t => {
         const tw = tripWeight(t);
         const nights = t.start_date && t.end_date
