@@ -105,7 +105,7 @@ async function loadSupporterStatus() {
 // Current schema version. Bump this when adding a new structural migration below.
 // Cheap field-existence guards always run; numbered migrations only run when
 // state._schemaVersion is behind, so old migrations are skipped on every subsequent load.
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 // Parse a legacy combined qty string (e.g. "2 oz", "1 tsp") into {qty, unit}.
 function _parseIngAmt(raw) {
@@ -155,11 +155,15 @@ function applyMigrations() {
     state.food_plans.unshift(JSON.parse(JSON.stringify(DEMO_FOOD_PLAN)));
   }
   if (!state.recipes)       state.recipes       = JSON.parse(JSON.stringify(SEED_DATA.recipes));
-  if (!state.custom_fields) state.custom_fields = [];
+  if (!state.custom_fields)  state.custom_fields  = [];
+  if (!state.trip_loadouts)  state.trip_loadouts  = [];
   state.categories.forEach((cat, i) => {
     if (!cat.color) cat.color = SEED_DATA.categories[i]?.color || '#888';
   });
-  state.templates.forEach(t => { if (!t.carry_types) t.carry_types = {}; });
+  state.templates.forEach(t => {
+    if (!t.carry_types)       t.carry_types  = {};
+    if (t.times_used == null) t.times_used   = 0;
+  });
   // Apply saved unit preference
   if (state.profile?.units) {
     _units = state.profile.units;
@@ -216,6 +220,41 @@ function applyMigrations() {
     });
   }
 
+  if (sv < 3) {
+    // Migration 3: trip.loadout_ids (template IDs) → trip_loadout IDs
+    // For each trip, each loadout_id that points to a template gets replaced with
+    // a new trip_loadout record (deep copy of the template at migration time).
+    // The source template's times_used is incremented.
+    if (!state.trip_loadouts) state.trip_loadouts = [];
+
+    const existingTlIds = new Set(state.trip_loadouts.map(tl => tl.id));
+
+    state.trips.forEach(trip => {
+      if (!trip.loadout_ids) return;
+      trip.loadout_ids = trip.loadout_ids.map(lid => {
+        if (existingTlIds.has(lid)) return lid;           // already a trip_loadout
+        const tmpl = state.templates.find(t => t.id === lid);
+        if (!tmpl) return lid;                            // orphan ref — leave as-is
+        const tl = {
+          id:                 uid('tl'),
+          type:               'trip_loadout',
+          trip_id:            trip.id,
+          source_template_id: tmpl.id,
+          name:               tmpl.name,
+          description:        tmpl.description || '',
+          gear_ids:           [...(tmpl.gear_ids || [])],
+          carry_types:        { ...(tmpl.carry_types || {}) },
+          created_at:         new Date().toISOString().slice(0, 10),
+          updated_at:         new Date().toISOString().slice(0, 10),
+        };
+        state.trip_loadouts.push(tl);
+        existingTlIds.add(tl.id);
+        tmpl.times_used = (tmpl.times_used || 0) + 1;
+        return tl.id;
+      });
+    });
+  }
+
   // Add future migrations here as: if (sv < N) { ... }
 
   state._schemaVersion = SCHEMA_VERSION;
@@ -245,6 +284,7 @@ function loadState() {
     food_plans:    [JSON.parse(JSON.stringify(DEMO_FOOD_PLAN))],
     recipes:       JSON.parse(JSON.stringify(SEED_DATA.recipes)),
     custom_fields: [],
+    trip_loadouts: [],
   };
 }
 

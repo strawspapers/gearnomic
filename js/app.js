@@ -2672,6 +2672,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           food_plans:    [JSON.parse(JSON.stringify(DEMO_FOOD_PLAN))],
           recipes:       JSON.parse(JSON.stringify(SEED_DATA.recipes)),
           custom_fields: [],
+          trip_loadouts: [],
           profile:       { units: _units },
         };
         await loadSupporterStatus();
