@@ -1420,22 +1420,32 @@ function reorderItem(draggedId, targetId, pos) {
   renderGear();
 }
 
+// Returns the effective display category for an item, respecting trip_loadout overrides.
+// In a trip_loadout context (containerId set, isTemplate false) the override wins.
+// In all other contexts the item's own category is used — item.category is never written.
+function resolveItemCategory(item, containerId, isTemplate) {
+  if (!containerId || isTemplate) return item.category;
+  const tl = (state.trip_loadouts || []).find(t => t.id === containerId);
+  return (tl?.category_overrides || {})[item.id] || item.category;
+}
+
 // ── Shared category-grouped gear table ──────────────────────
 // Renders tbody rows (with category headers) for a list of item ids.
-// containerId / isTemplate are used only for carry type cycling.
+// containerId / isTemplate drive carry type cycling and category override resolution.
 // cols = total column count including the handle column.
 function catGroupedGearTable(ids, containerId, isTemplate, cols) {
   const validIds = ids.filter(id => state.items.find(i => i.id === id));
   if (!validIds.length) return `<tr><td colspan="${cols}"><div class="empty-state">No gear added yet.</div></td></tr>`;
 
-  // Group by category, preserving category order from state.categories
+  // Group by effective category (respects trip_loadout category_overrides)
   const catOrder = categoryNames();
   const byCat = {};
   validIds.forEach(id => {
     const item = state.items.find(i => i.id === id);
     if (!item) return;
-    if (!byCat[item.category]) byCat[item.category] = [];
-    byCat[item.category].push({ item, id });
+    const cat = resolveItemCategory(item, containerId, isTemplate);
+    if (!byCat[cat]) byCat[cat] = [];
+    byCat[cat].push({ item, id });
   });
 
   // Sort categories by global order, unknown cats go at end
@@ -1453,19 +1463,22 @@ function catGroupedGearTable(ids, containerId, isTemplate, cols) {
     </tr>`;
 
     const rows = entries.map(({ item, id }) => {
-      const ov = containerId && !isTemplate ? ((state.trips.find(t=>t.id===containerId)?.gear_overrides||{})[id]) : null;
-      const effectiveW = ov != null ? ov : item.weight_g;
-      const container  = isTemplate
-        ? state.templates.find(t => t.id === containerId)
-        : state.trips.find(t => t.id === containerId);
+      const effectiveCat = resolveItemCategory(item, containerId, isTemplate);
+      const effectiveW = item.weight_g;
+      // Resolve container for carry cell — check trip_loadouts before trips
+      const container = containerId
+        ? (isTemplate
+            ? state.templates.find(t => t.id === containerId)
+            : ((state.trip_loadouts||[]).find(tl => tl.id === containerId) || state.trips.find(t => t.id === containerId)))
+        : null;
 
       return `<tr class="expandable"
         draggable="true"
         data-item-id="${item.id}"
-        data-item-cat="${esc(item.category)}"
+        data-item-cat="${esc(effectiveCat)}"
         ondragstart="onItemDragStart(event,'${item.id}')"
         ondragend="onItemDragEnd()"
-        ondragover="onRowDragOver(event,'${esc(item.category)}')"
+        ondragover="onRowDragOver(event,'${esc(effectiveCat)}')"
         ondragleave="onRowDragLeave(event)"
         ondrop="onRowDrop(event)">
         <td class="gear-handle-cell"
@@ -1473,8 +1486,8 @@ function catGroupedGearTable(ids, containerId, isTemplate, cols) {
           title="Drag to move category · Tap on mobile">
           <span class="gear-handle">⠿</span>
         </td>
-        <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand||'')}${item.brand ? ' · ' : ''}${item.model ? esc(item.model) + ' · ' : ''}<span class="badge badge-gray" style="cursor:pointer" onclick="event.stopPropagation();openCategoryPopover('${item.id}',this)" title="Reassign category">${esc(item.category)}</span></div></td>
-        <td class="mono">${wg(effectiveW)}${ov!=null?` <span style="font-size:10px;color:var(--accent)">(override)</span>`:''}</td>
+        <td><div class="item-name">${esc(item.name)}</div><div class="item-sub">${esc(item.brand||'')}${item.brand ? ' · ' : ''}${item.model ? esc(item.model) + ' · ' : ''}<span class="badge badge-gray" style="cursor:pointer" onclick="event.stopPropagation();openCategoryPopover('${item.id}',this,'${containerId||''}',${!!isTemplate})" title="Reassign category">${esc(effectiveCat)}</span></div></td>
+        <td class="mono">${wg(effectiveW)}</td>
         ${container ? carryCell(containerId, id, isTemplate) : '<td></td>'}
         <td>${usd(item.cost_usd)}</td>
       </tr>`;
@@ -1493,13 +1506,13 @@ let _catDragIdx = null;
 
 // ── Category reassignment popover ────────────────────────
 
-function openCategoryPopover(itemId, anchorEl) {
+function openCategoryPopover(itemId, anchorEl, containerId, isTemplate) {
   closeCategoryPopover();
   const item = state.items.find(i => i.id === itemId);
   if (!item) return;
 
   const knownNames = (state.categories || []).map(c => c.name);
-  const currentCat = item.category;
+  const currentCat = resolveItemCategory(item, containerId, isTemplate);
   const isOrphan   = currentCat && !knownNames.includes(currentCat);
 
   const pop = document.createElement('div');
@@ -1510,7 +1523,7 @@ function openCategoryPopover(itemId, anchorEl) {
   pop.innerHTML = allNames.map(name => {
     const isCurrent = name === currentCat;
     const isOrphanItem = isOrphan && name === currentCat;
-    return `<div onclick="reassignItemCategory('${esc(itemId)}','${esc(name)}')"
+    return `<div onclick="reassignItemCategory('${esc(itemId)}','${esc(name)}','${esc(containerId||'')}',${!!isTemplate})"
       style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;
              background:${isCurrent ? 'var(--surface-2)' : 'transparent'};
              ${isOrphanItem ? 'font-style:italic;color:var(--text-3)' : ''}"
@@ -1538,13 +1551,33 @@ function closeCategoryPopover() {
   document.getElementById('cat-popover')?.remove();
 }
 
-function reassignItemCategory(itemId, newCat) {
+function reassignItemCategory(itemId, newCat, containerId, isTemplate) {
   closeCategoryPopover();
   const item = state.items.find(i => i.id === itemId);
-  if (!item || item.category === newCat) return;
+  if (!item) return;
+
+  // Trip_loadout context — write to category_overrides only, never item.category
+  if (containerId && !isTemplate) {
+    const tl = (state.trip_loadouts || []).find(t => t.id === containerId);
+    if (!tl) return;
+    const currentOverride = (tl.category_overrides || {})[itemId] || item.category;
+    if (currentOverride === newCat) return;
+    if (!tl.category_overrides) tl.category_overrides = {};
+    if (newCat === item.category) {
+      delete tl.category_overrides[itemId]; // reset to source — no override needed
+    } else {
+      tl.category_overrides[itemId] = newCat;
+    }
+    saveState();
+    const trip = state.trips.find(t => t.id === tl.trip_id);
+    if (trip) renderTripDetail(trip);
+    return;
+  }
+
+  // Gear closet or template context — write directly to item.category
+  if (item.category === newCat) return;
   item.category = newCat;
   saveState();
-  // Re-render whichever detail panel is open
   const tmplWrap = document.getElementById('template-detail-wrap');
   if (tmplWrap?.style.display !== 'none') {
     const tmplId = tmplWrap.querySelector('[data-tmpl-id]')?.dataset.tmplId;

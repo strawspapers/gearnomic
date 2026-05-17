@@ -157,6 +157,7 @@ function applyMigrations() {
   if (!state.recipes)       state.recipes       = JSON.parse(JSON.stringify(SEED_DATA.recipes));
   if (!state.custom_fields)  state.custom_fields  = [];
   if (!state.trip_loadouts)  state.trip_loadouts  = [];
+  (state.trip_loadouts).forEach(tl => { if (!tl.category_overrides) tl.category_overrides = {}; });
   state.categories.forEach((cat, i) => {
     if (!cat.color) cat.color = SEED_DATA.categories[i]?.color || '#888';
   });
@@ -244,6 +245,7 @@ function applyMigrations() {
           description:        tmpl.description || '',
           gear_ids:           [...(tmpl.gear_ids || [])],
           carry_types:        { ...(tmpl.carry_types || {}) },
+          category_overrides: {},
           created_at:         new Date().toISOString().slice(0, 10),
           updated_at:         new Date().toISOString().slice(0, 10),
         };

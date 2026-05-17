@@ -435,6 +435,7 @@ function attachLoadout(tripId, templateId) {
     description:        tmpl.description || '',
     gear_ids:           [...(tmpl.gear_ids || [])],
     carry_types:        { ...(tmpl.carry_types || {}) },
+    category_overrides: {},
     created_at:         new Date().toISOString().slice(0, 10),
     updated_at:         new Date().toISOString().slice(0, 10),
   };
@@ -745,6 +746,7 @@ function templateCard(tmpl) {
       <span><strong>${(tmpl.gear_ids||[]).filter(id=>state.items.find(i=>i.id===id)).length}</strong> items</span>
       <span><strong class="mono">${wg(tw)}</strong> total</span>
       <span><strong>${catCount}</strong> categories</span>
+      ${tmpl.times_used ? `<span>Used in <strong>${tmpl.times_used}</strong> trip${tmpl.times_used !== 1 ? 's' : ''}</span>` : ''}
     </div>
     ${sourceTrip ? `<div style="font-size:11px;color:var(--text-3);margin-top:6px;padding-left:4px">Saved from: ${esc(sourceTrip.name)}</div>` : ''}
     <div class="template-card-actions" onclick="event.stopPropagation()">
@@ -1216,6 +1218,7 @@ function _doApply(trip, tmpl, mode) {
       description:        tmpl.description || '',
       gear_ids:           [...(tmpl.gear_ids || [])],
       carry_types:        { ...(tmpl.carry_types || {}) },
+      category_overrides: {},
       created_at:         new Date().toISOString().slice(0, 10),
       updated_at:         new Date().toISOString().slice(0, 10),
     };
