@@ -338,7 +338,7 @@ function openQuickAdd() {
     <div class="form-grid">
       <div class="form-row" style="grid-column:1/-1">
         <label class="form-label">Item name *</label>
-        <input class="input input-full" id="qa-name" placeholder="e.g. Sleeping bag" autofocus>
+        <input class="input input-full" id="qa-name" placeholder="e.g. Sleeping bag">
       </div>
       <div class="form-row">
         <label class="form-label">Category</label>
