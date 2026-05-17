@@ -739,11 +739,8 @@ function itemFormHtml(item) {
       <div class="form-row"><label class="form-label">Brand</label><input class="input input-full" id="f-brand" value="${esc(item.brand || '')}" placeholder="e.g. Big Agnes"></div>
       <div class="form-row"><label class="form-label">Model</label><input class="input input-full" id="f-model" value="${esc(item.model || '')}" placeholder="e.g. Copper Spur HV UL2"></div>
       <div class="form-row">
-        <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
-          Category
-          <button type="button" class="btn btn-xs btn-ghost" style="font-size:11px" onclick="openManageCategoriesFromForm()">Manage</button>
-        </label>
-        <select class="select input-full" id="f-cat">${catOptions(item.category || 'Pack')}</select>
+        <label class="form-label">Category</label>
+        <select class="select input-full" id="f-cat" onchange="if(this.value==='__manage__'){this.value='${esc(item.category||'Pack')}';openManageCategoriesFromForm()}">${catOptions(item.category || 'Pack')}</select>
       </div>
       <div class="form-row"><label class="form-label">${weightLabel()}</label><input class="input input-full" id="f-weight" type="number" min="0" step="${weightStep()}" value="${gToDisplay(item.weight_g)}" placeholder="${weightPlaceholder()}"></div>
       <div class="form-row"><label class="form-label">Cost (USD)</label><input class="input input-full" id="f-cost" type="number" min="0" step="0.01" value="${item.cost_usd || ''}"></div>
