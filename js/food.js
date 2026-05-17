@@ -465,7 +465,7 @@ function openAddMeal(planId, day, mealTime) {
       <div class="form-row">
         <select class="select input-full" id="mi-recipe" onchange="fillFromRecipe()">
           <option value="">— select a recipe —</option>
-          ${recs.map(r => `<option value="${r.id}" data-cal="${r.cal_per_serving}" data-w="${r.weight_g_per_serving}">${esc(r.name)} (${r.cal_per_serving} cal · ${r.weight_g_per_serving}g)</option>`).join('')}
+          ${recs.map(r => { const e = recipeEffective(r); return `<option value="${r.id}" data-cal="${e.cal}" data-w="${e.wg}">${esc(r.name)} (${e.cal} cal · ${e.wg}g)</option>`; }).join('')}
         </select>
       </div>
       <input type="hidden" id="mi-name" value="">
@@ -487,7 +487,7 @@ function openAddMeal(planId, day, mealTime) {
     ? `<div class="form-row"><label class="form-label">Quick-fill from recipe</label>
         <select class="select input-full" id="mi-recipe" onchange="fillFromRecipe()">
           <option value="">— type manually —</option>
-          ${recs.map(r => `<option value="${r.id}" data-cal="${r.cal_per_serving}" data-w="${r.weight_g_per_serving}">${esc(r.name)} (${r.cal_per_serving} cal · ${r.weight_g_per_serving}g)</option>`).join('')}
+          ${recs.map(r => { const e = recipeEffective(r); return `<option value="${r.id}" data-cal="${e.cal}" data-w="${e.wg}">${esc(r.name)} (${e.cal} cal · ${e.wg}g)</option>`; }).join('')}
         </select></div>` : '';
 
   openModal(`Add ${MEAL_LABELS[mealTime]} — Day ${day}`, `
@@ -516,9 +516,10 @@ function fillFromRecipe() {
   const nameEl = document.getElementById('mi-name');
   const calEl  = document.getElementById('mi-cal');
   const wgEl   = document.getElementById('mi-wg');
+  const eff = recipeEffective(rec);
   if (nameEl) nameEl.value = rec.name;
-  if (calEl)  calEl.value  = rec.cal_per_serving;
-  if (wgEl)   wgEl.value   = gToDisplay(rec.weight_g_per_serving);
+  if (calEl)  calEl.value  = eff.cal;
+  if (wgEl)   wgEl.value   = gToDisplay(eff.wg);
 }
 
 function saveMealItem(planId, day, mealTime) {
@@ -817,11 +818,12 @@ function renderRecipeLibrary() {
       '<button class="btn btn-xs btn-danger" onclick="deleteRecipe(\'' + r.id + '\')">Remove</button>' +
       '</div></div>' +
       (r.description ? '<div style="font-size:12px;color:var(--text-2);margin-bottom:.5rem;line-height:1.4">' + esc(r.description) + '</div>' : '') +
-      '<div style="display:flex;gap:16px;font-size:12.5px;border-top:1px solid var(--border-2);padding-top:.5rem;margin-bottom:.5rem">' +
-      '<span><strong>' + r.cal_per_serving + '</strong> cal</span>' +
-      '<span><strong>' + wg(r.weight_g_per_serving) + '</strong></span>' +
-      '<span style="color:var(--text-3)">' + (r.cal_per_serving / (r.weight_g_per_serving || 1)).toFixed(1) + ' cal/g</span>' +
-      '</div>' +
+      (() => { const eff = recipeEffective(r); return '<div style="display:flex;gap:16px;font-size:12.5px;border-top:1px solid var(--border-2);padding-top:.5rem;margin-bottom:.5rem">' +
+      '<span><strong>' + eff.cal + '</strong> cal</span>' +
+      '<span><strong>' + wg(eff.wg) + '</strong></span>' +
+      '<span style="color:var(--text-3)">' + (eff.cal / (eff.wg || 1)).toFixed(1) + ' cal/g</span>' +
+      (r.use_ingredient_totals ? '<span style="font-size:10px;color:var(--text-3)">(from ingredients)</span>' : '') +
+      '</div>'; })() +
       (r.ingredients && r.ingredients.length ? '<div style="font-size:11.5px;color:var(--text-2);margin-bottom:.5rem">' +
         r.ingredients.map(i => {
           const qtyPart = [i.qty, i.unit].filter(Boolean).join(' ');
@@ -853,15 +855,17 @@ function recipeFormHtml(r) {
     const otherVal = isOther ? unitVal : '';
     return `
     <div class="rf-ing-row" style="display:flex;gap:6px;margin-bottom:5px;align-items:center">
-      <input class="input rf-ing-qty" type="number" min="0" step="any" style="width:58px;flex-shrink:0" placeholder="#" value="${esc(String(i.qty||''))}">
-      <select class="select rf-ing-unit" style="width:90px;flex-shrink:0" onchange="rfUnitChange(this)">
+      <input class="input rf-ing-qty" type="number" min="0" step="any" style="width:52px;flex-shrink:0" placeholder="#" value="${esc(String(i.qty||''))}">
+      <select class="select rf-ing-unit" style="width:86px;flex-shrink:0" onchange="rfUnitChange(this)">
         <option value="">—</option>
         ${KNOWN_UNITS.map(u => `<option value="${u}"${selVal===u?' selected':''}>${u}</option>`).join('')}
         <option value="other"${isOther?' selected':''}>other…</option>
       </select>
-      <input class="input rf-ing-unit-other" style="width:62px;flex-shrink:0${isOther?'':';display:none'}" placeholder="unit" value="${esc(otherVal)}">
+      <input class="input rf-ing-unit-other" style="width:58px;flex-shrink:0${isOther?'':';display:none'}" placeholder="unit" value="${esc(otherVal)}">
       <input class="input rf-ing-name" style="flex:1;min-width:0" placeholder="ingredient" value="${esc(i.name||'')}">
-      <button type="button" class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:4px 8px" onclick="this.closest('.rf-ing-row').remove()">×</button>
+      <input class="input rf-ing-cal" type="number" min="0" style="width:54px;flex-shrink:0;text-align:right" placeholder="cal" title="Calories for this ingredient" value="${i.cal||''}" oninput="rfUpdateIngTotals()">
+      <input class="input rf-ing-wg" type="number" min="0" style="width:48px;flex-shrink:0;text-align:right" placeholder="g" title="Weight (grams) for this ingredient" value="${i.weight_g||''}" oninput="rfUpdateIngTotals()">
+      <button type="button" class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:4px 8px" onclick="this.closest('.rf-ing-row').remove();rfUpdateIngTotals()">×</button>
     </div>`;
   };
   return `
@@ -889,9 +893,27 @@ function recipeFormHtml(r) {
     <div class="form-row"><label class="form-label">Source / credit</label>
       <input class="input input-full" id="rf-src" value="${esc(r.source||'')}" placeholder="e.g. Andrew Skurka"></div>
     <div class="form-row">
-      <label class="form-label">Ingredients</label>
+      <label class="form-label" style="display:flex;justify-content:space-between">
+        <span>Ingredients</span>
+        <span style="font-size:10px;font-weight:400;color:var(--text-3);letter-spacing:0;text-transform:none">cal &nbsp;&nbsp;&nbsp; g</span>
+      </label>
       <div id="rf-ingredients-list">${ings.map(ingRowHtml).join('')}</div>
-      <button type="button" class="btn btn-xs" style="margin-top:4px" onclick="rfAddIngredient()">+ Add ingredient</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;flex-wrap:wrap;gap:8px">
+        <button type="button" class="btn btn-xs" onclick="rfAddIngredient()">+ Add ingredient</button>
+        <span id="rf-ing-totals" style="font-size:12px;color:var(--text-3)">Ingredients total: <strong id="rf-ing-cal-sum">0</strong> cal · <strong id="rf-ing-wg-sum">0</strong> g</span>
+      </div>
+      <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--text-2)">Use for card &amp; meal planning:</span>
+        <div style="display:flex;gap:0">
+          <button type="button" id="rf-src-btn-keyed"
+            class="btn btn-xs${!r.use_ingredient_totals ? ' btn-primary' : ''}"
+            onclick="rfSetCalSource('keyed')">Keyed values</button>
+          <button type="button" id="rf-src-btn-summed"
+            class="btn btn-xs${r.use_ingredient_totals ? ' btn-primary' : ''}"
+            onclick="rfSetCalSource('summed')">Ingredient totals</button>
+        </div>
+      </div>
+      <input type="hidden" id="rf-cal-source" value="${r.use_ingredient_totals ? 'summed' : 'keyed'}">
     </div>
     <div class="form-row"><label class="form-label">Prep notes</label>
       <textarea class="input input-full" id="rf-prep" rows="3" placeholder="Preparation method, cook time, water temperature, tips...">${esc(r.prep_notes||'')}</textarea></div>
@@ -899,6 +921,27 @@ function recipeFormHtml(r) {
       <button class="btn btn-primary" onclick="saveRecipe('${r.id||''}')">Save recipe</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     </div>`;
+}
+
+function rfUpdateIngTotals() {
+  let totalCal = 0, totalWg = 0;
+  document.querySelectorAll('#rf-ingredients-list .rf-ing-row').forEach(row => {
+    totalCal += parseInt(row.querySelector('.rf-ing-cal')?.value) || 0;
+    totalWg  += parseInt(row.querySelector('.rf-ing-wg')?.value)  || 0;
+  });
+  const calEl = document.getElementById('rf-ing-cal-sum');
+  const wgEl  = document.getElementById('rf-ing-wg-sum');
+  if (calEl) calEl.textContent = totalCal;
+  if (wgEl)  wgEl.textContent  = totalWg;
+}
+
+function rfSetCalSource(source) {
+  const hidden = document.getElementById('rf-cal-source');
+  if (hidden) hidden.value = source;
+  const keyed  = document.getElementById('rf-src-btn-keyed');
+  const summed = document.getElementById('rf-src-btn-summed');
+  if (keyed)  keyed.classList.toggle('btn-primary',  source === 'keyed');
+  if (summed) summed.classList.toggle('btn-primary', source === 'summed');
 }
 
 function rfUnitChange(sel) {
@@ -915,15 +958,17 @@ function rfAddIngredient() {
   row.className = 'rf-ing-row';
   row.style.cssText = 'display:flex;gap:6px;margin-bottom:5px;align-items:center';
   row.innerHTML = `
-    <input class="input rf-ing-qty" type="number" min="0" step="any" style="width:58px;flex-shrink:0" placeholder="#">
-    <select class="select rf-ing-unit" style="width:90px;flex-shrink:0" onchange="rfUnitChange(this)">
+    <input class="input rf-ing-qty" type="number" min="0" step="any" style="width:52px;flex-shrink:0" placeholder="#">
+    <select class="select rf-ing-unit" style="width:86px;flex-shrink:0" onchange="rfUnitChange(this)">
       <option value="">—</option>
       ${['oz','g','ml','cup','tbsp','tsp','pkg','pinch','to taste'].map(u=>`<option value="${u}">${u}</option>`).join('')}
       <option value="other">other…</option>
     </select>
-    <input class="input rf-ing-unit-other" style="width:62px;flex-shrink:0;display:none" placeholder="unit">
+    <input class="input rf-ing-unit-other" style="width:58px;flex-shrink:0;display:none" placeholder="unit">
     <input class="input rf-ing-name" style="flex:1;min-width:0" placeholder="ingredient">
-    <button type="button" class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:4px 8px" onclick="this.closest('.rf-ing-row').remove()">×</button>`;
+    <input class="input rf-ing-cal" type="number" min="0" style="width:54px;flex-shrink:0;text-align:right" placeholder="cal" title="Calories" oninput="rfUpdateIngTotals()">
+    <input class="input rf-ing-wg" type="number" min="0" style="width:48px;flex-shrink:0;text-align:right" placeholder="g" title="Weight (g)" oninput="rfUpdateIngTotals()">
+    <button type="button" class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:4px 8px" onclick="this.closest('.rf-ing-row').remove();rfUpdateIngTotals()">×</button>`;
   list.appendChild(row);
   row.querySelector('.rf-ing-qty').focus();
 }
@@ -936,23 +981,33 @@ function saveRecipe(id) {
     const unit = unitSel === 'other'
       ? (row.querySelector('.rf-ing-unit-other')?.value.trim() || '')
       : unitSel;
+    const cal      = parseInt(row.querySelector('.rf-ing-cal')?.value) || 0;
+    const weight_g = parseInt(row.querySelector('.rf-ing-wg')?.value)  || 0;
     return {
       qty:  row.querySelector('.rf-ing-qty')?.value.trim() || '',
       unit,
       name: row.querySelector('.rf-ing-name')?.value.trim() || '',
+      ...(cal      ? { cal }      : {}),
+      ...(weight_g ? { weight_g } : {}),
     };
   }).filter(i => i.name);
+  const useIngTotals = document.getElementById('rf-cal-source')?.value === 'summed';
+  const existing = id ? state.recipes.find(r => r.id === id) : null;
   const data = {
     id:   id || uid('rec'),
     name,
-    meal_time:            document.getElementById('rf-meal').value,
-    prep_method:          document.getElementById('rf-prep-method')?.value || '',
-    description:          document.getElementById('rf-desc')?.value.trim() || '',
-    cal_per_serving:      parseInt(document.getElementById('rf-cal').value) || 0,
-    weight_g_per_serving: parseInt(document.getElementById('rf-wg').value) || 0,
-    source:               document.getElementById('rf-src').value.trim(),
-    prep_notes:           document.getElementById('rf-prep').value.trim(),
+    meal_time:             document.getElementById('rf-meal').value,
+    prep_method:           document.getElementById('rf-prep-method')?.value || '',
+    description:           document.getElementById('rf-desc')?.value.trim() || '',
+    cal_per_serving:       parseInt(document.getElementById('rf-cal').value) || 0,
+    weight_g_per_serving:  parseInt(document.getElementById('rf-wg').value) || 0,
+    use_ingredient_totals: useIngTotals,
+    source:                document.getElementById('rf-src').value.trim(),
+    prep_notes:            document.getElementById('rf-prep').value.trim(),
     ingredients,
+    // Preserve catalog submission state if editing
+    ...(existing?.submitted_to_catalog ? { submitted_to_catalog: existing.submitted_to_catalog } : {}),
+    ...(existing?.catalog_recipe_id    ? { catalog_recipe_id:    existing.catalog_recipe_id    } : {}),
   };
   if (id) {
     const idx = state.recipes.findIndex(r => r.id === id);
@@ -962,6 +1017,17 @@ function saveRecipe(id) {
   }
   saveState(); closeModal(); renderRecipeLibrary();
   toast(id ? 'Recipe updated!' : 'Recipe saved!');
+}
+
+// Returns the effective cal and weight for a recipe based on user's choice.
+function recipeEffective(r) {
+  if (r.use_ingredient_totals && (r.ingredients || []).length) {
+    return {
+      cal: (r.ingredients).reduce((s, i) => s + (i.cal      || 0), 0),
+      wg:  (r.ingredients).reduce((s, i) => s + (i.weight_g || 0), 0),
+    };
+  }
+  return { cal: r.cal_per_serving || 0, wg: r.weight_g_per_serving || 0 };
 }
 
 function deleteRecipe(id) {
