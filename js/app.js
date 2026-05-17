@@ -555,7 +555,8 @@ function handleOverlayClick(e) { if (e.target === document.getElementById('modal
 
 // ── Category options HTML ──────────────────────────────────
 function catOptions(selected) {
-  return categoryNames().map(c => `<option value="${esc(c)}" ${c === selected ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  const opts = categoryNames().map(c => `<option value="${esc(c)}" ${c === selected ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  return opts + `<option disabled>──────────</option><option value="__manage__">Manage categories…</option>`;
 }
 
 // ============================================================
