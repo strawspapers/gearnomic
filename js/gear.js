@@ -1245,6 +1245,10 @@ function onRowDragLeave(e) {
   }
 }
 
+// TODO: isolate to category_overrides in trip_loadout context
+// When a row is dragged between category groups inside a trip_loadout editor,
+// the resulting category write should go to tl.category_overrides[itemId]
+// rather than item.category. Requires the drag handlers to be container-aware.
 function onRowDrop(e, mode) {
   e.preventDefault();
   const draggedId = e.dataTransfer.getData('text/plain') || _dragItemId;
@@ -1327,6 +1331,7 @@ function onCatHeaderDragLeave(e) {
   }
 }
 
+// TODO: isolate to category_overrides in trip_loadout context (same as onRowDrop above)
 function onCatHeaderDrop(e, targetCat) {
   e.preventDefault();
   document.querySelectorAll('.drop-line-before,.drop-line-after').forEach(r => {
@@ -1355,6 +1360,10 @@ function onCatHeaderDrop(e, targetCat) {
   saveState();
   renderGear();
 }
+// TODO: isolate to category_overrides in trip_loadout context
+// When opened from catGroupedGearTable in a trip_loadout editor, this should write
+// to tl.category_overrides[itemId] instead of item.category (same fix as reassignItemCategory).
+// Requires passing containerId + isTemplate through the gear-handle-cell onclick.
 function openCategoryPickerMobile(itemId) {
   const item = state.items.find(i => i.id === itemId);
   if (!item) return;
