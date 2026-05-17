@@ -195,7 +195,7 @@ function toggleDbItem(catalogId) {
     )?.name || dbItem.category || (state.categories[0]?.name || 'Misc');
     state.items.push({
       id:              uid('i'),
-      name:            dbItem.designation || dbItem.name,
+      name:            dbItem.name || '',
       brand:           dbItem.brand || '',
       model:           dbItem.designation || '',
       category:        cat,
@@ -258,7 +258,7 @@ function renderDrawerCloset() {
     ${byCat[cat].map(item => {
       const checked = inLoadout.has(item.id);
       const wt  = item.weight_g ? wg(item.weight_g) : '';
-      const sub = [item.brand, wt].filter(Boolean).join(' · ');
+      const sub = [item.brand, item.model, wt].filter(Boolean).join(' · ');
       return `<div class="drawer-item${checked ? ' checked' : ''}" onclick="toggleClosetItem('${item.id}')">
         <span class="d-toggle">${checked ? '−' : '+'}</span>
         <div class="d-info">

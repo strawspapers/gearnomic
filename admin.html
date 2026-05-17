@@ -1059,8 +1059,8 @@ function renderCatalogQueue() {
             <input class="catalog-edit-input" id="ce-brand-${esc(item.id)}" value="${esc(item.brand)}">
           </div>
           <div class="catalog-edit-field">
-            <label>Item</label>
-            <input class="catalog-edit-input" id="ce-name-${esc(item.id)}" value="${esc(item.name)}">
+            <label>Item Type <span style="color:#B03030">*</span></label>
+            <input class="catalog-edit-input" id="ce-name-${esc(item.id)}" value="${esc(item.name)}" placeholder="e.g. Tent, Sleeping bag, Pot">
           </div>
           <div class="catalog-edit-field">
             <label>Model</label>
@@ -1174,6 +1174,9 @@ async function saveCatalogEdit(id) {
   const item = _catalogItems.find(i => i.id === id);
   if (!item) return;
 
+  const nameVal = document.getElementById('ce-name-' + id)?.value.trim();
+  if (!nameVal) { alert('Item Type is required.'); document.getElementById('ce-name-' + id)?.focus(); return; }
+
   const rawWeight = document.getElementById('ce-weight-' + id)?.value.trim();
   const manufacturer_weight_g = rawWeight !== '' && rawWeight != null
     ? parseFloat(rawWeight)
@@ -1211,6 +1214,10 @@ async function saveCatalogEdit(id) {
 async function approveCatalogItem(id) {
   const item = _catalogItems.find(i => i.id === id);
   if (!item) return;
+  if (!item.name?.trim()) {
+    alert('Item Type is required before approving. Click Edit and set the Item Type field.');
+    return;
+  }
   if (!confirm(`Approve "${item.brand} ${item.name}"?`)) return;
 
   const { error } = await _sb.from('catalog_items')

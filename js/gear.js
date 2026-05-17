@@ -403,7 +403,8 @@ let _replaceFlags = {};
 let _catalogSearchTimer  = null;
 let _catalogResults      = [];      // current search result set, indexed by position
 let _catalogSelectedId   = null;    // catalog_item_id chosen for the current add session
-let _pendingCatalogSubmit = null;   // item data waiting for catalog submission prompt
+let _pendingCatalogSubmit = null;      // item data waiting for catalog submission prompt
+let _catalogSubmitReturnItemId = null; // set when submit modal opened from within edit modal
 
 function renderGear() {
   _replaceFlags = getReplaceFlagTrips();
@@ -903,6 +904,7 @@ function saveItem(id) {
   if (isNew && !catalogId && _user && _supabaseReady()
       && document.getElementById('f-contribute')?.checked) {
     _pendingCatalogSubmit = data;
+    _catalogSubmitReturnItemId = null;
     setTimeout(openCatalogSubmitModal, 80);
   }
 
@@ -1034,6 +1036,7 @@ function contributeExistingItem(id) {
   const item = state.items.find(i => i.id === id);
   if (!item) return;
   _pendingCatalogSubmit = item;
+  _catalogSubmitReturnItemId = id;
   openCatalogSubmitModal();
 }
 
@@ -1071,8 +1074,19 @@ function openCatalogSubmitModal() {
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="submitToCatalog()">Submit for review</button>
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-ghost" onclick="cancelCatalogSubmit()">Cancel</button>
     </div>`);
+}
+
+function cancelCatalogSubmit() {
+  const returnId = _catalogSubmitReturnItemId;
+  _catalogSubmitReturnItemId = null;
+  _pendingCatalogSubmit = null;
+  if (returnId) {
+    openEditItem(returnId);
+  } else {
+    closeModal();
+  }
 }
 
 async function submitToCatalog() {
@@ -1106,8 +1120,13 @@ async function submitToCatalog() {
 
   try {
     const { error } = await _sb.from('catalog_items').insert(payload);
-    if (error) { alert('Submit failed: ' + error.message); return; }
+    if (error) {
+      console.error('submitToCatalog error:', error);
+      alert('Submit failed: ' + (error.message || error.code || JSON.stringify(error)));
+      return;
+    }
   } catch(e) {
+    console.error('submitToCatalog exception:', e);
     alert('Submit failed: ' + (e.message || 'Unknown error'));
     return;
   }
