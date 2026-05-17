@@ -119,18 +119,24 @@ function renderTripDetail(trip) {
     ? Math.round((new Date(trip.end_date) - new Date(trip.start_date)) / 86400000) : null;
   const over   = trip.weight_target_g && tw > trip.weight_target_g;
 
-  // Per-loadout weight rows
+  // Per-loadout summary rows (in the overview card)
   const loadoutRows = (trip.loadout_ids || []).map(lid => {
-    const l = state.templates.find(t => t.id === lid);
+    const l = (state.trip_loadouts || []).find(tl => tl.id === lid)
+           || state.templates.find(t => t.id === lid);
     if (!l) return '';
-    const lw = (l.gear_ids||[]).reduce((s,id) => {
+    const validIds = (l.gear_ids||[]).filter(id => state.items.find(i=>i.id===id));
+    const lw = validIds.reduce((s,id) => {
       const item = state.items.find(i=>i.id===id);
       return s + (item?.weight_g||0);
     }, 0);
+    const sourceName = l.type === 'trip_loadout'
+      ? (state.templates.find(t => t.id === l.source_template_id)?.name || '')
+      : '';
     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:.5px solid var(--border-2)">
       <div>
         <span style="font-size:13px;font-weight:500">${esc(l.name)}</span>
-        <span style="font-size:11px;color:var(--text-3);margin-left:8px">${(l.gear_ids||[]).length} items</span>
+        ${sourceName ? `<span style="font-size:10px;color:var(--text-3);margin-left:6px">from ${esc(sourceName)}</span>` : ''}
+        <span style="font-size:11px;color:var(--text-3);margin-left:8px">${validIds.length} items</span>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <span class="mono" style="font-size:12px">${wg(lw)}</span>
@@ -160,7 +166,8 @@ function renderTripDetail(trip) {
 
   // Merged gear table across all loadouts
   const allGearIds = [...new Set((trip.loadout_ids||[]).flatMap(lid => {
-    const l = state.templates.find(t=>t.id===lid);
+    const l = (state.trip_loadouts||[]).find(tl=>tl.id===lid)
+           || state.templates.find(t=>t.id===lid);
     return l?.gear_ids || [];
   }))];
 
@@ -221,6 +228,41 @@ function renderTripDetail(trip) {
         ${mealPlanHtml}
       </div>
     </div>
+
+    <!-- PER-LOADOUT EDITORS (trip-specific copies) -->
+    ${(trip.loadout_ids||[]).map(lid => {
+      const tl = (state.trip_loadouts||[]).find(tl=>tl.id===lid);
+      if (!tl) return '';
+      const validIds = (tl.gear_ids||[]).filter(id=>state.items.find(i=>i.id===id));
+      const tlWeight = validIds.reduce((s,id)=>{
+        const item = state.items.find(i=>i.id===id);
+        return s+(item?.weight_g||0);
+      },0);
+      return `<div style="margin-top:1rem;border-top:1.5px solid var(--border);padding-top:.875rem">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:.75rem;flex-wrap:wrap">
+          <div>
+            <span style="font-size:15px;font-weight:600">${esc(tl.name)}</span>
+            <span style="font-size:11px;color:var(--text-3);margin-left:8px">${validIds.length} items · ${wg(tlWeight)}</span>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-sm btn-drawer-closet" onclick="openDrawerCloset('${tl.id}')">add from closet</button>
+            <button class="btn btn-sm btn-drawer-db" onclick="openDrawerDb()">explore gear database</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr>
+              <th style="width:28px;padding:6px 4px"></th>
+              <th>Item</th><th>Weight</th><th>Carry</th><th>Cost</th>
+            </tr></thead>
+            <tbody>${validIds.length
+              ? catGroupedGearTable(tl.gear_ids, tl.id, false, 5)
+              : '<tr><td colspan="5"><div class="empty-state" style="padding:1rem">No gear yet — add from your closet.</div></td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    }).join('')}
 
     <!-- FULL GEAR LIST (collapsed, open by default for completed trips) -->
     <details style="margin-top:.25rem" ${trip.status === 'completed' ? 'open' : ''}>

@@ -221,7 +221,8 @@ function renderDrawerCloset() {
   const foot = document.getElementById('drawer-closet-foot');
   if (!body) return;
 
-  const tmpl = state.templates.find(t => t.id === _drawerTmplId);
+  const tmpl = state.templates.find(t => t.id === _drawerTmplId)
+            || (state.trip_loadouts||[]).find(tl => tl.id === _drawerTmplId);
   if (!tmpl) {
     body.innerHTML = '<div style="padding:20px 14px;font-size:12px;color:var(--text-3)">No loadout selected.</div>';
     return;
@@ -286,19 +287,28 @@ function updateDrawerClosetFoot(foot, tmpl) {
 
 function toggleClosetItem(itemId) {
   const tmpl = state.templates.find(t => t.id === _drawerTmplId);
-  if (!tmpl) return;
-  if (!tmpl.gear_ids) tmpl.gear_ids = [];
+  const tripLoadout = !tmpl
+    ? (state.trip_loadouts||[]).find(tl => tl.id === _drawerTmplId)
+    : null;
+  const container = tmpl || tripLoadout;
+  if (!container) return;
+  if (!container.gear_ids) container.gear_ids = [];
 
-  const idx = tmpl.gear_ids.indexOf(itemId);
+  const idx = container.gear_ids.indexOf(itemId);
   if (idx >= 0) {
-    tmpl.gear_ids.splice(idx, 1);
+    container.gear_ids.splice(idx, 1);
   } else {
-    tmpl.gear_ids.push(itemId);
+    container.gear_ids.push(itemId);
   }
 
   saveState();
-  if (typeof _refreshProfileSnaps === 'function') _refreshProfileSnaps();
-  renderTemplateDetail(tmpl);
+  if (tmpl) {
+    if (typeof _refreshProfileSnaps === 'function') _refreshProfileSnaps();
+    renderTemplateDetail(tmpl);
+  } else {
+    const trip = state.trips.find(t => t.id === tripLoadout.trip_id);
+    if (trip) renderTripDetail(trip);
+  }
   renderDrawerCloset();
 }
 

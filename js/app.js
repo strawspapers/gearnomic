@@ -121,23 +121,38 @@ function getCarryType(container, itemId) {
 }
 
 function cycleCarryType(containerId, itemId, isTemplate) {
-  const list = isTemplate ? state.templates : state.trips;
-  const obj  = list.find(t => t.id === containerId);
+  let obj, rerender;
+  if (isTemplate) {
+    obj = state.templates.find(t => t.id === containerId);
+    rerender = () => renderTemplateDetail(state.templates.find(t => t.id === containerId));
+  } else {
+    obj = (state.trip_loadouts || []).find(tl => tl.id === containerId);
+    if (obj) {
+      const trip = state.trips.find(t => t.id === obj.trip_id);
+      rerender = () => { if (trip) renderTripDetail(trip); };
+    } else {
+      obj = state.trips.find(t => t.id === containerId);
+      rerender = () => renderTripDetail(state.trips.find(t => t.id === containerId));
+    }
+  }
   if (!obj) return;
   if (!obj.carry_types) obj.carry_types = {};
   const next = CARRY_CYCLE[obj.carry_types[itemId] || 'packed'];
   if (next === 'packed') delete obj.carry_types[itemId];
   else obj.carry_types[itemId] = next;
   saveState();
-  if (isTemplate) renderTemplateDetail(state.templates.find(t => t.id === containerId));
-  else renderTripDetail(state.trips.find(t => t.id === containerId));
+  rerender();
 }
 
 function carryCell(containerId, itemId, isTemplate) {
-  const ct = getCarryType(
-    (isTemplate ? state.templates : state.trips).find(t => t.id === containerId) || {},
-    itemId
-  );
+  let containerObj;
+  if (isTemplate) {
+    containerObj = state.templates.find(t => t.id === containerId);
+  } else {
+    containerObj = (state.trip_loadouts || []).find(tl => tl.id === containerId)
+                || state.trips.find(t => t.id === containerId);
+  }
+  const ct = getCarryType(containerObj || {}, itemId);
   const labels = { packed: '—', worn: 'Worn', consumable: 'Consumable' };
   const styles  = {
     packed:     'color:var(--text-3);font-size:11px',
@@ -173,7 +188,8 @@ function tripUniqueItems(trip) {
   const seen = new Set();
   const items = [];
   (trip.loadout_ids || []).forEach(lid => {
-    const loadout = state.templates.find(t => t.id === lid);
+    const loadout = (state.trip_loadouts || []).find(tl => tl.id === lid)
+                 || state.templates.find(t => t.id === lid);
     if (!loadout) return;
     (loadout.gear_ids || []).forEach(itemId => {
       if (!seen.has(itemId)) {
@@ -209,7 +225,8 @@ function setTripItemQty(tripId, itemId, qty) {
 // Get carry type for an item across any attached loadout
 function tripCarryType(trip, itemId) {
   for (const lid of (trip.loadout_ids || [])) {
-    const loadout = state.templates.find(t => t.id === lid);
+    const loadout = (state.trip_loadouts || []).find(tl => tl.id === lid)
+                 || state.templates.find(t => t.id === lid);
     if (loadout?.carry_types?.[itemId]) return loadout.carry_types[itemId];
   }
   return 'packed';
