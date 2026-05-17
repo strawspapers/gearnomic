@@ -1090,7 +1090,6 @@ function cancelCatalogSubmit() {
 }
 
 async function submitToCatalog() {
-  console.log('submitToCatalog called', { _sb: !!_sb, _user: !!_user, brand: document.getElementById('cs-brand')?.value, name: document.getElementById('cs-name')?.value, designation: document.getElementById('cs-designation')?.value });
   if (!_supabaseReady() || !_user) {
     alert('You need to be signed in to submit to the catalog.');
     return;
