@@ -342,7 +342,7 @@ function openQuickAdd() {
       </div>
       <div class="form-row">
         <label class="form-label">Category</label>
-        <select class="select input-full" id="qa-cat">${catOptions('')}</select>
+        <select class="select input-full" id="qa-cat" onchange="if(this.value==='__manage__'){this.value='';openManageCategoriesFromForm()}">${catOptions('')}</select>
       </div>
       <div class="form-row">
         <label class="form-label">${weightLabel()}</label>
