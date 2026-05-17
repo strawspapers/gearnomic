@@ -1090,6 +1090,7 @@ function cancelCatalogSubmit() {
 }
 
 async function submitToCatalog() {
+  console.log('submitToCatalog called', { _sb: !!_sb, _user: !!_user, brand: document.getElementById('cs-brand')?.value, name: document.getElementById('cs-name')?.value, designation: document.getElementById('cs-designation')?.value });
   if (!_supabaseReady() || !_user) {
     alert('You need to be signed in to submit to the catalog.');
     return;
@@ -1118,21 +1119,27 @@ async function submitToCatalog() {
     submitted_by:          _user.id,
   };
 
+  const submitBtn = document.querySelector('#modal-body .btn-primary');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
+
   try {
     const { error } = await _sb.from('catalog_items').insert(payload);
     if (error) {
       console.error('submitToCatalog error:', error);
       alert('Submit failed: ' + (error.message || error.code || JSON.stringify(error)));
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit for review'; }
       return;
     }
   } catch(e) {
     console.error('submitToCatalog exception:', e);
     alert('Submit failed: ' + (e.message || 'Unknown error'));
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit for review'; }
     return;
   }
 
-  closeModal();
   _pendingCatalogSubmit = null;
+  _catalogSubmitReturnItemId = null;
+  closeModal();
   toast('Submitted for review — thanks for contributing!');
 }
 
