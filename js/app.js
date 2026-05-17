@@ -547,8 +547,11 @@ function openModal(title, html) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = html;
   document.getElementById('modal-overlay').style.display = 'flex';
-  const first = document.querySelector('#modal-body input:not([type=hidden]), #modal-body select, #modal-body textarea');
-  if (first) first.focus();
+  if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    const firstVisible = [...document.querySelectorAll('#modal-body input:not([type=hidden]), #modal-body select, #modal-body textarea')]
+      .find(el => el.offsetParent !== null);
+    if (firstVisible) firstVisible.focus();
+  }
 }
 function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
 function handleOverlayClick(e) { if (e.target === document.getElementById('modal-overlay')) closeModal(); }
