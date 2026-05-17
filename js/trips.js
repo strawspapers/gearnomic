@@ -338,8 +338,12 @@ function saveItemFeedbackNote(tripId, itemId) {
 function openAttachLoadout(tripId) {
   const trip = state.trips.find(t => t.id === tripId);
   if (!trip) return;
-  const attached = new Set(trip.loadout_ids || []);
-  const available = state.templates.filter(l => !attached.has(l.id));
+  const attachedTemplateIds = new Set(
+    (state.trip_loadouts || [])
+      .filter(tl => tl.trip_id === tripId)
+      .map(tl => tl.source_template_id)
+  );
+  const available = state.templates.filter(l => !attachedTemplateIds.has(l.id));
   if (!available.length) {
     openModal('Attach loadout', `
       <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">All your loadouts are already attached, or you have none yet.</p>
@@ -367,21 +371,56 @@ function openAttachLoadout(tripId) {
     <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`);
 }
 
-function attachLoadout(tripId, loadoutId) {
+function attachLoadout(tripId, templateId) {
   const trip = state.trips.find(t => t.id === tripId);
-  if (!trip) return;
+  const tmpl = state.templates.find(t => t.id === templateId);
+  if (!trip || !tmpl) return;
   if (!trip.loadout_ids) trip.loadout_ids = [];
-  if (!trip.loadout_ids.includes(loadoutId)) trip.loadout_ids.push(loadoutId);
+
+  // Guard: don't attach the same template twice to the same trip
+  const alreadyAttached = (state.trip_loadouts || []).some(
+    tl => tl.trip_id === tripId && tl.source_template_id === templateId
+  );
+  if (alreadyAttached) return;
+
+  // Create the trip-specific copy — structure snapshot, not item data snapshot
+  const tripLoadout = {
+    id:                 uid('tl'),
+    type:               'trip_loadout',
+    trip_id:            tripId,
+    source_template_id: templateId,
+    name:               tmpl.name,
+    description:        tmpl.description || '',
+    gear_ids:           [...(tmpl.gear_ids || [])],
+    carry_types:        { ...(tmpl.carry_types || {}) },
+    created_at:         new Date().toISOString().slice(0, 10),
+    updated_at:         new Date().toISOString().slice(0, 10),
+  };
+
+  if (!state.trip_loadouts) state.trip_loadouts = [];
+  state.trip_loadouts.push(tripLoadout);
+  trip.loadout_ids.push(tripLoadout.id);
+  tmpl.times_used = (tmpl.times_used || 0) + 1;
+
   saveState();
   closeModal();
   renderTripDetail(trip);
   toast('Loadout attached!');
 }
 
-function detachLoadout(tripId, loadoutId) {
+function detachLoadout(tripId, tripLoadoutId) {
   const trip = state.trips.find(t => t.id === tripId);
   if (!trip) return;
-  trip.loadout_ids = (trip.loadout_ids || []).filter(id => id !== loadoutId);
+
+  // Remove the trip_loadout record and decrement times_used on the source template
+  const tl = (state.trip_loadouts || []).find(tl => tl.id === tripLoadoutId);
+  if (tl) {
+    const tmpl = state.templates.find(t => t.id === tl.source_template_id);
+    if (tmpl) tmpl.times_used = Math.max(0, (tmpl.times_used || 1) - 1);
+    state.trip_loadouts = state.trip_loadouts.filter(t => t.id !== tripLoadoutId);
+  }
+
+  trip.loadout_ids = (trip.loadout_ids || []).filter(id => id !== tripLoadoutId);
   saveState();
   renderTripDetail(trip);
   toast('Loadout detached.');
@@ -913,7 +952,9 @@ function openApplyTemplateFromLib(loadoutId) {
     <p style="font-size:13px;color:var(--text-2);margin-bottom:.875rem">Choose a trip to attach this loadout to:</p>
     <div style="display:flex;flex-direction:column;gap:5px;max-height:50vh;overflow-y:auto">
       ${state.trips.map(t => {
-        const already = (t.loadout_ids||[]).includes(loadoutId);
+        const already = (state.trip_loadouts || []).some(
+          tl => tl.trip_id === t.id && tl.source_template_id === loadoutId
+        );
         return `<button class="btn ${already?'btn-primary':''}"
           style="justify-content:space-between;text-align:left"
           onclick="${already ? '' : `attachLoadoutFromLib('${loadoutId}','${t.id}')`}"
