@@ -1192,11 +1192,37 @@ function doApplyTemplateFromLib(templateId) {
 function _doApply(trip, tmpl, mode) {
   if (!trip.loadout_ids) trip.loadout_ids = [];
   if (mode === 'replace') {
-    // Replace = detach all current loadouts, attach this one
-    trip.loadout_ids = [tmpl.id];
-  } else {
-    // Merge = attach this loadout if not already attached
-    if (!trip.loadout_ids.includes(tmpl.id)) trip.loadout_ids.push(tmpl.id);
+    // Detach all current trip_loadouts for this trip, then attach the new one
+    (state.trip_loadouts || [])
+      .filter(tl => tl.trip_id === trip.id)
+      .forEach(tl => {
+        const src = state.templates.find(t => t.id === tl.source_template_id);
+        if (src) src.times_used = Math.max(0, (src.times_used || 1) - 1);
+      });
+    state.trip_loadouts = (state.trip_loadouts || []).filter(tl => tl.trip_id !== trip.id);
+    trip.loadout_ids = [];
+  }
+  // Attach via the canonical path so a trip_loadout record is always created
+  const alreadyAttached = (state.trip_loadouts || []).some(
+    tl => tl.trip_id === trip.id && tl.source_template_id === tmpl.id
+  );
+  if (!alreadyAttached) {
+    const tripLoadout = {
+      id:                 uid('tl'),
+      type:               'trip_loadout',
+      trip_id:            trip.id,
+      source_template_id: tmpl.id,
+      name:               tmpl.name,
+      description:        tmpl.description || '',
+      gear_ids:           [...(tmpl.gear_ids || [])],
+      carry_types:        { ...(tmpl.carry_types || {}) },
+      created_at:         new Date().toISOString().slice(0, 10),
+      updated_at:         new Date().toISOString().slice(0, 10),
+    };
+    if (!state.trip_loadouts) state.trip_loadouts = [];
+    state.trip_loadouts.push(tripLoadout);
+    trip.loadout_ids.push(tripLoadout.id);
+    tmpl.times_used = (tmpl.times_used || 0) + 1;
   }
   _applySelectedTemplate = null;
   _applySelectedTrip     = null;
