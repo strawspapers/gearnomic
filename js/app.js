@@ -548,7 +548,7 @@ function openModal(title, html) {
   document.getElementById('modal-body').innerHTML = html;
   document.getElementById('modal-overlay').style.display = 'flex';
   const first = document.querySelector('#modal-body input:not([type=hidden]), #modal-body select, #modal-body textarea');
-  if (first && window.matchMedia('(hover: hover) and (pointer: fine)').matches)
+  if (first && navigator.maxTouchPoints === 0)
     requestAnimationFrame(() => requestAnimationFrame(() => first.focus()));
 }
 function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
