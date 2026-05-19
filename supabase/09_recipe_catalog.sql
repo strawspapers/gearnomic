@@ -37,7 +37,7 @@ do $$ begin
   ) then
     alter table recipes_catalog
       alter column meal_time type text[]
-      using case when meal_time is null then null else array[meal_time] end;
+      using case when meal_time is null then null::text[] else array[meal_time] end;
   end if;
 end $$;
 
@@ -51,7 +51,7 @@ do $$ begin
   ) then
     alter table recipes_catalog
       alter column prep_method type text[]
-      using case when prep_method is null then null else array[prep_method] end;
+      using case when prep_method is null then null::text[] else array[prep_method] end;
   end if;
 end $$;
 
