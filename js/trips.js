@@ -151,7 +151,7 @@ function renderTripDetail(trip) {
     ? `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0">
         <div>
           <span style="font-size:13px;font-weight:500">${esc(mealPlan.name)}</span>
-          <span style="font-size:11px;color:var(--text-3);margin-left:8px">${mealPlan.days} days · ${mealPlan.cal_target_per_day?.toLocaleString()} cal/day</span>
+          <span style="font-size:11px;color:var(--text-3);margin-left:8px">${mealPlan.days} days · ${mealPlan.cal_target_per_day?.toLocaleString()} cal/day${(() => { const r = typeof resolvedPackedWeight === 'function' ? resolvedPackedWeight(mealPlan) : null; return r ? ` · ${wg(r.weight)} packed` : ''; })()}</span>
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-xs" onclick="showTab('food');openFoodPlan('${mealPlan.id}')">Open ↗</button>

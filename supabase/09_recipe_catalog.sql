@@ -11,8 +11,9 @@ create table if not exists recipes_catalog (
   prep_method  text[],                                        -- e.g. '{hot,cold-soak}'
   servings     integer,
   ingredients  jsonb,                                       -- [{qty, unit, name}]
-  prep_notes   text,
-  source       text,
+  prep_notes       text,
+  source           text,
+  packed_weight_g  numeric(8,2),                               -- total packed weight in grams (optional)
   status       text        not null default 'pending'
                  check (status in ('pending', 'approved', 'rejected')),
   submitted_by uuid        references auth.users(id) on delete set null,

@@ -93,6 +93,7 @@ function renderFoodPlanGrid() {
       </div>
       ${targetCal ? `<div class="prog-track"><div class="prog-fill ${pct < 60 ? 'prog-amber' : pct >= 100 ? 'prog-green' : 'prog-green'}" style="width:${Math.min(100,pct)}%"></div></div>
       <div style="font-size:10px;color:var(--text-3);margin-top:3px">${pct}% of ${(targetCal/1000).toFixed(1)}k cal target</div>` : ''}
+      ${(() => { const r = resolvedPackedWeight(plan); return r ? `<div style="font-size:11px;color:var(--text-3);margin-top:4px">Packed: <span class="mono">${wg(r.weight)}</span> <span style="opacity:.65">(${r.source})</span></div>` : ''; })()}
     </div>`;
   }).join('');
   if (activeFoodPlanId) renderFoodPlanDetail(state.food_plans.find(p => p.id === activeFoodPlanId));
@@ -160,6 +161,30 @@ function renderFoodPlanDetail(plan) {
       <div class="metric-card"><div class="metric-label">Cal / day</div><div class="metric-val">${avgCalPD.toLocaleString()}</div><div class="metric-sub">target ${plan.cal_target_per_day.toLocaleString()}</div></div>
       <div class="metric-card"><div class="metric-label">Total food weight</div><div class="metric-val">${wg(totalW)}</div><div class="metric-sub">${wPct}% of ${wg(targetW)} target</div></div>
       <div class="metric-card"><div class="metric-label">Weight / day</div><div class="metric-val">${wg(avgWPD)}</div><div class="metric-sub">${(avgWPD/453.6).toFixed(1)} lb · target ${(plan.weight_target_g_per_day/453.6).toFixed(1)} lb</div></div>
+    </div>`;
+
+  // Packed weight section
+  const auto = planPackedWeight(plan);
+  const hasManual = plan.manual_packed_weight_g != null;
+  const resolved = hasManual
+    ? { weight: plan.manual_packed_weight_g, source: 'manual' }
+    : auto.total > 0 ? { weight: auto.total, source: 'auto' } : null;
+  const packedWeightSection = `
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:.875rem;padding:.625rem .875rem;border:.5px solid var(--border-2)">
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);flex-shrink:0">Packed weight</span>
+      <span style="font-size:13px;color:var(--text-2)">
+        Auto: ${auto.total > 0
+          ? `<strong class="mono">${wg(auto.total)}</strong>${auto.count < auto.totalMeals ? ` <span style="font-size:11px;color:var(--text-3)">(${auto.count} of ${auto.totalMeals} meals)</span>` : ''}`
+          : '<span style="color:var(--text-3)">—</span>'}
+      </span>
+      <span style="display:flex;align-items:center;gap:5px">
+        <span style="font-size:13px;color:var(--text-2)">Manual:</span>
+        <input class="input" type="number" min="0" style="width:80px;height:28px;font-size:12px"
+          value="${hasManual ? plan.manual_packed_weight_g : ''}" placeholder="— g"
+          oninput="saveManualPackedWeight('${plan.id}',this.value)">
+        <span style="font-size:11px;color:var(--text-3)">g</span>
+      </span>
+      ${resolved ? `<span style="font-size:11px;padding:2px 8px;background:var(--surface-2);color:var(--text-2)">Using <strong>${resolved.source}</strong>: ${wg(resolved.weight)}</span>` : ''}
     </div>`;
 
   // Day-by-day grid
@@ -252,6 +277,7 @@ function renderFoodPlanDetail(plan) {
     </div>
     ${guidance}
     ${metrics}
+    ${packedWeightSection}
     ${dayHtml}`;
 }
 
@@ -425,6 +451,7 @@ function saveFoodPlan(id) {
     weight_target_g_per_day: getFpWtValue(),
     meal_splits,
     meals: existing ? existing.meals : [],
+    manual_packed_weight_g: existing?.manual_packed_weight_g ?? null,
   };
 
   if (existing) {
@@ -893,6 +920,8 @@ function recipeFormHtml(r) {
       <div class="form-row"><label class="form-label">Weight g (per serving)</label>
         <input class="input input-full" id="rf-wg" type="number" min="0" value="${r.weight_g_per_serving||''}"></div>
     </div>
+    <div class="form-row"><label class="form-label">Packed weight <span style="font-weight:400;color:var(--text-3)">(total grams when packed, optional)</span></label>
+      <input class="input input-full" id="rf-packed-wg" type="number" min="0" placeholder="e.g. 285" value="${r.packed_weight_g != null ? r.packed_weight_g : ''}"></div>
     <div class="form-row"><label class="form-label">Source / credit</label>
       <input class="input input-full" id="rf-src" value="${esc(r.source||'')}" placeholder="e.g. Andrew Skurka"></div>
     <div class="form-row">
@@ -1009,6 +1038,7 @@ function saveRecipe(id) {
     cal_per_serving:       parseInt(document.getElementById('rf-cal').value) || 0,
     weight_g_per_serving:  parseInt(document.getElementById('rf-wg').value) || 0,
     use_ingredient_totals: useIngTotals,
+    packed_weight_g:       (() => { const v = parseInt(document.getElementById('rf-packed-wg')?.value); return isNaN(v) ? null : v; })(),
     source:                document.getElementById('rf-src').value.trim(),
     prep_notes:            document.getElementById('rf-prep').value.trim(),
     ingredients,
@@ -1024,6 +1054,36 @@ function saveRecipe(id) {
   }
   saveState(); closeModal(); renderRecipeLibrary();
   toast(id ? 'Recipe updated!' : 'Recipe saved!');
+}
+
+// Auto-sum packed_weight_g across all meals in a plan that reference a recipe with packed_weight_g set.
+function planPackedWeight(plan) {
+  const meals = (plan.meals || []).filter(m => {
+    if (!m.recipe_id) return false;
+    const r = state.recipes.find(r => r.id === m.recipe_id);
+    return r?.packed_weight_g != null;
+  });
+  const total = meals.reduce((s, m) => {
+    const r = state.recipes.find(r => r.id === m.recipe_id);
+    return s + (r?.packed_weight_g || 0);
+  }, 0);
+  return { total, count: meals.length, totalMeals: (plan.meals || []).length };
+}
+
+// Returns the resolved packed weight: manual if set, otherwise auto-sum. Null if neither.
+function resolvedPackedWeight(plan) {
+  if (plan.manual_packed_weight_g != null) return { weight: plan.manual_packed_weight_g, source: 'manual' };
+  const { total, count } = planPackedWeight(plan);
+  return total > 0 ? { weight: total, source: 'auto', count } : null;
+}
+
+function saveManualPackedWeight(planId, value) {
+  const plan = state.food_plans.find(p => p.id === planId);
+  if (!plan) return;
+  const g = parseInt(value);
+  plan.manual_packed_weight_g = (value === '' || isNaN(g)) ? null : g;
+  saveState();
+  renderFoodPlanGrid();
 }
 
 // Returns the effective cal and weight for a recipe based on user's choice.
