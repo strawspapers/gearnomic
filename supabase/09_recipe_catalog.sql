@@ -1,19 +1,21 @@
 -- ============================================================
 -- Gearnomic — Migration 09: community recipe catalog
--- Run this ONCE in Supabase SQL Editor after setup.sql
+-- Idempotent — safe to re-run on an existing table.
 -- ============================================================
 
+-- Create table if it does not yet exist (fresh install path).
+-- Columns that require type changes are declared as text here;
+-- the DO blocks below handle the text → text[] migration safely.
 create table if not exists recipes_catalog (
   id           uuid        primary key default gen_random_uuid(),
   name         text        not null,
   description  text,
-  meal_time    text[],                                        -- e.g. '{breakfast,snack}'
-  prep_method  text[],                                        -- e.g. '{hot,cold-soak}'
+  meal_time    text,
+  prep_method  text,
   servings     integer,
-  ingredients  jsonb,                                       -- [{qty, unit, name}]
-  prep_notes       text,
-  source           text,
-  packed_weight_g  numeric(8,2),                               -- total packed weight in grams (optional)
+  ingredients  jsonb,
+  prep_notes   text,
+  source       text,
   status       text        not null default 'pending'
                  check (status in ('pending', 'approved', 'rejected')),
   submitted_by uuid        references auth.users(id) on delete set null,
@@ -22,10 +24,41 @@ create table if not exists recipes_catalog (
   updated_at   timestamptz not null default now()
 );
 
-create index if not exists idx_recipes_catalog_status on recipes_catalog(status);
--- meal_time and prep_method are text[] — all filtering is done client-side after a single
--- SELECT of approved rows, so column indexes on these arrays provide no query benefit.
+-- Add new columns that may not exist on older installs
+alter table recipes_catalog add column if not exists packed_weight_g numeric(8,2);
 
+-- Migrate meal_time: text → text[] (no-op if already text[])
+do $$ begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_name = 'recipes_catalog'
+      and column_name = 'meal_time'
+      and data_type   = 'text'
+  ) then
+    alter table recipes_catalog
+      alter column meal_time type text[]
+      using case when meal_time is null then null else array[meal_time] end;
+  end if;
+end $$;
+
+-- Migrate prep_method: text → text[] (no-op if already text[])
+do $$ begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_name = 'recipes_catalog'
+      and column_name = 'prep_method'
+      and data_type   = 'text'
+  ) then
+    alter table recipes_catalog
+      alter column prep_method type text[]
+      using case when prep_method is null then null else array[prep_method] end;
+  end if;
+end $$;
+
+-- Index on status (the only server-side filter used)
+create index if not exists idx_recipes_catalog_status on recipes_catalog(status);
+
+-- Auto-update updated_at on every write
 create or replace function touch_recipes_catalog_updated_at()
 returns trigger language plpgsql as $$
 begin
