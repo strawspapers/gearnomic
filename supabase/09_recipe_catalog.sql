@@ -3,9 +3,6 @@
 -- Idempotent — safe to re-run on an existing table.
 -- ============================================================
 
--- Create table if it does not yet exist (fresh install path).
--- Columns that require type changes are declared as text here;
--- the DO blocks below handle the text → text[] migration safely.
 create table if not exists recipes_catalog (
   id           uuid        primary key default gen_random_uuid(),
   name         text        not null,
@@ -27,31 +24,48 @@ create table if not exists recipes_catalog (
 -- Add new columns that may not exist on older installs
 alter table recipes_catalog add column if not exists packed_weight_g numeric(8,2);
 
--- Migrate meal_time: text → text[] (no-op if already text[])
+-- Drop any check constraints on meal_time and prep_method before changing their types.
+-- The original table had check(meal_time in (...)) and check(prep_method in (...)) which
+-- become invalid once the columns are text[] and must be removed first.
+do $$
+declare
+  cname text;
+begin
+  for cname in (
+    select c.conname
+    from pg_constraint c
+    join pg_attribute a on a.attrelid = c.conrelid
+                       and a.attnum   = any(c.conkey)
+    join pg_class     r on r.oid      = c.conrelid
+    where r.relname   = 'recipes_catalog'
+      and a.attname   in ('meal_time', 'prep_method')
+      and c.contype   = 'c'
+  ) loop
+    execute format('alter table recipes_catalog drop constraint if exists %I', cname);
+  end loop;
+end $$;
+
+-- Migrate meal_time: text → text[] (skips if already text[])
 do $$ begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_name = 'recipes_catalog'
-      and column_name = 'meal_time'
-      and data_type   = 'text'
-  ) then
+  if (select data_type from information_schema.columns
+      where table_schema = 'public'
+        and table_name   = 'recipes_catalog'
+        and column_name  = 'meal_time') = 'text' then
     alter table recipes_catalog
       alter column meal_time type text[]
-      using array[meal_time];
+      using array[meal_time::text];
   end if;
 end $$;
 
--- Migrate prep_method: text → text[] (no-op if already text[])
+-- Migrate prep_method: text → text[] (skips if already text[])
 do $$ begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_name = 'recipes_catalog'
-      and column_name = 'prep_method'
-      and data_type   = 'text'
-  ) then
+  if (select data_type from information_schema.columns
+      where table_schema = 'public'
+        and table_name   = 'recipes_catalog'
+        and column_name  = 'prep_method') = 'text' then
     alter table recipes_catalog
       alter column prep_method type text[]
-      using array[prep_method];
+      using array[prep_method::text];
   end if;
 end $$;
 
