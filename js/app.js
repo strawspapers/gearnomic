@@ -2713,6 +2713,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (event === 'SIGNED_OUT') {
       _user = null;
       updateHeaderAuth();
+      refreshAll();
     }
   });
 });
