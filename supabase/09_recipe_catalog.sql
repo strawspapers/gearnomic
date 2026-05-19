@@ -34,6 +34,7 @@ begin
 end;
 $$;
 
+drop trigger if exists trg_recipes_catalog_updated on recipes_catalog;
 create trigger trg_recipes_catalog_updated
   before update on recipes_catalog
   for each row execute function touch_recipes_catalog_updated_at();
@@ -41,12 +42,12 @@ create trigger trg_recipes_catalog_updated
 -- ── Row-level security ────────────────────────────────────────
 alter table recipes_catalog enable row level security;
 
--- Authenticated users can browse approved recipes
+drop policy if exists "Authenticated users can read approved recipes" on recipes_catalog;
 create policy "Authenticated users can read approved recipes"
   on recipes_catalog for select
   using (auth.uid() is not null and status = 'approved');
 
--- Authenticated users can submit recipes; submitted_by must match the caller
+drop policy if exists "Authenticated users can submit recipes" on recipes_catalog;
 create policy "Authenticated users can submit recipes"
   on recipes_catalog for insert
   with check (auth.uid() is not null and auth.uid() = submitted_by);
