@@ -105,7 +105,7 @@ async function loadSupporterStatus() {
 // Current schema version. Bump this when adding a new structural migration below.
 // Cheap field-existence guards always run; numbered migrations only run when
 // state._schemaVersion is behind, so old migrations are skipped on every subsequent load.
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 // Parse a legacy combined qty string (e.g. "2 oz", "1 tsp") into {qty, unit}.
 function _parseIngAmt(raw) {
@@ -254,6 +254,14 @@ function applyMigrations() {
         tmpl.times_used = (tmpl.times_used || 0) + 1;
         return tl.id;
       });
+    });
+  }
+
+  if (sv < 4) {
+    // Migration 4: recipe meal_time and prep_method string → array
+    (state.recipes || []).forEach(r => {
+      if (typeof r.meal_time   === 'string') r.meal_time   = r.meal_time   ? [r.meal_time]   : [];
+      if (typeof r.prep_method === 'string') r.prep_method = r.prep_method ? [r.prep_method] : [];
     });
   }
 

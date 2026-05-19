@@ -7,8 +7,8 @@ create table if not exists recipes_catalog (
   id           uuid        primary key default gen_random_uuid(),
   name         text        not null,
   description  text,
-  meal_time    text        check (meal_time in ('breakfast', 'lunch', 'dinner', 'snack')),
-  prep_method  text        check (prep_method in ('hot', 'cold-soak', 'no-cook')),
+  meal_time    text[],                                        -- e.g. '{breakfast,snack}'
+  prep_method  text[],                                        -- e.g. '{hot,cold-soak}'
   servings     integer,
   ingredients  jsonb,                                       -- [{qty, unit, name}]
   prep_notes   text,
@@ -22,8 +22,9 @@ create table if not exists recipes_catalog (
 );
 
 create index if not exists idx_recipes_catalog_status    on recipes_catalog(status);
-create index if not exists idx_recipes_catalog_meal_time on recipes_catalog(meal_time);
-create index if not exists idx_recipes_catalog_prep      on recipes_catalog(prep_method);
+-- GIN indexes for array containment queries on meal_time and prep_method
+create index if not exists idx_recipes_catalog_meal_time on recipes_catalog using gin(meal_time);
+create index if not exists idx_recipes_catalog_prep      on recipes_catalog using gin(prep_method);
 
 create or replace function touch_recipes_catalog_updated_at()
 returns trigger language plpgsql as $$

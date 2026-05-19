@@ -452,7 +452,10 @@ function openAddMeal(planId, day, mealTime) {
   const plan = state.food_plans.find(p => p.id === planId);
   if (!plan) return;
   const guideCal = mealCalTarget(plan, mealTime);
-  const recs = state.recipes.filter(r => !r.meal_time || r.meal_time === mealTime || r.meal_time === 'snack');
+  const recs = state.recipes.filter(r => {
+    const mt = Array.isArray(r.meal_time) ? r.meal_time : (r.meal_time ? [r.meal_time] : []);
+    return !mt.length || mt.includes(mealTime) || mt.includes('snack');
+  });
 
   if (!_isSupporter) {
     // Free users: recipe-only picker — no manual entry
@@ -786,8 +789,10 @@ function renderRecipeLibrary() {
 
   // Apply filters
   let recipes = state.recipes;
-  if (_rfMealFilter.size) recipes = recipes.filter(r => _rfMealFilter.has(r.meal_time));
-  if (_rfPrepFilter.size) recipes = recipes.filter(r => _rfPrepFilter.has(r.prep_method || ''));
+  if (_rfMealFilter.size) recipes = recipes.filter(r =>
+    (Array.isArray(r.meal_time) ? r.meal_time : (r.meal_time ? [r.meal_time] : [])).some(v => _rfMealFilter.has(v)));
+  if (_rfPrepFilter.size) recipes = recipes.filter(r =>
+    (Array.isArray(r.prep_method) ? r.prep_method : (r.prep_method ? [r.prep_method] : [])).some(v => _rfPrepFilter.has(v)));
   if (_rfSearch) recipes = recipes.filter(r => r.name.toLowerCase().includes(_rfSearch));
 
   if (!state.recipes.length) {
@@ -810,7 +815,8 @@ function renderRecipeLibrary() {
       '<div style="min-width:0">' +
       '<div style="font-weight:600;font-size:14px;letter-spacing:-.005em">' + esc(r.name) + '</div>' +
       '<div style="font-size:11px;color:var(--text-3);margin-top:3px;text-transform:uppercase;letter-spacing:.05em">' +
-      (MEAL_LABELS[r.meal_time] || r.meal_time || '') + prepBadge(r.prep_method) +
+      (Array.isArray(r.meal_time) ? r.meal_time : (r.meal_time ? [r.meal_time] : [])).map(m => MEAL_LABELS[m]||m).filter(Boolean).join(', ') +
+      (Array.isArray(r.prep_method) ? r.prep_method : (r.prep_method ? [r.prep_method] : [])).map(p => prepBadge(p)).join('') +
       (r.source ? ' · ' + esc(r.source) : '') +
       '</div></div>' +
       '<div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px">' +
@@ -874,17 +880,14 @@ function recipeFormHtml(r) {
         <input class="input input-full" id="rf-name" value="${esc(r.name||'')}" placeholder="e.g. Skurka Beans & Rice"></div>
       <div class="form-row" style="grid-column:1/-1"><label class="form-label">Description <span style="font-weight:400;color:var(--text-3)">(optional)</span></label>
         <input class="input input-full" id="rf-desc" value="${esc(r.description||'')}" placeholder="Short description of this recipe…"></div>
-      <div class="form-row"><label class="form-label">Meal type</label>
-        <select class="select input-full" id="rf-meal">
-          ${MEAL_TIMES.map(mt => `<option value="${mt}" ${(r.meal_time||'dinner')===mt?'selected':''}>${MEAL_LABELS[mt]}</option>`).join('')}
-        </select></div>
-      <div class="form-row"><label class="form-label">Prep method</label>
-        <select class="select input-full" id="rf-prep-method">
-          <option value="">— unset —</option>
-          <option value="hot" ${(r.prep_method||'')=== 'hot'?'selected':''}>Hot</option>
-          <option value="cold-soak" ${(r.prep_method||'')=== 'cold-soak'?'selected':''}>Cold soak</option>
-          <option value="no-cook" ${(r.prep_method||'')=== 'no-cook'?'selected':''}>No cook</option>
-        </select></div>
+      <div class="form-row"><label class="form-label">Meal type <span style="font-weight:400;color:var(--danger)">*</span></label>
+        <div id="rf-meal-checks" style="display:flex;gap:14px;flex-wrap:wrap;padding:4px 0">
+          ${(() => { const cur = Array.isArray(r.meal_time) ? r.meal_time : (r.meal_time ? [r.meal_time] : ['dinner']); return MEAL_TIMES.map(mt => `<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px"><input type="checkbox" value="${mt}" ${cur.includes(mt)?'checked':''} style="cursor:pointer"> ${MEAL_LABELS[mt]}</label>`).join(''); })()}
+        </div></div>
+      <div class="form-row"><label class="form-label">Prep method <span style="font-weight:400;color:var(--danger)">*</span></label>
+        <div id="rf-prep-checks" style="display:flex;gap:14px;flex-wrap:wrap;padding:4px 0">
+          ${(() => { const cur = Array.isArray(r.prep_method) ? r.prep_method : (r.prep_method ? [r.prep_method] : []); return PREP_METHODS.map(pm => `<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px"><input type="checkbox" value="${pm}" ${cur.includes(pm)?'checked':''} style="cursor:pointer"> ${PREP_LABELS[pm]}</label>`).join(''); })()}
+        </div></div>
       <div class="form-row"><label class="form-label">Calories (per serving)</label>
         <input class="input input-full" id="rf-cal" type="number" min="0" value="${r.cal_per_serving||''}"></div>
       <div class="form-row"><label class="form-label">Weight g (per serving)</label>
@@ -991,13 +994,17 @@ function saveRecipe(id) {
       ...(weight_g ? { weight_g } : {}),
     };
   }).filter(i => i.name);
+  const mealTimes  = Array.from(document.querySelectorAll('#rf-meal-checks input:checked')).map(el => el.value);
+  const prepMethods = Array.from(document.querySelectorAll('#rf-prep-checks input:checked')).map(el => el.value);
+  if (!mealTimes.length)  { alert('Please select at least one meal type.'); return; }
+  if (!prepMethods.length) { alert('Please select at least one prep method.'); return; }
   const useIngTotals = document.getElementById('rf-cal-source')?.value === 'summed';
   const existing = id ? state.recipes.find(r => r.id === id) : null;
   const data = {
     id:   id || uid('rec'),
     name,
-    meal_time:             document.getElementById('rf-meal').value,
-    prep_method:           document.getElementById('rf-prep-method')?.value || '',
+    meal_time:             mealTimes,
+    prep_method:           prepMethods,
     description:           document.getElementById('rf-desc')?.value.trim() || '',
     cal_per_serving:       parseInt(document.getElementById('rf-cal').value) || 0,
     weight_g_per_serving:  parseInt(document.getElementById('rf-wg').value) || 0,
@@ -1049,8 +1056,8 @@ async function submitRecipeToCatalog(id) {
   const payload = {
     name:         r.name,
     description:  r.description || null,
-    meal_time:    r.meal_time   || null,
-    prep_method:  r.prep_method || null,
+    meal_time:    Array.isArray(r.meal_time)   ? r.meal_time   : (r.meal_time   ? [r.meal_time]   : null),
+    prep_method:  Array.isArray(r.prep_method) ? r.prep_method : (r.prep_method ? [r.prep_method] : null),
     servings:     null,
     ingredients:  (r.ingredients && r.ingredients.length) ? r.ingredients : null,
     prep_notes:   r.prep_notes  || null,
@@ -1158,11 +1165,15 @@ function renderRecipeDbInline() {
   );
 
   let items = _recipeCatalogCache;
-  if (_rdbMealFilter.size) items = items.filter(i => _rdbMealFilter.has(i.meal_time));
-  if (_rdbPrepFilter.size) items = items.filter(i => _rdbPrepFilter.has(i.prep_method || ''));
-  if (q) items = items.filter(i =>
-    `${i.name} ${i.description || ''} ${i.meal_time || ''} ${i.prep_method || ''}`.toLowerCase().includes(q)
-  );
+  if (_rdbMealFilter.size) items = items.filter(i =>
+    (Array.isArray(i.meal_time) ? i.meal_time : (i.meal_time ? [i.meal_time] : [])).some(v => _rdbMealFilter.has(v)));
+  if (_rdbPrepFilter.size) items = items.filter(i =>
+    (Array.isArray(i.prep_method) ? i.prep_method : (i.prep_method ? [i.prep_method] : [])).some(v => _rdbPrepFilter.has(v)));
+  if (q) items = items.filter(i => {
+    const mt = Array.isArray(i.meal_time)   ? i.meal_time.join(' ')   : (i.meal_time   || '');
+    const pm = Array.isArray(i.prep_method) ? i.prep_method.join(' ') : (i.prep_method || '');
+    return `${i.name} ${i.description || ''} ${mt} ${pm}`.toLowerCase().includes(q);
+  });
 
   if (!items.length) {
     body.innerHTML = '<div style="padding:20px 0;font-size:12px;color:var(--text-3)">No recipes found.</div>';
@@ -1172,7 +1183,8 @@ function renderRecipeDbInline() {
 
   const byMeal = {};
   items.forEach(i => {
-    const c = MEAL_LABELS[i.meal_time] || i.meal_time || 'Other';
+    const firstMeal = Array.isArray(i.meal_time) ? i.meal_time[0] : i.meal_time;
+    const c = MEAL_LABELS[firstMeal] || firstMeal || 'Other';
     (byMeal[c] = byMeal[c] || []).push(i);
   });
   const mealOrder = MEAL_TIMES.map(mt => MEAL_LABELS[mt]);
@@ -1215,8 +1227,8 @@ function addRecipeFromDb(catalogId) {
     id:                   uid('rec'),
     name:                 dbItem.name,
     description:          dbItem.description || '',
-    meal_time:            dbItem.meal_time    || 'dinner',
-    prep_method:          dbItem.prep_method  || '',
+    meal_time:    Array.isArray(dbItem.meal_time)   ? dbItem.meal_time   : (dbItem.meal_time   ? [dbItem.meal_time]   : ['dinner']),
+    prep_method:  Array.isArray(dbItem.prep_method) ? dbItem.prep_method : (dbItem.prep_method ? [dbItem.prep_method] : []),
     cal_per_serving:      0,
     weight_g_per_serving: 0,
     source:               dbItem.source    || '',
