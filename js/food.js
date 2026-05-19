@@ -76,7 +76,7 @@ function renderFoodPlanGrid() {
   }
   grid.innerHTML = state.food_plans.map(plan => {
     const trip    = plan.trip_id ? state.trips.find(t => t.id === plan.trip_id) : null;
-    const meals   = plan.meals || [];
+    const meals   = (plan.meals || []).map(mealItemEffective);
     const totalCal = meals.reduce((s, m) => s + (m.cal || 0), 0);
     const totalW   = meals.reduce((s, m) => s + (m.weight_g || 0), 0);
     const targetCal = plan.cal_target_per_day * plan.days;
@@ -124,7 +124,7 @@ function renderFoodPlanDetail(plan) {
   const wrap = document.getElementById('food-plan-detail-wrap');
   wrap.style.display = 'block';
   const trip  = plan.trip_id ? state.trips.find(t => t.id === plan.trip_id) : null;
-  const meals = plan.meals || [];
+  const meals = (plan.meals || []).map(mealItemEffective);
   const nights = plan.nights ?? (plan.days - 1);
 
   // Totals
@@ -1054,6 +1054,16 @@ function saveRecipe(id) {
   }
   saveState(); closeModal(); renderRecipeLibrary();
   toast(id ? 'Recipe updated!' : 'Recipe saved!');
+}
+
+// Returns a meal item with cal, weight_g, and name resolved live from the referenced recipe.
+// Falls back to the stored snapshot values if the recipe no longer exists.
+function mealItemEffective(m) {
+  if (!m.recipe_id) return m;
+  const rec = state.recipes.find(r => r.id === m.recipe_id);
+  if (!rec) return m;
+  const eff = recipeEffective(rec);
+  return { ...m, name: rec.name, cal: eff.cal, weight_g: eff.wg };
 }
 
 // Auto-sum packed_weight_g across all meals in a plan that reference a recipe with packed_weight_g set.
