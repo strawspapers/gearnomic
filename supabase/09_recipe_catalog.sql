@@ -24,8 +24,8 @@ create table if not exists recipes_catalog (
 
 create index if not exists idx_recipes_catalog_status    on recipes_catalog(status);
 -- GIN indexes for array containment queries on meal_time and prep_method
-create index if not exists idx_recipes_catalog_meal_time on recipes_catalog using gin(meal_time);
-create index if not exists idx_recipes_catalog_prep      on recipes_catalog using gin(prep_method);
+create index if not exists idx_recipes_catalog_meal_time on recipes_catalog using gin(meal_time  array_ops);
+create index if not exists idx_recipes_catalog_prep      on recipes_catalog using gin(prep_method array_ops);
 
 create or replace function touch_recipes_catalog_updated_at()
 returns trigger language plpgsql as $$
