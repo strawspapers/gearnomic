@@ -1446,14 +1446,16 @@ async function _saveProfileInner(usernameToSet) {
   const pub_gear     = hasUsername && !!document.getElementById('s-pub-gear')?.checked;
 
   const snap_loadouts = pub_loadouts
-    ? (state.templates || []).map(t => ({
-        name: t.name, description: t.description || '',
-        items_count: (t.gear_ids || []).filter(id => state.items.find(i => i.id === id)).length,
-        total_weight_g: (t.gear_ids || []).reduce((s, id) => {
-          const item = state.items.find(i => i.id === id);
-          return s + (item?.weight_g || 0);
-        }, 0),
-      }))
+    ? (state.templates || []).map(t => {
+        const validItems = (t.gear_ids || []).map(id => state.items.find(i => i.id === id)).filter(Boolean);
+        return {
+          name:           t.name,
+          description:    t.description || '',
+          items_count:    validItems.length,
+          total_weight_g: validItems.reduce((s, i) => s + (i.weight_g || 0), 0),
+          items:          validItems.map(i => ({ name: i.name, brand: i.brand || '', weight_g: i.weight_g || 0 })),
+        };
+      })
     : null;
 
   const snap_trips = pub_trips ? {
@@ -1504,14 +1506,16 @@ async function _refreshProfileSnaps() {
   if (!_profile.public_loadouts && !_profile.public_gear) return;
   const patch = {};
   if (_profile.public_loadouts) {
-    patch.snap_loadouts = (state.templates || []).map(t => ({
-      name: t.name, description: t.description || '',
-      items_count:    (t.gear_ids || []).filter(id => state.items.find(i => i.id === id)).length,
-      total_weight_g: (t.gear_ids || []).reduce((s, id) => {
-        const item = state.items.find(i => i.id === id);
-        return s + (item?.weight_g || 0);
-      }, 0),
-    }));
+    patch.snap_loadouts = (state.templates || []).map(t => {
+      const validItems = (t.gear_ids || []).map(id => state.items.find(i => i.id === id)).filter(Boolean);
+      return {
+        name:           t.name,
+        description:    t.description || '',
+        items_count:    validItems.length,
+        total_weight_g: validItems.reduce((s, i) => s + (i.weight_g || 0), 0),
+        items:          validItems.map(i => ({ name: i.name, brand: i.brand || '', weight_g: i.weight_g || 0 })),
+      };
+    });
   }
   if (_profile.public_gear) {
     patch.snap_gear = (state.items || []).map(i => ({
@@ -2408,6 +2412,13 @@ async function renderPublicProfile(slug) {
     .pp-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#9A9A87;margin-bottom:14px}
     .pp-loadout{padding:10px 0;border-bottom:.5px solid #DDD6C8}
     .pp-loadout:last-child{border-bottom:none;padding-bottom:0}
+    .pp-loadout-hdr{display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}
+    .pp-loadout-toggle{font-size:12px;color:#9A9A87;transition:transform .18s;display:inline-block;flex-shrink:0;padding-left:10px}
+    .pp-loadout-toggle.open{transform:rotate(90deg)}
+    .pp-loadout-body{display:none;padding-top:8px}
+    .pp-loadout-body.open{display:block}
+    .pp-loadout-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:.5px solid #EDE7DC}
+    .pp-loadout-item:last-child{border-bottom:none}
     .pp-gear-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:.5px solid #DDD6C8}
     .pp-gear-row:last-child{border-bottom:none}
     .pp-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
@@ -2471,10 +2482,28 @@ async function renderPublicProfile(slug) {
   const loadoutsSection = (p.public_loadouts && p.snap_loadouts?.length) ? `
     <div class="pp-section">
       <div class="pp-section-title">Featured loadouts</div>
-      ${p.snap_loadouts.map(l => `<div class="pp-loadout">
-        <div style="font-weight:500;font-size:14px">${esc(l.name)}</div>
-        <div style="font-size:12px;color:#9A9A87">${l.items_count} items · ${wg(l.total_weight_g)}${l.description?' · '+esc(l.description):''}</div>
-      </div>`).join('')}
+      ${p.snap_loadouts.map((l, idx) => {
+        const hasItems = l.items?.length;
+        return `<div class="pp-loadout">
+          <div class="${hasItems ? 'pp-loadout-hdr' : ''}" ${hasItems ? `onclick="ppToggleLoadout(${idx})"` : ''}>
+            <div>
+              <div style="font-weight:500;font-size:14px">${esc(l.name)}</div>
+              <div style="font-size:12px;color:#9A9A87">${l.items_count} items · ${wg(l.total_weight_g)}</div>
+            </div>
+            ${hasItems ? `<span class="pp-loadout-toggle" id="pp-ltog-${idx}">▸</span>` : ''}
+          </div>
+          ${hasItems ? `<div class="pp-loadout-body" id="pp-lbody-${idx}">
+            ${l.description ? `<div style="font-size:13px;color:#5A5A52;padding:6px 0 8px">${esc(l.description)}</div>` : ''}
+            ${l.items.map(item => `<div class="pp-loadout-item">
+              <div>
+                <span style="font-size:13px;font-weight:500">${esc(item.name)}</span>
+                ${item.brand ? `<span style="font-size:11px;color:#9A9A87;margin-left:5px">${esc(item.brand)}</span>` : ''}
+              </div>
+              <span style="font-size:12px;font-family:monospace;color:#5A5A52">${wg(item.weight_g)}</span>
+            </div>`).join('')}
+          </div>` : ''}
+        </div>`;
+      }).join('')}
     </div>` : '';
 
   const tripsSection = (p.public_trips && p.snap_trips) ? `
@@ -2511,6 +2540,14 @@ async function renderPublicProfile(slug) {
     ${loadoutsSection}${tripsSection}${gearSection}
     ${!hasContent?`<div class="pp-section" style="text-align:center;padding:32px"><p style="color:#9A9A87">This profile is private.</p></div>`:''}
     <div style="text-align:center;margin-top:24px;font-size:12px;color:#9A9A87">Built with <a href="/" style="color:#2A4032">Gearnomic</a></div>`;
+}
+
+function ppToggleLoadout(idx) {
+  const body = document.getElementById('pp-lbody-' + idx);
+  const tog  = document.getElementById('pp-ltog-'  + idx);
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  if (tog) tog.classList.toggle('open', open);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
