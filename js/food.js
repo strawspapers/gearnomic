@@ -79,7 +79,10 @@ function renderFoodPlanGrid() {
     const meals   = (plan.meals || []).map(mealItemEffective);
     const totalCal = meals.reduce((s, m) => s + (m.cal || 0), 0);
     const totalW   = meals.reduce((s, m) => s + (m.weight_g || 0), 0);
-    const targetCal = plan.cal_target_per_day * plan.days;
+    const skippedCal = Object.entries(plan.day_config || {}).reduce((sum, [, slots]) => {
+      return sum + Object.entries(slots).reduce((s, [mt, enabled]) => s + (enabled === false ? mealCalTarget(plan, mt) : 0), 0);
+    }, 0);
+    const targetCal = plan.cal_target_per_day * plan.days - skippedCal;
     const pct = targetCal ? Math.round(totalCal / targetCal * 100) : 0;
     return `<div class="trip-card ${activeFoodPlanId === plan.id ? 'active' : ''}" onclick="openFoodPlan('${plan.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
@@ -135,7 +138,10 @@ function renderFoodPlanDetail(plan) {
   const totalW   = meals.reduce((s, m) => s + (m.weight_g || 0), 0);
   const avgCalPD = plan.days ? Math.round(totalCal / plan.days) : 0;
   const avgWPD   = plan.days ? Math.round(totalW   / plan.days) : 0;
-  const targetCal = plan.cal_target_per_day * plan.days;
+  const skippedCal = Object.entries(plan.day_config || {}).reduce((sum, [, slots]) => {
+    return sum + Object.entries(slots).reduce((s, [mt, enabled]) => s + (enabled === false ? mealCalTarget(plan, mt) : 0), 0);
+  }, 0);
+  const targetCal = plan.cal_target_per_day * plan.days - skippedCal;
   const targetW   = plan.weight_target_g_per_day * plan.days;
 
   // Guidance banner
