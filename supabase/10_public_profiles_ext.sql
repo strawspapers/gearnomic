@@ -7,8 +7,11 @@
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS public_meal_plans boolean NOT NULL DEFAULT false;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS snap_meal_plans   jsonb;
 
--- Rebuild public_profiles view to expose new columns
-CREATE OR REPLACE VIEW public_profiles AS
+-- Rebuild public_profiles view to expose new columns.
+-- Must use DROP + CREATE (not CREATE OR REPLACE) — PostgreSQL does not allow
+-- CREATE OR REPLACE VIEW to add or reorder columns.
+DROP VIEW IF EXISTS public_profiles;
+CREATE VIEW public_profiles AS
 SELECT
   id,
   username,
