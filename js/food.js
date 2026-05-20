@@ -94,6 +94,9 @@ function renderFoodPlanGrid() {
       ${targetCal ? `<div class="prog-track"><div class="prog-fill ${pct < 60 ? 'prog-amber' : pct >= 100 ? 'prog-green' : 'prog-green'}" style="width:${Math.min(100,pct)}%"></div></div>
       <div style="font-size:10px;color:var(--text-3);margin-top:3px">${pct}% of ${(targetCal/1000).toFixed(1)}k cal target</div>` : ''}
       ${(() => { const r = resolvedPackedWeight(plan); return r ? `<div style="font-size:11px;color:var(--text-3);margin-top:4px">Packed: <span class="mono">${wg(r.weight)}</span> <span style="opacity:.65">(${r.source})</span></div>` : ''; })()}
+      <div onclick="event.stopPropagation()" style="margin-top:8px;display:flex;justify-content:flex-end">
+        <button class="btn btn-xs btn-ghost" onclick="openPublicPopover('${plan.id}','food_plan',this)" title="Public on profile" style="${plan.is_public ? 'color:var(--primary);font-weight:600' : ''}">${plan.is_public ? '● Public' : '○ Public'}</button>
+      </div>
     </div>`;
   }).join('');
   if (activeFoodPlanId) renderFoodPlanDetail(state.food_plans.find(p => p.id === activeFoodPlanId));
@@ -452,6 +455,7 @@ function saveFoodPlan(id) {
     meal_splits,
     meals: existing ? existing.meals : [],
     manual_packed_weight_g: existing?.manual_packed_weight_g ?? null,
+    is_public: existing ? (existing.is_public || false) : false,
   };
 
   if (existing) {

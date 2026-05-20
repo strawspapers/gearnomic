@@ -1136,10 +1136,11 @@ function openProfile() {
         <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.375rem">Public profile — what's visible</div>
         <div style="font-size:12px;color:var(--text-3);margin-bottom:.625rem">Nothing is public by default.</div>
         ${[
-          ['s-pub-bio',      pp.public_bio,      'Bio &amp; social links'],
-          ['s-pub-loadouts', pp.public_loadouts,  'Featured loadouts'],
-          ['s-pub-trips',    pp.public_trips,     'Adventure stats'],
-          ['s-pub-gear',     pp.public_gear,      'Gear list'],
+          ['s-pub-bio',        pp.public_bio,        'Bio &amp; social links'],
+          ['s-pub-loadouts',   pp.public_loadouts,   'Featured loadouts'],
+          ['s-pub-trips',      pp.public_trips,      'Trips'],
+          ['s-pub-meal-plans', pp.public_meal_plans, 'Meal plans'],
+          ['s-pub-gear',       pp.public_gear,       'Gear list'],
         ].map(([id, val, label]) => `
           <label style="display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer;border-bottom:.5px solid var(--border-2)">
             <input type="checkbox" id="${id}" ${val ? 'checked' : ''} style="accent-color:var(--primary);width:16px;height:16px">
@@ -1441,9 +1442,10 @@ async function _saveProfileInner(usernameToSet) {
 
   // Build snapshot data for public display
   const hasUsername = !!(_username || usernameToSet || _profile?.username);
-  const pub_loadouts = hasUsername && !!document.getElementById('s-pub-loadouts')?.checked;
-  const pub_trips    = hasUsername && !!document.getElementById('s-pub-trips')?.checked;
-  const pub_gear     = hasUsername && !!document.getElementById('s-pub-gear')?.checked;
+  const pub_loadouts   = hasUsername && !!document.getElementById('s-pub-loadouts')?.checked;
+  const pub_trips      = hasUsername && !!document.getElementById('s-pub-trips')?.checked;
+  const pub_gear       = hasUsername && !!document.getElementById('s-pub-gear')?.checked;
+  const pub_meal_plans = hasUsername && !!document.getElementById('s-pub-meal-plans')?.checked;
 
   const snap_loadouts = pub_loadouts
     ? (state.templates || []).map(t => {
@@ -1458,11 +1460,47 @@ async function _saveProfileInner(usernameToSet) {
       })
     : null;
 
-  const snap_trips = pub_trips ? {
-    total_trips:    (state.trips || []).length,
-    completed:      (state.trips || []).filter(t => t.status === 'completed').length,
-    total_distance: (state.trips || []).reduce((s, t) => s + (t.distance_km || 0), 0) || null,
-  } : null;
+  const snap_trips = pub_trips
+    ? (() => {
+        const seen = {};
+        return (state.trips || []).filter(t => t.is_public === true).map(t => {
+          const base = (t.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'trip';
+          seen[base] = (seen[base] || 0) + 1;
+          const slug = seen[base] === 1 ? base : `${base}-${seen[base]}`;
+          const loadouts = (t.loadout_ids || []).map(tlId => {
+            const tl = (state.trip_loadouts || []).find(x => x.id === tlId);
+            if (!tl) return null;
+            const items = (tl.gear_ids || []).map(gid => state.items.find(i => i.id === gid)).filter(Boolean);
+            return {
+              name: tl.name, description: tl.description || '',
+              items_count: items.length,
+              total_weight_g: items.reduce((s, i) => s + (i.weight_g || 0), 0),
+              items: items.map(i => ({ name: i.name, brand: i.brand || '', weight_g: i.weight_g || 0, carry_type: (tl.carry_types || {})[i.id] || null })),
+            };
+          }).filter(Boolean);
+          const mp = t.meal_plan_id ? (state.food_plans || []).find(p => p.id === t.meal_plan_id) : null;
+          return {
+            id: t.id, name: t.name, slug,
+            location: t.location || null, start_date: t.start_date || null, end_date: t.end_date || null,
+            miles: t.miles || null, notes: t.notes || null, route_url: t.route_url || null,
+            trip_type: t.trip_type || null, status: t.status, loadouts,
+            meal_plan: mp ? { name: mp.name, days: mp.days, cal_target_per_day: mp.cal_target_per_day } : null,
+          };
+        });
+      })()
+    : null;
+
+  const snap_meal_plans = pub_meal_plans
+    ? (() => {
+        const seen = {};
+        return (state.food_plans || []).filter(p => p.is_public === true).map(p => {
+          const base = (p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'plan';
+          seen[base] = (seen[base] || 0) + 1;
+          const slug = seen[base] === 1 ? base : `${base}-${seen[base]}`;
+          return { id: p.id, name: p.name, slug, days: p.days, cal_target_per_day: p.cal_target_per_day, weight_target_g_per_day: p.weight_target_g_per_day || null };
+        });
+      })()
+    : null;
 
   const snap_gear = pub_gear
     ? (state.items || []).map(i => ({ name: i.name, brand: i.brand || '', category: i.category, weight_g: i.weight_g || 0 }))
@@ -1477,13 +1515,15 @@ async function _saveProfileInner(usernameToSet) {
     social_youtube:   document.getElementById('s-youtube')?.value.trim()   || null,
     social_website:   document.getElementById('s-website')?.value.trim()   || null,
     custom_links,
-    public_bio:      hasUsername && !!document.getElementById('s-pub-bio')?.checked,
-    public_loadouts: pub_loadouts,
-    public_trips:    pub_trips,
-    public_gear:     pub_gear,
+    public_bio:        hasUsername && !!document.getElementById('s-pub-bio')?.checked,
+    public_loadouts:   pub_loadouts,
+    public_trips:      pub_trips,
+    public_gear:       pub_gear,
+    public_meal_plans: pub_meal_plans,
     snap_loadouts,
     snap_trips,
     snap_gear,
+    snap_meal_plans,
   };
 
   if (usernameToSet) payload.username = usernameToSet;
@@ -1503,7 +1543,7 @@ async function _saveProfileInner(usernameToSet) {
 // requiring the user to manually re-save their profile.
 async function _refreshProfileSnaps() {
   if (!_supabaseReady() || !_user || !_profile?.username) return;
-  if (!_profile.public_loadouts && !_profile.public_gear) return;
+  if (!_profile.public_loadouts && !_profile.public_gear && !_profile.public_trips && !_profile.public_meal_plans) return;
   const patch = {};
   if (_profile.public_loadouts) {
     patch.snap_loadouts = (state.templates || []).map(t => {
@@ -1522,11 +1562,49 @@ async function _refreshProfileSnaps() {
       name: i.name, brand: i.brand || '', category: i.category, weight_g: i.weight_g || 0,
     }));
   }
+  if (_profile.public_trips) {
+    const seen = {};
+    patch.snap_trips = (state.trips || []).filter(t => t.is_public === true).map(t => {
+      const base = (t.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'trip';
+      seen[base] = (seen[base] || 0) + 1;
+      const slug = seen[base] === 1 ? base : `${base}-${seen[base]}`;
+      const loadouts = (t.loadout_ids || []).map(tlId => {
+        const tl = (state.trip_loadouts || []).find(x => x.id === tlId);
+        if (!tl) return null;
+        const items = (tl.gear_ids || []).map(gid => state.items.find(i => i.id === gid)).filter(Boolean);
+        return {
+          name: tl.name, description: tl.description || '',
+          items_count: items.length,
+          total_weight_g: items.reduce((s, i) => s + (i.weight_g || 0), 0),
+          items: items.map(i => ({ name: i.name, brand: i.brand || '', weight_g: i.weight_g || 0, carry_type: (tl.carry_types || {})[i.id] || null })),
+        };
+      }).filter(Boolean);
+      const mp = t.meal_plan_id ? (state.food_plans || []).find(p => p.id === t.meal_plan_id) : null;
+      return {
+        id: t.id, name: t.name, slug,
+        location: t.location || null, start_date: t.start_date || null, end_date: t.end_date || null,
+        miles: t.miles || null, notes: t.notes || null, route_url: t.route_url || null,
+        trip_type: t.trip_type || null, status: t.status, loadouts,
+        meal_plan: mp ? { name: mp.name, days: mp.days, cal_target_per_day: mp.cal_target_per_day } : null,
+      };
+    });
+  }
+  if (_profile.public_meal_plans) {
+    const seen = {};
+    patch.snap_meal_plans = (state.food_plans || []).filter(p => p.is_public === true).map(p => {
+      const base = (p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'plan';
+      seen[base] = (seen[base] || 0) + 1;
+      const slug = seen[base] === 1 ? base : `${base}-${seen[base]}`;
+      return { id: p.id, name: p.name, slug, days: p.days, cal_target_per_day: p.cal_target_per_day, weight_target_g_per_day: p.weight_target_g_per_day || null };
+    });
+  }
   try {
     await _sb.from('profiles').update(patch).eq('id', _user.id);
     // Keep local _profile in sync so a subsequent manual save doesn't revert
-    if (patch.snap_loadouts !== undefined) _profile.snap_loadouts = patch.snap_loadouts;
-    if (patch.snap_gear     !== undefined) _profile.snap_gear     = patch.snap_gear;
+    if (patch.snap_loadouts   !== undefined) _profile.snap_loadouts   = patch.snap_loadouts;
+    if (patch.snap_gear       !== undefined) _profile.snap_gear       = patch.snap_gear;
+    if (patch.snap_trips      !== undefined) _profile.snap_trips      = patch.snap_trips;
+    if (patch.snap_meal_plans !== undefined) _profile.snap_meal_plans = patch.snap_meal_plans;
   } catch(e) {}
 }
 
@@ -2506,14 +2584,31 @@ async function renderPublicProfile(slug) {
       }).join('')}
     </div>` : '';
 
-  const tripsSection = (p.public_trips && p.snap_trips) ? `
+  const tripsSection = (p.public_trips && p.snap_trips?.length) ? `
     <div class="pp-section">
-      <div class="pp-section-title">Adventure stats</div>
-      <div class="pp-stats">
-        ${p.snap_trips.total_trips!=null?`<div class="pp-stat"><div class="pp-stat-val">${p.snap_trips.total_trips}</div><div class="pp-stat-lbl">Trips</div></div>`:''}
-        ${p.snap_trips.completed!=null?`<div class="pp-stat"><div class="pp-stat-val">${p.snap_trips.completed}</div><div class="pp-stat-lbl">Completed</div></div>`:''}
-        ${p.snap_trips.total_distance?`<div class="pp-stat"><div class="pp-stat-val">${p.snap_trips.total_distance}</div><div class="pp-stat-lbl">distance</div></div>`:''}
-      </div>
+      <div class="pp-section-title">Trips</div>
+      ${p.snap_trips.map(t => {
+        const metaParts = [t.location, t.start_date, t.miles != null ? t.miles + ' mi' : null, t.trip_type].filter(Boolean);
+        return `<a href="/${esc(p.username)}/trips/${esc(t.slug)}" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:.5px solid #DDD6C8;text-decoration:none;color:inherit">
+          <div>
+            <div style="font-weight:500;font-size:13px">${esc(t.name)}</div>
+            ${metaParts.length ? `<div style="font-size:11px;color:#9A9A87">${metaParts.join(' · ')}</div>` : ''}
+          </div>
+          <span style="font-size:14px;color:#9A9A87;padding-left:12px;flex-shrink:0">›</span>
+        </a>`;
+      }).join('')}
+    </div>` : '';
+
+  const mealPlansSection = (p.public_meal_plans && p.snap_meal_plans?.length) ? `
+    <div class="pp-section">
+      <div class="pp-section-title">Meal plans</div>
+      ${p.snap_meal_plans.map(mp => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:.5px solid #DDD6C8">
+          <div>
+            <div style="font-weight:500;font-size:13px">${esc(mp.name)}</div>
+            <div style="font-size:11px;color:#9A9A87">${mp.days} day${mp.days !== 1 ? 's' : ''} · ${(mp.cal_target_per_day||0).toLocaleString()} cal/day</div>
+          </div>
+        </div>`).join('')}
     </div>` : '';
 
   const gearSection = (p.public_gear && p.snap_gear?.length) ? `
@@ -2526,7 +2621,7 @@ async function renderPublicProfile(slug) {
       </div>`).join('')}
     </div>` : '';
 
-  const hasContent = loadoutsSection || tripsSection || gearSection || (p.public_bio && p.bio) || socials.length;
+  const hasContent = loadoutsSection || tripsSection || mealPlansSection || gearSection || (p.public_bio && p.bio) || socials.length;
 
   root.outerHTML = `
     <div class="pp-card">
@@ -2537,7 +2632,7 @@ async function renderPublicProfile(slug) {
       ${p.public_bio&&p.bio?`<div class="pp-bio">${esc(p.bio)}</div>`:''}
       ${socials.length?`<div class="pp-socials">${socials.join('')}</div>`:''}
     </div>
-    ${loadoutsSection}${tripsSection}${gearSection}
+    ${loadoutsSection}${tripsSection}${mealPlansSection}${gearSection}
     ${!hasContent?`<div class="pp-section" style="text-align:center;padding:32px"><p style="color:#9A9A87">This profile is private.</p></div>`:''}
     <div style="text-align:center;margin-top:24px;font-size:12px;color:#9A9A87">Built with <a href="/" style="color:#2A4032">Gearnomic</a></div>`;
 }
@@ -2550,13 +2645,217 @@ function ppToggleLoadout(idx) {
   if (tog) tog.classList.toggle('open', open);
 }
 
+async function renderPublicTripDetail(username, tripSlug) {
+  document.title = 'Trip — Gearnomic';
+
+  const st = document.createElement('style');
+  st.textContent = `
+    body{background:#EDE8DF!important;margin:0}
+    .pp-head{background:#fff;border-bottom:1px solid #DDD6C8;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+    .pp-logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:#18181A;font-weight:600;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,'DM Sans',sans-serif}
+    .pp-logo-mark{width:28px;height:28px;background:#2A4032;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff}
+    .pp-cta{padding:6px 16px;background:#2A4032;color:#fff;border-radius:8px;font-size:13px;font-weight:500;text-decoration:none}
+    .pp-page{max-width:720px;margin:0 auto;padding:32px 20px 64px;font-family:-apple-system,BlinkMacSystemFont,'DM Sans',sans-serif;color:#18181A}
+    .pp-card{background:#fff;border-radius:16px;padding:28px;margin-bottom:20px;border:1px solid #DDD6C8}
+    .pp-section{background:#fff;border-radius:12px;padding:20px;margin-bottom:16px;border:1px solid #DDD6C8}
+    .pp-back{display:inline-flex;align-items:center;gap:6px;color:#9A9A87;text-decoration:none;font-size:13px;margin-bottom:20px}
+    .pp-back:hover{color:#18181A}
+    .pp-tab{padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;border:none;border-bottom:2px solid transparent;color:#9A9A87;background:none;font-family:inherit}
+    .pp-tab.active{color:#18181A;border-bottom-color:#18181A}
+    .pp-loadout-hdr{display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;padding:10px 0;border-bottom:.5px solid #DDD6C8}
+    .pp-loadout-hdr:last-of-type{border-bottom:none}
+    .pp-loadout-toggle{font-size:12px;color:#9A9A87;transition:transform .18s;display:inline-block;flex-shrink:0;padding-left:10px}
+    .pp-loadout-toggle.open{transform:rotate(90deg)}
+    .pp-loadout-body{display:none;padding:8px 0}
+    .pp-loadout-body.open{display:block}
+    .pp-loadout-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:.5px solid #EDE7DC}
+    .pp-loadout-item:last-child{border-bottom:none}`;
+  document.head.appendChild(st);
+
+  document.body.innerHTML = `
+    <div class="pp-head">
+      <a class="pp-logo" href="/"><div class="pp-logo-mark">GN</div>Gearnomic</a>
+      <a class="pp-cta" href="/">Track your kit →</a>
+    </div>
+    <div class="pp-page"><div id="pp-root" style="text-align:center;padding:60px;color:#9A9A87">Loading…</div></div>`;
+
+  const root = document.getElementById('pp-root');
+  if (!_supabaseReady()) { root.innerHTML = '<p>Could not connect.</p>'; return; }
+
+  const { data: p } = await Promise.race([
+    _sb.from('public_profiles').select('*').eq('username', username).single(),
+    new Promise(r => setTimeout(() => r({ data: null }), 8000)),
+  ]).catch(() => ({ data: null }));
+
+  if (!p) {
+    root.innerHTML = `<div style="text-align:center;padding:60px">
+      <h2 style="font-size:22px;margin-bottom:8px">@${esc(username)} not found</h2>
+      <a href="/" style="color:#2A4032">← Back to Gearnomic</a></div>`;
+    return;
+  }
+
+  const trip = (p.snap_trips || []).find(t => t.slug === tripSlug);
+  if (!trip) {
+    root.innerHTML = `<div style="text-align:center;padding:60px">
+      <h2 style="font-size:22px;margin-bottom:8px">Trip not found</h2>
+      <p style="color:#9A9A87;margin-bottom:16px">This trip isn't public or doesn't exist.</p>
+      <a href="/${esc(username)}" style="color:#2A4032">← @${esc(username)}'s profile</a></div>`;
+    return;
+  }
+
+  document.title = `${trip.name} — @${p.username} — Gearnomic`;
+
+  const nights = trip.start_date && trip.end_date
+    ? Math.round((new Date(trip.end_date) - new Date(trip.start_date)) / 86400000) : null;
+  const metaParts = [
+    trip.location,
+    trip.start_date ? (trip.start_date + (nights != null ? ` · ${nights}n` : '')) : null,
+    trip.miles != null ? `${trip.miles} mi` : null,
+    trip.trip_type,
+  ].filter(Boolean);
+
+  const hasGear  = (trip.loadouts || []).some(l => l.items?.length > 0);
+  const hasMeals = !!trip.meal_plan;
+  const hasContent = hasGear || hasMeals;
+
+  const gearTabContent = hasGear
+    ? trip.loadouts.filter(l => l.items?.length > 0).map((l, idx) => `
+        <div>
+          <div class="pp-loadout-hdr" onclick="ppTripToggle(${idx})">
+            <div>
+              <div style="font-weight:500;font-size:14px">${esc(l.name)}</div>
+              <div style="font-size:12px;color:#9A9A87">${l.items_count} items · ${wg(l.total_weight_g)}</div>
+            </div>
+            <span class="pp-loadout-toggle" id="pp-ttog-${idx}">▸</span>
+          </div>
+          <div class="pp-loadout-body" id="pp-tbody-${idx}">
+            ${l.description ? `<div style="font-size:13px;color:#5A5A52;padding:6px 0 8px">${esc(l.description)}</div>` : ''}
+            ${l.items.map(item => `<div class="pp-loadout-item">
+              <div>
+                <span style="font-size:13px;font-weight:500">${esc(item.name)}</span>
+                ${item.brand ? `<span style="font-size:11px;color:#9A9A87;margin-left:5px">${esc(item.brand)}</span>` : ''}
+                ${item.carry_type === 'worn'       ? '<span style="font-size:10px;background:#FEF9C3;color:#854D0E;padding:1px 5px;border-radius:10px;margin-left:4px;font-weight:500">W</span>' : ''}
+                ${item.carry_type === 'consumable' ? '<span style="font-size:10px;background:#DBEAFE;color:#1E40AF;padding:1px 5px;border-radius:10px;margin-left:4px;font-weight:500">C</span>' : ''}
+              </div>
+              <span style="font-size:12px;font-family:monospace;color:#5A5A52">${wg(item.weight_g)}</span>
+            </div>`).join('')}
+          </div>
+        </div>`).join('')
+    : '<div style="text-align:center;padding:32px;color:#9A9A87;font-size:13px">No gear details shared for this trip.</div>';
+
+  const mealsTabContent = hasMeals
+    ? `<div style="font-size:14px;font-weight:500;margin-bottom:6px">${esc(trip.meal_plan.name)}</div>
+       <div style="font-size:13px;color:#5A5A52">${trip.meal_plan.days} day${trip.meal_plan.days !== 1 ? 's' : ''} · ${(trip.meal_plan.cal_target_per_day||0).toLocaleString()} cal/day</div>`
+    : '<div style="text-align:center;padding:32px;color:#9A9A87;font-size:13px">No meal details shared for this trip.</div>';
+
+  root.outerHTML = `
+    <a class="pp-back" href="/${esc(p.username)}">‹ @${esc(p.username)}</a>
+    <div class="pp-card">
+      <h1 style="font-size:22px;font-weight:600;margin:0 0 8px">${esc(trip.name)}</h1>
+      ${metaParts.length ? `<div style="font-size:13px;color:#5A5A52;margin-bottom:${trip.notes||trip.route_url?'12px':'0'}">${metaParts.join(' · ')}</div>` : ''}
+      ${trip.notes ? `<div style="font-size:13px;color:#5A5A52;margin-bottom:${trip.route_url?'10px':'0'};white-space:pre-wrap">${esc(trip.notes)}</div>` : ''}
+      ${trip.route_url ? `<a href="${esc(trip.route_url)}" target="_blank" rel="noopener noreferrer" style="font-size:13px;color:#2A4032">View route ↗</a>` : ''}
+    </div>
+    ${hasContent ? `
+      <div style="display:flex;border-bottom:1px solid #DDD6C8;margin-bottom:16px">
+        <button class="pp-tab active" id="pp-tab-gear" onclick="ppTripTabSwitch('gear')">Gear</button>
+        ${hasMeals ? `<button class="pp-tab" id="pp-tab-meals" onclick="ppTripTabSwitch('meals')">Meals</button>` : ''}
+      </div>
+      <div id="pp-tab-content-gear" class="pp-section">${gearTabContent}</div>
+      ${hasMeals ? `<div id="pp-tab-content-meals" class="pp-section" style="display:none">${mealsTabContent}</div>` : ''}
+    ` : `<div class="pp-section" style="text-align:center;padding:32px"><p style="color:#9A9A87;margin:0">No details shared for this trip.</p></div>`}
+    <div style="text-align:center;margin-top:24px;font-size:12px;color:#9A9A87">Built with <a href="/" style="color:#2A4032">Gearnomic</a></div>`;
+}
+
+function ppTripToggle(idx) {
+  const body = document.getElementById('pp-tbody-' + idx);
+  const tog  = document.getElementById('pp-ttog-'  + idx);
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  if (tog) tog.classList.toggle('open', open);
+}
+
+function ppTripTabSwitch(tab) {
+  ['gear', 'meals'].forEach(t => {
+    const btn  = document.getElementById('pp-tab-' + t);
+    const pane = document.getElementById('pp-tab-content-' + t);
+    if (btn)  btn.classList.toggle('active', t === tab);
+    if (pane) pane.style.display = t === tab ? '' : 'none';
+  });
+}
+
+function openPublicPopover(id, type, btn) {
+  document.getElementById('gn-pub-popover')?.remove();
+
+  const obj = type === 'trip'      ? (state.trips || []).find(t => t.id === id)
+            : type === 'template'  ? (state.templates || []).find(t => t.id === id)
+            : (state.food_plans || []).find(p => p.id === id);
+  if (!obj) return;
+
+  const username = _profile?.username;
+  const isPublic = !!obj.is_public;
+  const slug = (obj.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'item';
+  const url  = username
+    ? window.location.origin + '/' + username + (type === 'trip' ? '/trips/' + slug : '')
+    : null;
+
+  const pop = document.createElement('div');
+  pop.id = 'gn-pub-popover';
+  pop.style.cssText = 'position:fixed;z-index:9999;background:var(--surface);border:1.5px solid var(--border);padding:12px 14px;min-width:230px;font-size:13px;font-family:inherit';
+
+  pop.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${url ? '10px' : '0'}">
+      <span style="font-weight:500">Public on profile</span>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0">
+        <input type="checkbox" id="gn-pub-chk" ${isPublic ? 'checked' : ''} style="accent-color:var(--primary);width:15px;height:15px">
+        <span id="gn-pub-lbl" style="font-size:12px;color:var(--text-3)">${isPublic ? 'On' : 'Off'}</span>
+      </label>
+    </div>
+    ${url ? `<div style="display:flex;gap:6px;align-items:center">
+      <input type="text" value="${esc(url)}" readonly style="flex:1;font-size:11px;padding:4px 6px;border:1px solid var(--border);background:var(--bg);color:var(--text-2);min-width:0;font-family:monospace">
+      <button class="btn btn-xs" onclick="navigator.clipboard.writeText('${esc(url)}').then(()=>toast('URL copied!'))">Copy</button>
+    </div>` : (!username ? '<div style="font-size:11px;color:var(--text-3)">Set a username in your profile to get a public URL.</div>' : '')}`;
+
+  document.body.appendChild(pop);
+  const rect = btn.getBoundingClientRect();
+  const popW = pop.offsetWidth, popH = pop.offsetHeight;
+  pop.style.top  = Math.max(8, rect.top - popH - 6) + 'px';
+  pop.style.left = Math.max(8, Math.min(window.innerWidth - popW - 8, rect.right - popW)) + 'px';
+
+  pop.querySelector('#gn-pub-chk').addEventListener('change', e => {
+    obj.is_public = e.target.checked;
+    document.getElementById('gn-pub-lbl').textContent = obj.is_public ? 'On' : 'Off';
+    saveState();
+    if (typeof _refreshProfileSnaps === 'function') _refreshProfileSnaps();
+    if (type === 'trip'      && typeof renderTrips === 'function')       renderTrips();
+    if (type === 'template'  && typeof renderTemplates === 'function')   renderTemplates();
+    if (type === 'food_plan' && typeof renderFoodPlanGrid === 'function') renderFoodPlanGrid();
+  });
+
+  const closeHandler = ev => {
+    if (!pop.contains(ev.target) && ev.target !== btn) {
+      pop.remove();
+      document.removeEventListener('click', closeHandler);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', closeHandler), 10);
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   // ── Public profile check — must run before anything else ─────────────
+  const _pathParts = window.location.pathname.slice(1).split('/').map(s => s.toLowerCase());
   const _pubSlug = (() => {
-    const s = window.location.pathname.slice(1).split('/')[0].toLowerCase();
+    const s = _pathParts[0];
     return (s && !RESERVED_USERNAMES.has(s) && /^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$/.test(s)) ? s : null;
   })();
-  if (_pubSlug) { await renderPublicProfile(_pubSlug); return; }
+  if (_pubSlug) {
+    if (_pathParts[1] === 'trips' && _pathParts[2]) {
+      await renderPublicTripDetail(_pubSlug, _pathParts[2]);
+    } else {
+      await renderPublicProfile(_pubSlug);
+    }
+    return;
+  }
 
   // ── Admin impersonation mode ───────────────────────────
   const hash = window.location.hash;

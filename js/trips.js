@@ -67,6 +67,7 @@ function tripCard(t) {
       </div>
       <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();copyGearMarkdown('${t.id}','trip')" title="Copy as markdown">Copy as markdown</button>
       <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();shareItem('${t.id}','trip')" title="Share trip">Share ↗</button>
+      <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();openPublicPopover('${t.id}','trip',this)" title="Public on profile" style="${t.is_public ? 'color:var(--primary);font-weight:600' : ''}">${t.is_public ? '● Public' : '○ Public'}</button>
     </div>
   </div>`;
 }
@@ -662,6 +663,7 @@ function saveTrip(id) {
     notes:            document.getElementById('tf-notes').value.trim(),
     loadout_ids:      id ? (state.trips.find(t => t.id === id)?.loadout_ids || []) : [],
     meal_plan_id:     id ? (state.trips.find(t => t.id === id)?.meal_plan_id || null) : null,
+    is_public:        id ? (state.trips.find(t => t.id === id)?.is_public || false) : false,
   };
 
   if (id) {
@@ -753,6 +755,7 @@ function templateCard(tmpl) {
       <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Attach to trip…</button>
       <button class="btn btn-sm" onclick="copyGearMarkdown('${tmpl.id}','template')" title="Copy as markdown for Reddit">Copy as markdown</button>
       <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template')" title="Share via link">Share ↗</button>
+      <button class="btn btn-sm" onclick="openPublicPopover('${tmpl.id}','template',this)" title="Public on profile" style="${tmpl.is_public ? 'color:var(--primary);font-weight:600' : ''}">${tmpl.is_public ? '● Public' : '○ Public'}</button>
     </div>
   </div>`;
 }
@@ -931,6 +934,7 @@ function saveTemplate(id) {
     created_at:   existing ? (existing.created_at || new Date().toISOString().slice(0, 10))
                            : (originalDate || new Date().toISOString().slice(0, 10)),
     updated_at:   new Date().toISOString().slice(0, 10),
+    is_public:    existing ? (existing.is_public || false) : false,
   };
 
   if (existing) {
