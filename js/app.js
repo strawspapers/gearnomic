@@ -1484,7 +1484,14 @@ async function _saveProfileInner(usernameToSet) {
             location: t.location || null, start_date: t.start_date || null, end_date: t.end_date || null,
             miles: t.miles || null, notes: t.notes || null, route_url: t.route_url || null,
             trip_type: t.trip_type || null, status: t.status, loadouts,
-            meal_plan: mp ? { name: mp.name, days: mp.days, cal_target_per_day: mp.cal_target_per_day } : null,
+            meal_plan: mp ? {
+              name: mp.name, days: mp.days, cal_target_per_day: mp.cal_target_per_day,
+              meals: (mp.meals || []).map(m => {
+                const eff = typeof mealItemEffective === 'function' ? mealItemEffective(m) : m;
+                const rec = m.recipe_id ? (state.recipes || []).find(r => r.id === m.recipe_id) : null;
+                return { day: eff.day, meal_time: eff.meal_time, name: eff.name, brand: rec?.brand || null, cal: eff.cal || 0, weight_g: eff.weight_g || 0 };
+              }),
+            } : null,
           };
         });
       })()
@@ -1585,7 +1592,14 @@ async function _refreshProfileSnaps() {
         location: t.location || null, start_date: t.start_date || null, end_date: t.end_date || null,
         miles: t.miles || null, notes: t.notes || null, route_url: t.route_url || null,
         trip_type: t.trip_type || null, status: t.status, loadouts,
-        meal_plan: mp ? { name: mp.name, days: mp.days, cal_target_per_day: mp.cal_target_per_day } : null,
+        meal_plan: mp ? {
+          name: mp.name, days: mp.days, cal_target_per_day: mp.cal_target_per_day,
+          meals: (mp.meals || []).map(m => {
+            const eff = typeof mealItemEffective === 'function' ? mealItemEffective(m) : m;
+            const rec = m.recipe_id ? (state.recipes || []).find(r => r.id === m.recipe_id) : null;
+            return { day: eff.day, meal_time: eff.meal_time, name: eff.name, brand: rec?.brand || null, cal: eff.cal || 0, weight_g: eff.weight_g || 0 };
+          }),
+        } : null,
       };
     });
   }
@@ -2744,8 +2758,51 @@ async function renderPublicTripDetail(username, tripSlug) {
     : '<div style="text-align:center;padding:32px;color:#9A9A87;font-size:13px">No gear details shared for this trip.</div>';
 
   const mealsTabContent = hasMeals
-    ? `<div style="font-size:14px;font-weight:500;margin-bottom:6px">${esc(trip.meal_plan.name)}</div>
-       <div style="font-size:13px;color:#5A5A52">${trip.meal_plan.days} day${trip.meal_plan.days !== 1 ? 's' : ''} · ${(trip.meal_plan.cal_target_per_day||0).toLocaleString()} cal/day</div>`
+    ? (() => {
+        const mp    = trip.meal_plan;
+        const meals = mp.meals || [];
+        const mealOrder = ['breakfast', 'snack', 'lunch', 'dinner'];
+        const mealLabel = { breakfast: 'Breakfast', snack: 'Snack', lunch: 'Lunch', dinner: 'Dinner' };
+        let html = `<div style="font-size:13px;color:#5A5A52;margin-bottom:16px">${esc(mp.name)} · ${mp.days} day${mp.days !== 1 ? 's' : ''} · ${(mp.cal_target_per_day||0).toLocaleString()} cal/day</div>`;
+        if (!meals.length) {
+          html += '<div style="text-align:center;padding:20px;color:#9A9A87;font-size:13px">No meals logged in this plan.</div>';
+          return html;
+        }
+        for (let day = 1; day <= mp.days; day++) {
+          const dayMeals = meals.filter(m => m.day === day);
+          const dayCal   = dayMeals.reduce((s, m) => s + (m.cal || 0), 0);
+          const dayW     = dayMeals.reduce((s, m) => s + (m.weight_g || 0), 0);
+          html += `<div style="margin-bottom:16px;padding-bottom:16px;border-bottom:.5px solid #DDD6C8">
+            <div style="font-weight:600;font-size:13px;margin-bottom:8px">Day ${day}</div>`;
+          mealOrder.forEach(mt => {
+            const slot = dayMeals.filter(m => m.meal_time === mt);
+            if (!slot.length) return;
+            html += `<div style="margin-bottom:8px">
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9A9A87;margin-bottom:4px">${mealLabel[mt] || mt}</div>`;
+            slot.forEach(m => {
+              html += `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:3px 0">
+                <div>
+                  <span style="font-size:13px">${esc(m.name)}</span>
+                  ${m.brand ? `<span style="font-size:11px;color:#9A9A87;margin-left:5px">${esc(m.brand)}</span>` : ''}
+                </div>
+                <div style="flex-shrink:0;padding-left:12px;text-align:right;white-space:nowrap">
+                  <span style="font-size:12px;color:#5A5A52">${(m.cal||0).toLocaleString()} cal</span>
+                  <span style="font-size:11px;color:#9A9A87;margin-left:6px;font-family:monospace">${wg(m.weight_g)}</span>
+                </div>
+              </div>`;
+            });
+            html += '</div>';
+          });
+          if (dayMeals.length) {
+            html += `<div style="display:flex;justify-content:space-between;font-size:12px;color:#9A9A87;padding-top:6px;border-top:.5px solid #EDE7DC;margin-top:4px">
+              <span>Day ${day} total</span>
+              <span>${dayCal.toLocaleString()} cal · ${wg(dayW)}</span>
+            </div>`;
+          }
+          html += '</div>';
+        }
+        return html;
+      })()
     : '<div style="text-align:center;padding:32px;color:#9A9A87;font-size:13px">No meal details shared for this trip.</div>';
 
   root.outerHTML = `
