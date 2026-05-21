@@ -250,7 +250,7 @@ function renderFoodPlanDetail(plan) {
           </div>
           ${slotMeals.map(m => `
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:2px 0;border-top:.5px solid var(--border-2)">
-              <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(m.name)}">${esc(m.name)}</span>
+              <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" title="${esc(m.name)}" onclick="openMealItemCard('${m.id}','${plan.id}')" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration=''">${esc(m.name)}</span>
               <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;margin-left:6px">
                 <span class="mono" style="color:var(--text-3);font-size:11px">${wg(m.weight_g)}</span>
                 <button class="btn btn-xs btn-danger" onclick="deleteMealItem('${plan.id}','${m.id}')">Remove</button>
@@ -601,6 +601,84 @@ function deleteMealItem(planId, mealId) {
   plan.meals = (plan.meals || []).filter(m => m.id !== mealId);
   saveState();
   renderFoodPlanDetail(plan);
+}
+
+function openMealItemCard(mealId, planId) {
+  const plan = state.food_plans.find(p => p.id === planId);
+  if (!plan) return;
+  const meal = (plan.meals || []).find(m => m.id === mealId);
+  if (!meal) return;
+
+  const rec = meal.recipe_id ? state.recipes.find(r => r.id === meal.recipe_id) : null;
+  const eff = mealItemEffective(meal);
+  let html = '';
+
+  if (rec) {
+    if (rec.description) {
+      html += `<p style="font-size:13px;color:var(--text-2);margin:0 0 1rem">${esc(rec.description)}</p>`;
+    }
+
+    // Stats
+    const prepMethods = Array.isArray(rec.prep_method) ? rec.prep_method : (rec.prep_method ? [rec.prep_method] : []);
+    html += `<div style="display:flex;gap:16px;font-size:13px;flex-wrap:wrap;margin-bottom:${prepMethods.length ? '.75rem' : '1rem'}">
+      <span><strong class="mono">${eff.cal || 0}</strong> cal</span>
+      <span><strong class="mono">${wg(eff.weight_g)}</strong></span>
+      ${rec.packed_weight_g != null ? `<span>Packed: <strong class="mono">${wg(rec.packed_weight_g)}</strong></span>` : ''}
+      ${rec.source ? `<span style="color:var(--text-3)">Source: ${esc(rec.source)}</span>` : ''}
+    </div>`;
+
+    // Prep method tags
+    if (prepMethods.length) {
+      html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem">
+        ${prepMethods.map(p => `<span style="font-size:11px;padding:2px 8px;background:var(--surface-2);border:1px solid var(--border-2)">${esc(p)}</span>`).join('')}
+      </div>`;
+    }
+
+    // Ingredients table — only if at least one ingredient has a name
+    const ings = (rec.ingredients || []).filter(i => i.name);
+    if (ings.length) {
+      html += `<div style="margin-bottom:1rem">
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.5rem">Ingredients</div>
+        <table style="width:100%;font-size:12px;border-collapse:collapse">
+          <thead><tr style="border-bottom:1px solid var(--border)">
+            <th style="text-align:left;font-weight:500;padding:3px 8px 3px 0;color:var(--text-3)">Qty</th>
+            <th style="text-align:left;font-weight:500;padding:3px 8px 3px 0;color:var(--text-3)">Unit</th>
+            <th style="text-align:left;font-weight:500;padding:3px 8px 3px 0;color:var(--text-3)">Item</th>
+            <th style="text-align:right;font-weight:500;padding:3px 0 3px 8px;color:var(--text-3)">Cal</th>
+            <th style="text-align:right;font-weight:500;padding:3px 0 3px 8px;color:var(--text-3)">g</th>
+          </tr></thead>
+          <tbody>${ings.map(i => `
+            <tr style="border-bottom:.5px solid var(--border-2)">
+              <td style="padding:4px 8px 4px 0;color:var(--text-2)">${esc(i.qty  || '')}</td>
+              <td style="padding:4px 8px 4px 0;color:var(--text-2)">${esc(i.unit || '')}</td>
+              <td style="padding:4px 8px 4px 0">${esc(i.name)}</td>
+              <td style="padding:4px 0 4px 8px;text-align:right;font-family:monospace;color:var(--text-2)">${i.cal || ''}</td>
+              <td style="padding:4px 0 4px 8px;text-align:right;font-family:monospace;color:var(--text-2)">${i.g   || ''}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    }
+
+    // Prep notes
+    if (rec.prep_notes) {
+      html += `<div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:.375rem">Prep notes</div>
+        <p style="font-size:13px;color:var(--text-2);white-space:pre-wrap;margin:0">${esc(rec.prep_notes)}</p>
+      </div>`;
+    }
+  } else {
+    // Manually-entered item — only name/cal/weight available
+    html += `<div style="display:flex;gap:16px;font-size:13px;margin-bottom:${meal.notes ? '1rem' : '0'}">
+      <span><strong class="mono">${meal.cal || 0}</strong> cal</span>
+      <span><strong class="mono">${wg(meal.weight_g)}</strong></span>
+    </div>`;
+    if (meal.notes) {
+      html += `<p style="font-size:13px;color:var(--text-2);margin:0">${esc(meal.notes)}</p>`;
+    }
+  }
+
+  openModal(eff.name, html);
 }
 
 function openShoppingList(planId) {
