@@ -1553,7 +1553,7 @@ async function _refreshProfileSnaps() {
   if (!_profile.public_loadouts && !_profile.public_gear && !_profile.public_trips && !_profile.public_meal_plans) return;
   const patch = {};
   if (_profile.public_loadouts) {
-    patch.snap_loadouts = (state.templates || []).map(t => {
+    patch.snap_loadouts = (state.templates || []).filter(t => t.is_public === true).map(t => {
       const validItems = (t.gear_ids || []).map(id => state.items.find(i => i.id === id)).filter(Boolean);
       return {
         name:           t.name,
