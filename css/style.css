@@ -797,6 +797,7 @@ tr.trip-feedback-row:hover td { background: var(--surface) !important; }
 .template-card-stat strong { color: var(--text-1); font-weight: 500; }
 .template-card-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 5px;
   margin-top: 10px;
   padding-top: 10px;
