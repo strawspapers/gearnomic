@@ -249,11 +249,11 @@ function renderFoodPlanDetail(plan) {
             </div>
           </div>
           ${slotMeals.map(m => `
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:2px 0;border-top:.5px solid var(--border-2)">
-              <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" title="${esc(m.name)}" onclick="openMealItemCard('${m.id}','${plan.id}')" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration=''">${esc(m.name)}</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:2px 0;border-top:.5px solid var(--border-2);cursor:pointer" onclick="openMealItemCard('${m.id}','${plan.id}')" onmouseover="this.style.background='var(--bg-2)'" onmouseout="this.style.background=''">
+              <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(m.name)}">${esc(m.name)}</span>
               <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;margin-left:6px">
                 <span class="mono" style="color:var(--text-3);font-size:11px">${wg(m.weight_g)}</span>
-                <button class="btn btn-xs btn-danger" onclick="deleteMealItem('${plan.id}','${m.id}')">Remove</button>
+                <button class="btn btn-xs" onclick="event.stopPropagation();deleteMealItem('${plan.id}','${m.id}')">−</button>
               </div>
             </div>`).join('')}
         </div>`;
