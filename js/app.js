@@ -3024,31 +3024,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  let session = null;
-  try {
-    const res = await Promise.race([
-      _sb.auth.getSession(),
-      new Promise(r => setTimeout(() => r({ data: { session: null } }), 5000)),
-    ]);
-    session = res?.data?.session ?? null;
-  } catch(e) { console.warn('[auth] getSession error:', e); }
-
-  if (session?.user) {
-    _user = session.user;
-    const loaded = await Promise.race([
-      loadFromCloud(),
-      new Promise(r => setTimeout(() => r(false), 8000)),
-    ]);
-    if (loaded) refreshAll();
-  }
-  updateHeaderAuth();
-
-  if (shareToken) handleShareHash(shareToken);
-  else routeOnLoad();
-
-  if (typeof loadCompareFromUrl === 'function') loadCompareFromUrl();
-
-  // React to sign-in / sign-out / password recovery events
+  // React to sign-in / sign-out / password recovery events — registered FIRST
+  // so Supabase's SIGNED_IN/SIGNED_OUT events are never missed during session init.
   _sb.auth.onAuthStateChange(async (event, session) => {
     if (event === 'PASSWORD_RECOVERY') {
       _user = session?.user || null;
@@ -3109,4 +3086,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       refreshAll();
     }
   });
+
+  // getSession() triggers Supabase's session detection, which fires onAuthStateChange.
+  // _user and loadFromCloud() are driven solely by the SIGNED_IN event above.
+  try {
+    await Promise.race([
+      _sb.auth.getSession(),
+      new Promise(r => setTimeout(() => r(null), 5000)),
+    ]);
+  } catch(e) { console.warn('[auth] getSession error:', e); }
+
+  updateHeaderAuth();
+
+  if (shareToken) handleShareHash(shareToken);
+  else routeOnLoad();
+
+  if (typeof loadCompareFromUrl === 'function') loadCompareFromUrl();
 });
