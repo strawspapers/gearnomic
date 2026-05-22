@@ -753,9 +753,7 @@ function templateCard(tmpl) {
     ${sourceTrip ? `<div style="font-size:11px;color:var(--text-3);margin-top:6px;padding-left:4px">Saved from: ${esc(sourceTrip.name)}</div>` : ''}
     <div class="template-card-actions" onclick="event.stopPropagation()">
       <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Attach to trip…</button>
-      <button class="btn btn-sm" onclick="copyGearMarkdown('${tmpl.id}','template')" title="Copy as markdown for Reddit">Copy as markdown</button>
-      <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template')" title="Share via link">Share ↗</button>
-      <button class="btn btn-sm" onclick="openPublicPopover('${tmpl.id}','template',this)" title="Public on profile" style="${tmpl.is_public ? 'color:var(--primary);font-weight:600' : ''}">${tmpl.is_public ? '● Public' : '○ Public'}</button>
+      <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template',true,this)" title="Copy share link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
     </div>
   </div>`;
 }
@@ -820,6 +818,7 @@ function renderTemplateDetail(tmpl) {
         <button class="btn btn-sm btn-primary" onclick="openApplyTemplateFromLib('${tmpl.id}')">Attach to trip…</button>
         <button class="btn btn-sm" onclick="copyGearMarkdown('${tmpl.id}','template')" title="Copy as markdown for Reddit">Copy as markdown</button>
         <button class="btn btn-sm" onclick="shareItem('${tmpl.id}','template')" title="Share via link">Share ↗</button>
+        <button class="btn btn-sm" onclick="toggleTemplatePublic('${tmpl.id}')" style="${tmpl.is_public ? 'background:#5A8A2A;color:#fff;border-color:#5A8A2A' : 'color:var(--text-3)'}">Public on profile</button>
         <button class="btn btn-sm" onclick="openTemplateForm('${tmpl.id}')">Edit</button>
         <button class="btn btn-sm btn-danger" onclick="deleteTemplate('${tmpl.id}')">Delete</button>
         <button class="btn btn-sm btn-ghost" onclick="closeTemplateDetail()">Close</button>
@@ -962,6 +961,16 @@ function deleteTemplate(id) {
   if (activeTemplateId === id) closeTemplateDetail();
   else renderTemplates();
   toast('Loadout deleted.');
+}
+
+function toggleTemplatePublic(id) {
+  const tmpl = state.templates.find(t => t.id === id);
+  if (!tmpl) return;
+  tmpl.is_public = !tmpl.is_public;
+  saveState();
+  if (typeof _refreshProfileSnaps === 'function') _refreshProfileSnaps();
+  renderTemplates();
+  renderTemplateDetail(tmpl);
 }
 
 // ── Save trip → template ────────────────────────────────────

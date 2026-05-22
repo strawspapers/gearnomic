@@ -1997,8 +1997,11 @@ function buildSharePayload(obj, kind) {
   return payload;
 }
 
-async function shareItem(id, kind) {
+async function shareItem(id, kind, autoCopy = false, btn = null) {
+  const _origBtnHtml = btn ? btn.innerHTML : null;
+
   if (!_supabaseReady()) {
+    if (autoCopy) { toast('Sign in to create a share link.'); return; }
     openModal('Sign in to share', `
       <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
         Sharing requires a Gearnomic account so your link stays live. Sign in or create a free account to share.
@@ -2010,6 +2013,7 @@ async function shareItem(id, kind) {
     return;
   }
   if (!_user) {
+    if (autoCopy) { toast('Sign in to create a share link.'); return; }
     openModal('Sign in to share', `
       <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
         Sharing requires a Gearnomic account. Sign in or create a free account — sharing is free for everyone.
@@ -2026,7 +2030,8 @@ async function shareItem(id, kind) {
     : state.templates.find(t => t.id === id);
   if (!obj) { toast('Could not find item to share.'); return; }
 
-  toast('Creating share link—');
+  if (autoCopy && btn) { btn.disabled = true; btn.textContent = '···'; }
+  if (!autoCopy) toast('Creating share link—');
 
   try {
     console.log('[share] step 1: starting, kind=', kind, 'id=', id);
@@ -2057,6 +2062,10 @@ async function shareItem(id, kind) {
       const isRls     = insertResult.error.message?.includes('row-level security');
       const isMissing = insertResult.error.message?.includes('does not exist');
       console.error('Share insert error:', insertResult.error);
+      if (autoCopy) {
+        toast('Share failed: ' + (isTimeout ? 'request timed out.' : insertResult.error.message));
+        return;
+      }
       openModal('Share failed', `
         <p style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">
           ${isTimeout ? 'The request timed out — Supabase did not respond in time.' : 'Could not create share link.'}
@@ -2077,6 +2086,11 @@ async function shareItem(id, kind) {
     console.log('[share] step 4: building URL and opening modal');
 
     const url = `${window.location.origin}${window.location.pathname}#share=${token}`;
+    if (autoCopy) {
+      try { await navigator.clipboard.writeText(url); toast('Copied!'); }
+      catch { toast('Link created — copy failed. Try again.'); }
+      return;
+    }
     const kindLabel = kind === 'template' ? 'loadout' : kind;
     openModal('Share link', `
       <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">
@@ -2090,10 +2104,13 @@ async function shareItem(id, kind) {
       <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`);
   } catch (err) {
     console.error('Share error:', err);
+    if (autoCopy) { toast('Share failed: ' + (err.message || String(err))); return; }
     openModal('Share failed', `
       <p style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">Could not create share link.</p>
       <p style="font-size:12px;color:var(--danger);margin-bottom:1rem;font-family:monospace">${esc(err.message || String(err))}</p>
       <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`);
+  } finally {
+    if (autoCopy && btn) { btn.disabled = false; btn.innerHTML = _origBtnHtml; }
   }
 }
 
