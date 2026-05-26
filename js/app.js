@@ -2040,6 +2040,11 @@ async function shareItem(id, kind, autoCopy = false, btn = null) {
     const payload = buildSharePayload(obj, kind);
     console.log('[share] step 2: payload built,', (JSON.stringify(payload).length / 1024).toFixed(1), 'KB,', (payload._shared_items || []).length, 'items');
 
+    const _dbgSess = await _sb.auth.getSession();
+    console.log('[share] step 2b: pre-insert check — owner_id=', _user.id,
+      '| session uid=', _dbgSess?.data?.session?.user?.id ?? 'NONE',
+      '| sb=', typeof _sb, '| token=', token);
+
     let _timeoutId;
     const insertResult = await Promise.race([
       _sb.from('shared_lists').insert({
@@ -2103,7 +2108,7 @@ async function shareItem(id, kind, autoCopy = false, btn = null) {
       <p style="font-size:11.5px;color:var(--text-3)">The link stays active until you delete this ${kindLabel}. Item weights and carry types are included.</p>
       <div class="form-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`);
   } catch (err) {
-    console.error('Share error:', err);
+    console.error('[share] caught exception — message:', err.message, '| name:', err.name, '| full:', err);
     if (autoCopy) { toast('Share failed: ' + (err.message || String(err))); return; }
     openModal('Share failed', `
       <p style="font-size:13px;color:var(--text-2);margin-bottom:.5rem">Could not create share link.</p>
