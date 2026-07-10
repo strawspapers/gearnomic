@@ -1,9 +1,23 @@
 // Gearnomic � State persistence, cloud sync, migrations, and data import/export
 let _cloudLoaded = false;
 // ── Persistence ────────────────────────────────────────────
+function _cacheKey() {
+  return (typeof _user !== 'undefined' && _user?.id)
+    ? 'gn:state:' + _user.id
+    : 'gn:state:anon';
+}
+function _writeCache(obj) {
+  try { localStorage.setItem(_cacheKey(), JSON.stringify(obj)); } catch(e) {}
+}
+function _readCache() {
+  try {
+    const raw = localStorage.getItem(_cacheKey());
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
 function saveState() {
   state._savedAt = Date.now();
-  try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
+  _writeCache(state);
   // Cloud sync for all signed-in users
   if (_user) {
     clearTimeout(_syncTimer);
@@ -83,7 +97,7 @@ async function loadFromCloud() {
     state = data.data;
     _cloudLoaded = true;
     applyMigrations();
-    try { localStorage.setItem('trailkit_v1', JSON.stringify(state)); } catch(e) {}
+    _writeCache(state);
     // Load public profile in background (non-blocking)
     if (typeof loadProfile === 'function') loadProfile().catch(() => {});
     return true;
@@ -272,9 +286,9 @@ function applyMigrations() {
 
 function loadState() {
   try {
-    const raw = localStorage.getItem('trailkit_v1');
-    if (raw) {
-      state = JSON.parse(raw);
+    const cached = _readCache();
+    if (cached) {
+      state = cached;
       applyMigrations();
       return;
     }
