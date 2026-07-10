@@ -3064,30 +3064,52 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (event === 'SIGNED_IN' && session?.user) {
       _user = session.user;
+      let _anonState = null;
+      try {
+        const _rawAnon = localStorage.getItem('gn:state:anon');
+        _anonState = _rawAnon ? JSON.parse(_rawAnon) : null;
+      } catch(e) { _anonState = null; }
       hideAuthModal();
       updateHeaderAuth(); // update immediately before any async work
       hideSavePromptBanner();
       const cloudLoaded = await loadFromCloud(); // also sets _isSupporter
       if (!cloudLoaded) {
-        // Brand new user — no cloud data yet.
-        // Reset to a clean empty state (don't keep the demo data).
-        state = {
-          items:         [],
-          trips:         [],
-          wishlist:      [],
-          categories:    JSON.parse(JSON.stringify(SEED_DATA.categories)),
-          templates:     [],
-          trip_types:    JSON.parse(JSON.stringify(SEED_DATA.trip_types)),
-          food_plans:    [JSON.parse(JSON.stringify(DEMO_FOOD_PLAN))],
-          recipes:       JSON.parse(JSON.stringify(SEED_DATA.recipes)),
-          custom_fields: [],
-          trip_loadouts: [],
-          profile:       { units: _units },
-        };
-        await loadSupporterStatus();
-        await syncToCloud(); // save clean state to cloud
-        saveState();         // update localStorage too
+        // TODO: prompt-on-conflict when both cloud and local have data — future stage
+        const _hasAnonData = !!(_anonState && (
+          (_anonState.items && _anonState.items.length) ||
+          (_anonState.trips && _anonState.trips.length) ||
+          (_anonState.templates && _anonState.templates.length)
+        ));
+        if (_hasAnonData) {
+          // Adopt the anonymous working copy into the newly signed-in account.
+          state = _anonState;
+          state._ownerId = _user.id;
+          applyMigrations();
+          await loadSupporterStatus();
+          await syncToCloud();
+          saveState();
+        } else {
+          // Brand new user — no cloud data yet.
+          // Reset to a clean empty state (don't keep the demo data).
+          state = {
+            items:         [],
+            trips:         [],
+            wishlist:      [],
+            categories:    JSON.parse(JSON.stringify(SEED_DATA.categories)),
+            templates:     [],
+            trip_types:    JSON.parse(JSON.stringify(SEED_DATA.trip_types)),
+            food_plans:    [JSON.parse(JSON.stringify(DEMO_FOOD_PLAN))],
+            recipes:       JSON.parse(JSON.stringify(SEED_DATA.recipes)),
+            custom_fields: [],
+            trip_loadouts: [],
+            profile:       { units: _units },
+          };
+          await loadSupporterStatus();
+          await syncToCloud(); // save clean state to cloud
+          saveState();         // update localStorage too
+        }
       }
+      try { localStorage.removeItem('gn:state:anon'); } catch(e) {}
       loadProfile().catch(() => {}); // non-blocking
       refreshAll();
       updateHeaderAuth();

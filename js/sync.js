@@ -91,7 +91,7 @@ async function loadFromCloud() {
     // is actually newer (e.g. a deletion that hasn't synced yet).
     const localTs  = state._savedAt || 0;
     const cloudTs  = data.data?._savedAt || 0;
-    if (localTs > cloudTs) {
+    if (localTs > cloudTs && state._ownerId === _user.id) {
       syncToCloud();
       return true;
     }

@@ -319,12 +319,13 @@ async function submitAuth() {
 
 async function signOut() {
   if (_supabaseReady()) await _sb.auth.signOut();
+  try { if (_user?.id) localStorage.removeItem('gn:state:' + _user.id); } catch(e) {}
   _user = null;
   _isSupporter = false;
   _isAmbassador = false;
   _supporterSince = null;
   // Clear local data so the next user/session starts fresh
-  try { localStorage.removeItem('trailkit_v1'); } catch(e) {}
+  try { localStorage.removeItem('gn:state:anon'); } catch(e) {}
   // Reset to demo state
   loadState();
   refreshAll();
