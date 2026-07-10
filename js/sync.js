@@ -17,6 +17,7 @@ function _readCache() {
 }
 function saveState() {
   state._savedAt = Date.now();
+  state._ownerId = (typeof _user !== 'undefined' && _user?.id) ? _user.id : null;
   _writeCache(state);
   // Cloud sync for all signed-in users
   if (_user) {
@@ -285,14 +286,18 @@ function applyMigrations() {
 }
 
 function loadState() {
+  let cached = null;
   try {
-    const cached = _readCache();
-    if (cached) {
+    const raw = localStorage.getItem('gn:state:anon');
+    cached = raw ? JSON.parse(raw) : null;
+  } catch(e) { cached = null; }
+  if (cached) {
+    try {
       state = cached;
       applyMigrations();
       return;
-    }
-  } catch(e) {}
+    } catch(e) { console.warn('[state] cached state invalid, reseeding:', e); }
+  }
   // First visit — start with demo trips/loadout so new users can explore,
   // but keep the gear closet empty so the empty state is shown.
   const demoTrip  = JSON.parse(JSON.stringify(DEMO_DATA.trip));
