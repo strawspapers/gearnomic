@@ -54,7 +54,7 @@ function updateHeaderAuth() {
     if (footerSettings) footerSettings.style.display = '';
 
     // Sync is free for all signed-in users
-    setSyncIndicator('saved');
+    setSyncIndicator((typeof _cloudBlocked !== 'undefined' && _cloudBlocked) ? 'error' : 'saved');
     if (nudgeEl) nudgeEl.style.display = 'none';
 
     const badge = typeof tierBadgeHtml === 'function' ? tierBadgeHtml() : '';

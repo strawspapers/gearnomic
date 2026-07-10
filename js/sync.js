@@ -1,5 +1,6 @@
 // Gearnomic � State persistence, cloud sync, migrations, and data import/export
 let _cloudLoaded = false;
+let _cloudBlocked = false;
 // ── Persistence ────────────────────────────────────────────
 function _cacheKey() {
   return (typeof _user !== 'undefined' && _user?.id)
@@ -52,6 +53,7 @@ async function syncToCloud() {
     adminSyncToCloud();
     return;
   }
+  if (_cloudBlocked) { setSyncIndicator('error'); return; }
   if (!_supabaseReady() || !_user) return;
   setSyncIndicator('saving');
   const MAX_ATTEMPTS = 4;
@@ -77,32 +79,46 @@ async function syncToCloud() {
 }
 
 async function loadFromCloud() {
-  if (!_supabaseReady() || !_user) return false;
-  try {
-    const { data, error } = await _sb.from('user_data')
-      .select('data,is_supporter,is_ambassador,supporter_since,updated_at').eq('user_id', _user.id).single();
-    if (error || !data?.data) return false;
-    _isSupporter    = !!data.is_supporter;
-    _isAmbassador   = !!data.is_ambassador;
-    _supporterSince = data.supporter_since || null;
-    // Compare _savedAt embedded in both copies — both are client-clock timestamps,
-    // so there's no server/client clock-skew. updated_at is a server trigger timestamp
-    // and can be ahead of the client clock, causing cloud to falsely "win" when local
-    // is actually newer (e.g. a deletion that hasn't synced yet).
-    const localTs  = state._savedAt || 0;
-    const cloudTs  = data.data?._savedAt || 0;
-    if (localTs > cloudTs && state._ownerId === _user.id) {
-      syncToCloud();
+  if (!_supabaseReady() || !_user) return 'error';
+  const MAX_ATTEMPTS = 3;
+  const BASE_DELAY   = 1500; // ms; doubles each retry: 1.5s → 3s
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const { data, error } = await _sb.from('user_data')
+        .select('data,is_supporter,is_ambassador,supporter_since,updated_at').eq('user_id', _user.id).single();
+      if (error) {
+        if (error.code === 'PGRST116') return 'empty'; // no row — definitive, don't retry
+        if (attempt === MAX_ATTEMPTS) return 'error';
+        await new Promise(r => setTimeout(r, BASE_DELAY * Math.pow(2, attempt - 1)));
+        continue;
+      }
+      if (!data?.data) return 'empty';
+      _isSupporter    = !!data.is_supporter;
+      _isAmbassador   = !!data.is_ambassador;
+      _supporterSince = data.supporter_since || null;
+      // Compare _savedAt embedded in both copies — both are client-clock timestamps,
+      // so there's no server/client clock-skew. updated_at is a server trigger timestamp
+      // and can be ahead of the client clock, causing cloud to falsely "win" when local
+      // is actually newer (e.g. a deletion that hasn't synced yet).
+      const localTs  = state._savedAt || 0;
+      const cloudTs  = data.data?._savedAt || 0;
+      if (localTs > cloudTs && state._ownerId === _user.id) {
+        syncToCloud();
+        return true;
+      }
+      state = data.data;
+      _cloudLoaded = true;
+      applyMigrations();
+      _writeCache(state);
+      // Load public profile in background (non-blocking)
+      if (typeof loadProfile === 'function') loadProfile().catch(() => {});
       return true;
+    } catch(e) {
+      if (attempt === MAX_ATTEMPTS) return 'error';
+      await new Promise(r => setTimeout(r, BASE_DELAY * Math.pow(2, attempt - 1)));
     }
-    state = data.data;
-    _cloudLoaded = true;
-    applyMigrations();
-    _writeCache(state);
-    // Load public profile in background (non-blocking)
-    if (typeof loadProfile === 'function') loadProfile().catch(() => {});
-    return true;
-  } catch(e) { return false; }
+  }
+  return 'error';
 }
 
 // Called after sign-in to fetch supporter status without overwriting local state

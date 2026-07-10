@@ -3073,7 +3073,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateHeaderAuth(); // update immediately before any async work
       hideSavePromptBanner();
       const cloudLoaded = await loadFromCloud(); // also sets _isSupporter
-      if (!cloudLoaded) {
+      if (cloudLoaded === true) {
+        _cloudBlocked = false;
+        // (existing post-load behavior, unchanged — loadFromCloud already
+        // applied the winning copy to `state`)
+      } else if (cloudLoaded === 'empty') {
+        _cloudBlocked = false;
         // TODO: prompt-on-conflict when both cloud and local have data — future stage
         const _hasAnonData = !!(_anonState && (
           (_anonState.items && _anonState.items.length) ||
@@ -3108,12 +3113,23 @@ document.addEventListener('DOMContentLoaded', async () => {
           await syncToCloud(); // save clean state to cloud
           saveState();         // update localStorage too
         }
+      } else { // 'error'
+        _cloudBlocked = true;
+        setSyncIndicator('error');
+        toast('Could not reach your cloud data. Showing this device\'s local copy — changes will NOT sync until reconnected. Reload to retry.');
+        // Do NOT reset state. Do NOT adopt. Do NOT syncToCloud or saveState.
       }
-      try { localStorage.removeItem('gn:state:anon'); } catch(e) {}
+      if (cloudLoaded === true || cloudLoaded === 'empty') {
+        try {
+          const _rawAnon2 = localStorage.getItem('gn:state:anon');
+          if (_rawAnon2) localStorage.setItem('gn:state:anon-backup', _rawAnon2);
+          localStorage.removeItem('gn:state:anon');
+        } catch(e) {}
+      }
       loadProfile().catch(() => {}); // non-blocking
       refreshAll();
       updateHeaderAuth();
-      toast('Signed in! Your data is syncing.');
+      if (cloudLoaded !== 'error') toast('Signed in! Your data is syncing.');
 
       // Route to the right loadout surface after sign-in
       if (!window._pendingShareToken) routeOnLoad();
