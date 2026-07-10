@@ -1,0 +1,14 @@
+#!/bin/bash
+# NOTE: Git hooks are not synced by GitHub. This file is a committed backup
+# of the local hook at .git/hooks/pre-commit. On a fresh clone or new
+# machine, restore it with:
+#   cp tools/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# Before each commit, stamp the footer with the current date/time so
+# you can verify which build is loaded after a deploy.
+
+BUILD=$(date -u +"%Y-%m-%d %H%MZ")
+
+# Replace the existing build stamp (between the title attr quotes and the span content)
+sed -i "s|title=\"Build commit\">[^<]*</span>|title=\"Build commit\">$BUILD</span>|" index.html
+
+git add index.html
